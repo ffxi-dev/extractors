@@ -74,10 +74,12 @@ class Effects(Extractor):
     icons only, and nothing lists a mob's, so theirs have no row."""
 
     name = "effects"
-    version = 6  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
+    version = 7  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
     # status; 3: a renewal no result names has no source; 4: a silent move waits for a naming result and
     # takes no buff a player gave; 5: a silent move lands and gives no buff; the capture's clock offset;
-    # 6: the offset from a zone-in's server time, so a capture whose clock runs ahead keeps its sources
+    # 6: the offset from a zone-in's server time, so a capture whose clock runs ahead keeps its sources;
+    # 7: each row by the offset in force at it, for a capture across a clock change; a job ability a player,
+    # trust, or pet used on the character comes before a silent move
     doc = (
         "Each status effect applied to the character: how long the zone said it would last, and what gave it."
     )
@@ -118,10 +120,11 @@ class Effects(Extractor):
                     pa.int64(),
                     "The action packet (0x028) whose result on the character applied it: one from 3 s before"
                     " the icon to 1 s after that names the status: by a message that lands an effect, or a"
-                    " job ability's or item's value. Else, for a new icon, the latest of an item used on the"
-                    " character and a mob's TP move or spell that landed on it under 1.5 s before, unless the"
-                    " status is one a player can click off, or a player, trust, or pet gave it that status by"
-                    " name in the capture. None when none did, such as"
+                    " job ability's or item's value. Else, for a new icon, the latest item or job ability a"
+                    " player, trust, or pet used on the character, such as a roll, which names its total;"
+                    " else a mob's TP move or spell that landed on it under 1.5 s before, unless the status"
+                    " is one a player can click off, or a player, trust, or pet gave it that status by name"
+                    " in the capture. None when none did, such as"
                     " an effect a 0x029 message gave, a renewal no result named, or an expiry before the"
                     " action.",
                 ),
@@ -156,7 +159,8 @@ class Effects(Extractor):
         self.off: int | None = None  # how far the server's clock runs ahead, from a zone-in's server time
         self.resends = combat.Resends()
         self.given: set[int] = set()  # statuses a player, trust, or pet gave the character by name
-        self.rows: list[dict] = []  # every row, kept to the end for the capture's clock offset
+        # every row and the offset in force when it was listed, kept to the end for the capture's offset
+        self.rows: list[tuple[dict, int | None]] = []
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         if p.opcode == 0x00A:
@@ -188,7 +192,9 @@ class Effects(Extractor):
                     self.landed.append(
                         (p.ts_ms, r["proc"]["value"], True, {**src, "message": r["proc"]["message"]})
                     )
-                if cat == 5:
+                # An item, or a player's, trust's, or pet's job ability, may give an icon its result does not
+                # name: a roll's names its total, Dark Arts' nothing.
+                if cat in ABILITY and not combat.is_mob(a["actor_id"]):
                     self.landed.append((p.ts_ms, None, False, {**src, "message": r["message"]}))
                 elif cat in (4, 11) and combat.is_mob(a["actor_id"]) and not r["miss"]:
                     self.landed.append((p.ts_ms, MOVE, False, {**src, "message": r["message"]}))
@@ -203,20 +209,24 @@ class Effects(Extractor):
     def finish(self, world: World, emit: Emit) -> None:
         for row in self.waiting:
             self._claim(row, world, settle=True)
-        off = self.off if self.off is not None else clock_offset(self.rows)
-        if off:
-            for row in self.rows:
-                if row["expires_ms"] is not None:
-                    row["expires_ms"] -= off
-                    row["duration_ms"] -= off
+        # A capture stamped in local time across a clock change has two offsets: each row takes the one in
+        # force when it was listed. One before the first zone-in takes that zone-in's; with none, the icons'.
+        first = next((off for _, off in self.rows if off is not None), None)
+        guess = first if first is not None else clock_offset([row for row, _ in self.rows])
+        for row, at in self.rows:
+            off = guess if at is None else at
+            if off and row["expires_ms"] is not None:
+                row["expires_ms"] -= off
+                row["duration_ms"] -= off
 
     def _claim(self, row, world, settle: bool) -> bool:
         """Fill row's source from the results from BEFORE_MS before its icon to AFTER_MS after: the latest
         naming its status by a message that lands an effect, else the latest naming it. Once settled, a new
-        icon takes the latest of an item used and a mob's move or spell from SILENT_MS before, unless a
-        player, trust, or pet gave the character that status by name: those are buffs, which a move hit
-        just before did not give. Some icons renew themselves every few seconds, so a renewal no result
-        names has no source; nor has an icon whose expiry came before the action."""
+        icon takes the latest item or job ability a player, trust, or pet used on the character, else the
+        latest mob's move or spell from SILENT_MS before, unless a player, trust, or pet gave the character
+        that status by name: those are buffs, which a move hit just before did not give. Some icons renew
+        themselves every few seconds, so a renewal no result names has no source; nor has an icon whose expiry
+        came before the action."""
         status, at = row["status_id"], row["ts_ms"]
         if status == KO:  # a defeat, which defeats keeps; no action gave it as an effect
             return False
@@ -230,7 +240,7 @@ class Effects(Extractor):
             )]  # fmt: skip
             if not other:
                 return False
-            best = max(other, key=lambda x: x[0])
+            best = max(other, key=lambda x: (x[1] is None, x[0]))
         else:
             return False
         src = best[3]
@@ -269,7 +279,7 @@ class Effects(Extractor):
                 row = emit("effects", p, status_id=status, expires_ms=expires,
                            duration_ms=None if expires is None else expires - p.ts_ms,
                            renewed=old is not None, zone_id=world.zone)  # fmt: skip
-                self.rows.append(row)
+                self.rows.append((row, self.off))
                 if not self._claim(row, world, settle=False):
                     self.waiting.append(row)
             row["ended_ms"], self.listed[id(row)] = None, expires

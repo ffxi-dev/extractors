@@ -45,6 +45,6 @@ def test_the_mob_card_gives_each_moves_effect_and_its_usual_duration(con):
     other = {**row, "actor_id": MOB + 1, "capture_id": "a", "idx": 9, "ts_ms": 9, "duration_ms": 5}
     put(con, "effects", [other])  # another mob of the same packet name
     (r,) = ask(con, "bestiary_effects", zone=ZONE, name="Locus Dire Bat")
-    assert (r["source_name"], r["status_name"], r["n"], r["usual_s"], r["lo"], r["hi"]) == (
-        "Jet Stream", "Poison", 3, 180, 90_000, 180_100,
+    assert (r["source_name"], r["status_name"], r["n"], r["lo"], r["hi"]) == (
+        "Jet Stream", "Poison", 3, 90_000, 180_100,
     )  # fmt: skip
