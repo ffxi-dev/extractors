@@ -1,6 +1,6 @@
 [project]
 name = "ffxi-extractors"
-version = "1.6.0"
+version = "1.7.0"
 description = "Turns FFXI captures into ClickHouse tables and findings: Scholar's extractors and derived facts"
 license = "GPL-3.0-only"
 # Below 3.14: Sink.flush tells a finished row by its reference count, which 3.14's stack references may change.
