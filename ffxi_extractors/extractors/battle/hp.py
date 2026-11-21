@@ -1,4 +1,5 @@
 import math
+from itertools import accumulate
 
 import pyarrow as pa
 
@@ -121,13 +122,10 @@ class _Mob:
         let one bad window rule out every later one. With no window left standing, the damage bounds it."""
         if self.regen and self.windows:
             edges = sorted([(lo, 1) for lo, _ in self.windows] + [(hi + 1, -1) for _, hi in self.windows])
-            best = cur = 0
-            for _, e in edges:
-                cur += e
-                best = max(best, cur)
-            spans, cur, at = [], 0, None
-            for x, e in edges:
-                cur += e
+            sums = list(accumulate(e for _, e in edges))
+            best = max(sums)
+            spans, at = [], None
+            for (x, _), cur in zip(edges, sums, strict=True):
                 if cur == best and at is None:
                     at = x
                 elif cur < best and at is not None:
