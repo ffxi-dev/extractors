@@ -42,6 +42,15 @@ BUFFS = frozenset(i for a, b in (
     (568, 570), (573, 575), (581, 582), (584, 584), (586, 587), (589, 596), (598, 599), (601, 601),
     (604, 611), (615, 615), (617, 617), (619, 619), (621, 623), (626, 628),
 ) for i in range(a, b + 1))  # fmt: skip
+# The client's ailments: statuses a player cannot click off whose passive name has the character afflicted
+# ("afflicted with Bio", "bound"), retail-resources 30261006_0, less medicine and Overload, which the
+# character's own item and maneuvers give. An item or a player's job ability whose result names nothing gives
+# none of them.
+AILMENTS = frozenset(i for a, b in (
+    (1, 23), (28, 31), (128, 142), (144, 149), (156, 156), (167, 168), (174, 175), (177, 177), (189, 189),
+    (404, 404), (473, 473), (572, 572), (576, 576), (597, 597), (630, 631),
+) for i in range(a, b + 1))  # fmt: skip
+PARALYZED = 84  # "<actor> is paralyzed.": the spell or move never went off
 HOUR_MS = 3_600_000
 
 
@@ -49,14 +58,16 @@ def clock_offset(rows: list[dict]) -> int:
     """How far the server's clock, which the list's expiries count by, ran ahead of the capture's, in whole
     hours: a log stamped in local time, as PacketViewer's are, is off by its time zone. An icon that wears
     off leaves the list at its expiry, so most icons' expiry less their end is the offset; one dispelled or
-    cleared ends early. 0 unless 3 or more ended icons, and 80% of them, agree to within a minute."""
+    cleared ends early, and so counts against no offset it ended before. 0 unless 3 or more ended icons agree
+    to within a minute, and 80% of them end at that offset's expiry or before it."""
     ended = [r for r in rows if r["status_id"] != KO and None not in (r["expires_ms"], r["ended_ms"])]
     gaps = [r["expires_ms"] - r["ended_ms"] for r in ended]
     hours = Counter(round(g / HOUR_MS) for g in gaps if abs(g - round(g / HOUR_MS) * HOUR_MS) <= 60_000)
     if not hours:
         return 0
     h, n = hours.most_common(1)[0]
-    return h * HOUR_MS if n >= 3 and n >= 0.8 * len(gaps) else 0
+    fits = sum(g >= h * HOUR_MS - 60_000 for g in gaps)
+    return h * HOUR_MS if n >= 3 and fits >= 0.8 * len(gaps) else 0
 
 
 def expiry_ms(raw: int, now_ms: int) -> int | None:
@@ -74,12 +85,13 @@ class Effects(Extractor):
     icons only, and nothing lists a mob's, so theirs have no row."""
 
     name = "effects"
-    version = 7  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
+    version = 8  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
     # status; 3: a renewal no result names has no source; 4: a silent move waits for a naming result and
     # takes no buff a player gave; 5: a silent move lands and gives no buff; the capture's clock offset;
     # 6: the offset from a zone-in's server time, so a capture whose clock runs ahead keeps its sources;
     # 7: each row by the offset in force at it, for a capture across a clock change; a job ability a player,
-    # trust, or pet used on the character comes before a silent move
+    # trust, or pet used on the character comes before a silent move; 8: such an ability gives no ailment,
+    # a paralyzed mob gives nothing, and an icon cleared early counts against no clock offset
     doc = (
         "Each status effect applied to the character: how long the zone said it would last, and what gave it."
     )
@@ -192,11 +204,12 @@ class Effects(Extractor):
                     self.landed.append(
                         (p.ts_ms, r["proc"]["value"], True, {**src, "message": r["proc"]["message"]})
                     )
+                went = not r["miss"] and r["message"] != PARALYZED
                 # An item, or a player's, trust's, or pet's job ability, may give an icon its result does not
                 # name: a roll's names its total, Dark Arts' nothing.
                 if cat in ABILITY and not combat.is_mob(a["actor_id"]):
                     self.landed.append((p.ts_ms, None, False, {**src, "message": r["message"]}))
-                elif cat in (4, 11) and combat.is_mob(a["actor_id"]) and not r["miss"]:
+                elif cat in (4, 11) and combat.is_mob(a["actor_id"]) and went:
                     self.landed.append((p.ts_ms, MOVE, False, {**src, "message": r["message"]}))
         # A row waits AFTER_MS for a result that names it; then it settles for an item or a silent move.
         waiting, self.waiting = self.waiting, []
@@ -222,11 +235,11 @@ class Effects(Extractor):
     def _claim(self, row, world, settle: bool) -> bool:
         """Fill row's source from the results from BEFORE_MS before its icon to AFTER_MS after: the latest
         naming its status by a message that lands an effect, else the latest naming it. Once settled, a new
-        icon takes the latest item or job ability a player, trust, or pet used on the character, else the
-        latest mob's move or spell from SILENT_MS before, unless a player, trust, or pet gave the character
-        that status by name: those are buffs, which a move hit just before did not give. Some icons renew
-        themselves every few seconds, so a renewal no result names has no source; nor has an icon whose expiry
-        came before the action."""
+        icon takes the latest item or job ability a player, trust, or pet used on the character, unless it is
+        an ailment; else the latest mob's move or spell from SILENT_MS before, unless a player, trust, or pet
+        gave the character that status by name: those are buffs, which a move hit just before did not give.
+        Some icons renew themselves every few seconds, so a renewal no result names has no source; nor has an
+        icon whose expiry came before the action."""
         status, at = row["status_id"], row["ts_ms"]
         if status == KO:  # a defeat, which defeats keeps; no action gave it as an effect
             return False
@@ -235,7 +248,7 @@ class Effects(Extractor):
         if named:
             best = max(named, key=lambda x: (x[2], x[0]))
         elif settle and not row["renewed"]:
-            other = [x for x in near if x[1] is None or (
+            other = [x for x in near if (x[1] is None and status not in AILMENTS) or (
                 x[1] == MOVE and x[0] >= at - SILENT_MS and status not in self.given and status not in BUFFS
             )]  # fmt: skip
             if not other:

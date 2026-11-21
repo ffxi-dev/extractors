@@ -11,7 +11,7 @@
 - [x] 1.4 `ffxi-packets` 2.0.0; every pin holds, and bestiary v22 gives the fixtures the same rows as v21
 - [ ] 1.3 After Scholar's rebuild, the archive's pairs split on one server: from 33,004 to none. Measured 2026-11-21: 2,610, all 14 capture pairs where one capture has no world and the other Ragnarok; the key hashes `coalesce(world, '')`. Matched pairs 173,875 to 206,870
 - [x] 1.5 Drop the world from the key: no server address is on two worlds (556 addresses), and 1,653 of 1,803 captures have no world, so the key already leaned on it (owner, 2026-11-21); bestiary 23
-- [ ] 1.6 After Scholar's rebuild, the archive's pairs split on one server: none
+- [x] 1.6 After Scholar's rebuild, the archive's pairs split on one server: none. Measured 2026-11-21 on bestiary 23: of 10,263 pairs split in one minute, every one has a side with no zone server at the fight, a capture that began inside the zone, which keeps its roster. Matched pairs 194,405
 
 ## 2. Then
 
