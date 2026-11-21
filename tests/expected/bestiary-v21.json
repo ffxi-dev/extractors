@@ -1,0 +1,10 @@
+{
+  "c/bestiary_fights": {
+    "rows": 15,
+    "sha256": "50332be8055ed705481e879f17c290cd99b73b4675aa3b7f667b85073560aa5c"
+  },
+  "m/bestiary_fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

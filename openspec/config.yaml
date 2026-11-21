@@ -1,0 +1,11 @@
+schema: spec-driven
+
+context: |
+  extractors: Scholar's analyses as a library, every extractor and derived fact. Scholar pins a release tag.
+  Changes to the library live here; changes that also need Scholar to change say so in their proposal.
+
+rules:
+  design:
+    - Record implementation deviations under Implementation Notes with the reason and revisit trigger
+  tasks:
+    - Check a task only when implemented and verified by a test or recorded run

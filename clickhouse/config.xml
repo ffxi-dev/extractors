@@ -1,0 +1,12 @@
+<!-- ClickHouse server settings: compose.yaml mounts them. -->
+<clickhouse>
+    <logger><level>warning</level><console>1</console></logger>
+    <!-- Every table's parts in ZSTD: measured on the archive's action_results, 2.4 times smaller than LZ4. -->
+    <compression><case><method>zstd</method><level>3</level></case></compression>
+    <!-- Keep a week of ClickHouse's own logs, not all of them. -->
+    <query_log><ttl>event_date + INTERVAL 7 DAY</ttl></query_log>
+    <trace_log><ttl>event_date + INTERVAL 7 DAY</ttl></trace_log>
+    <metric_log><ttl>event_date + INTERVAL 7 DAY</ttl></metric_log>
+    <asynchronous_metric_log><ttl>event_date + INTERVAL 7 DAY</ttl></asynchronous_metric_log>
+    <part_log><ttl>event_date + INTERVAL 7 DAY</ttl></part_log>
+</clickhouse>

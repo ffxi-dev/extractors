@@ -1,0 +1,32 @@
+# Lint, the tests with every pin, and the README's quick start, on GitHub's runners: lsb's refuse public
+# repositories.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # While packets is private (open-extractors 4.3 removes this step).
+      - name: packets' deploy key
+        env:
+          KEY: ${{ secrets.PACKETS_DEPLOY_KEY }}
+        run: |
+          key="$RUNNER_TEMP/packets_key"
+          printf '%s\n' "$KEY" > "$key" && chmod 600 "$key"
+          echo "GIT_SSH_COMMAND=ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" >> "$GITHUB_ENV"
+          git config --global url."git@github.com:ffxi-dev/packets".insteadOf https://github.com/ffxi-dev/packets
+      - run: sudo apt-get install -y -q libzstd-dev && pipx install uv==0.13.6
+      - run: uv sync --frozen
+      - run: docker compose up -d --wait
+      - run: uv run ruff check . && uv run ruff format --check .
+      - run: uv run pytest -q
+      - run: uv run ffxi-extractors index tests/data/memoria.xicap tests/data/captain.xicap
+      - run: >-
+          docker compose exec -T clickhouse clickhouse-client --user ffxi --password ffxi -d ffxi
+          -q "SELECT count() FROM bestiary_fights" | grep -qv '^0$'

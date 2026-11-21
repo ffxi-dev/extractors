@@ -1,0 +1,27 @@
+<!-- The ClickHouse user and settings the extractors and derived facts run with: compose.yaml mounts it. The
+     settings are part of what the SQL means; Scholar's server keeps the same default profile. -->
+<clickhouse>
+    <profiles>
+        <!-- SQL's NULLs where a join or a filter finds nothing, a column's name over an alias of the same name,
+             tuples whose fields have names, and JSON numbers for 64-bit integers. Inserts come in large
+             batches, so each is written at once. -->
+        <default>
+            <async_insert>0</async_insert>
+            <join_use_nulls>1</join_use_nulls>
+            <prefer_column_name_to_alias>1</prefer_column_name_to_alias>
+            <aggregate_functions_null_for_empty>1</aggregate_functions_null_for_empty>
+            <enable_named_columns_in_function_tuple>1</enable_named_columns_in_function_tuple>
+            <output_format_json_quote_64bit_integers>0</output_format_json_quote_64bit_integers>
+        </default>
+    </profiles>
+    <users>
+        <default remove="remove"/>
+        <ffxi>
+            <password>ffxi</password>
+            <networks><ip>::/0</ip></networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants><query>GRANT ALL ON *.*</query></grants>
+        </ffxi>
+    </users>
+</clickhouse>

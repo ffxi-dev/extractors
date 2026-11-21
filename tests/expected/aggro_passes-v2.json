@@ -1,0 +1,10 @@
+{
+  "c/aggro_passes": {
+    "rows": 15,
+    "sha256": "480dce0051afa4ba70f0005b04468be7d01f9155bcff2856272b2124d2fd6b64"
+  },
+  "m/aggro_passes": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

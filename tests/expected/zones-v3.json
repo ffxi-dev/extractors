@@ -1,0 +1,10 @@
+{
+  "c/zones": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/zones": {
+    "rows": 1,
+    "sha256": "300331a0973cba3900f8a9eff7777d7031395ee00e3e77ad886fb45a189c72a4"
+  }
+}

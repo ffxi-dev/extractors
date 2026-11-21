@@ -1,0 +1,26 @@
+{
+  "c/character": {
+    "rows": 11,
+    "sha256": "f47927b225b90216490b0f8d6a145a3456cfe343a3732a70f3e77dc69710981c"
+  },
+  "c/character_gear": {
+    "rows": 28,
+    "sha256": "dc937e2a3244e268381753ed92a3347e665df618b11f5b11389d3bb230b1b928"
+  },
+  "c/character_params": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/character": {
+    "rows": 3,
+    "sha256": "aaaa7c3b439df4546ef66cea223bb2e5a6ee3699f3e717576952381dc756c779"
+  },
+  "m/character_gear": {
+    "rows": 35,
+    "sha256": "29ff81ade8a0d50fdddb0751afe9f6b9428fe57878804efe6bea13ab243d1326"
+  },
+  "m/character_params": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "c/weather": {
+    "rows": 3,
+    "sha256": "03236548d127185d186755e489135c3623584d2bb702068722616e5fcf00470c"
+  },
+  "m/weather": {
+    "rows": 1,
+    "sha256": "7e62a9730cffe1a8d91413aa214789402e1fa207a19ff43d036ac3be01feee13"
+  }
+}

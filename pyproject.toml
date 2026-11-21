@@ -1,0 +1,41 @@
+[project]
+name = "ffxi-extractors"
+version = "1.0.0"
+description = "Turns FFXI captures into ClickHouse tables and findings: Scholar's extractors and derived facts"
+license = "GPL-3.0-only"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "clickhouse-connect==1.12.0",
+    "ffxi-packets",
+    "numpy==2.5.4",
+    "pyarrow==26.0.0",
+    "xicap",
+]
+
+[project.scripts]
+ffxi-extractors = "ffxi_extractors.cli:main"
+
+[dependency-groups]
+dev = ["pytest==9.2.0", "ruff==0.17.3"]
+
+[tool.uv.sources]
+# packets is private until both repositories are public: CI fetches it with a read-only deploy key.
+xicap = { git = "https://github.com/ffxi-dev/xicap", tag = "v7.2.0", subdirectory = "bindings/python" }
+ffxi-packets = { git = "https://github.com/ffxi-dev/packets", tag = "v1.6.0" }
+
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ffxi_extractors"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "PIE", "PERF", "RET", "RUF", "BLE", "N", "A", "FURB", "LOG", "PL", "ERA"]
+ignore = ["PLR2004", "PLR0911", "PLR0912", "PLR0913", "PLR0917", "PLC0415", "PLW0603", "N818"]

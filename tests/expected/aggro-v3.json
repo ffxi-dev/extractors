@@ -1,0 +1,10 @@
+{
+  "c/aggro": {
+    "rows": 13,
+    "sha256": "a67e5f1ee4c4d3317df9e2a885f929f9b8dfe04996c8c03147ea4d7f217b2dac"
+  },
+  "m/aggro": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

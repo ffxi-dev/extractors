@@ -1,0 +1,10 @@
+{
+  "c/mob_events": {
+    "rows": 16,
+    "sha256": "a1e89e7e0a290b333a2139d499a5465b52779486861de1d1676a09a3f2142e2c"
+  },
+  "m/mob_events": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}
