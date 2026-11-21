@@ -17,7 +17,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
-from . import store
+from ffxi_extractors import store
 
 BASE = "https://ffxi-resources.sruon.dev"
 # Cloudflare refuses urllib's own User-Agent there.

@@ -21,10 +21,10 @@ A version is how Scholar knows to re-run a unit over the archive. Change a unit'
 An extractor reads the packets it names in `reads`, in order, with the world so far, and emits rows to its own tables. Every row also gets `capture_id`, `idx` (the packet's index, as Lens counts it), `ts_ms`, and `client_version`.
 
 ```python
-# ffxi_extractors/extractors/music.py
+# ffxi_extractors/extractors/world/music.py
 import pyarrow as pa
 
-from ..extract import Column, Extractor, Table
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Music(Extractor):
@@ -50,12 +50,12 @@ class Music(Extractor):
 
 `f(path)` gives the packet's fields by packets' paths (`UniqueNo`, `SendFlg.Despawn`, `GrapIDTbl[3]`), or None for a field the packet does not hold. An extractor that needs to see a whole fight first keeps state on `self` (a run makes a fresh one per capture) and emits in `finish`.
 
-List the class in `ALL` in `extractors/__init__.py`, then test it on hand-built packets with `drive`:
+Put it in the domain it belongs to (`battle`, `items`, `world`, `progress`), list the class in `ALL` in `extractors/__init__.py`, then test it on hand-built packets with `drive`, in the same domain under `tests/`:
 
 ```python
 from conftest import drive
 
-from ffxi_extractors.extractors.music import Music
+from ffxi_extractors.extractors.world.music import Music
 
 
 def test_music_changes():
@@ -70,8 +70,8 @@ Bless its first pin, as step 2 says. `store.setup` makes its table from the colu
 A derived fact is one SELECT over other units' tables. Its table takes its columns and types from the SQL; its `Column`s carry their docs, with `None` for the type. The SQL reads one capture where `{capture:String}` names it, and every capture where it is `''`: `ONE` says that for a table with `capture_id`.
 
 ```python
-# ffxi_extractors/extractors/tp_move_counts.py
-from ..extract import ONE, Column, Derived, Table
+# ffxi_extractors/facts/tp_move_counts.py
+from ffxi_extractors.extract import ONE, Column, Derived, Table
 
 
 class TpMoveCounts(Derived):
@@ -97,7 +97,7 @@ class TpMoveCounts(Derived):
     )
 ```
 
-List it in `DERIVED`, after every unit it reads. Test it on hand-built rows: `put` them into the tables it reads, run it alone, and read what it wrote.
+List it in `DERIVED` in `facts/__init__.py`, after every unit it reads. Test it on hand-built rows: `put` them into the tables it reads, run it alone, and read what it wrote.
 
 ```python
 from conftest import rows
@@ -112,7 +112,7 @@ def test_uses_count_by_mob(con):
     assert rows(con, "SELECT actor_id, action_id, uses FROM tp_move_counts") == [(9, 7, 3)]
 ```
 
-A table's columns are in its module in `extractors/`, or `DESCRIBE tp_uses` in the ClickHouse client.
+A table's columns are in its module, or `DESCRIBE tp_uses` in the ClickHouse client. `extract.NAMES` joins an entity's name as of a packet; `ONE` and `COARSE` are there too.
 
 ## Releases
 

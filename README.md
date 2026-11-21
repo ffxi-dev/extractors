@@ -28,16 +28,28 @@ Only retail captures are read.
 
 ## Layout
 
-- `ffxi_extractors/capture.py` reads a xicap capture, a batch at a time.
-- `decode.py` decodes a batch's packets with [packets](https://github.com/ffxi-dev/packets), only the opcodes a run reads.
-- `world.py` keeps what the packets say so far: the zone, the character, its party, its inventory, and the entities around it.
-- `extract.py` is the contract: `Extractor`, `Derived`, `Table`, and `Column`.
-- `extractors/` holds one module per extractor or derived fact, all listed in `extractors/__init__.py`.
-- `index.py` walks a capture once with every extractor, then runs the derived facts.
-- `store.py` owns the ClickHouse tables and each unit's write.
-- `sql/setup.sql` holds the SQL functions and views the facts share.
-- `resources.py` mirrors and loads the names.
-- `tests/expected/` pins each unit's output on the fixtures to its version.
+```
+ffxi_extractors/
+  capture.py     reads a xicap capture, a batch at a time
+  decode.py      decodes a batch with packets, only the opcodes a run reads
+  world.py       what the packets say so far: zone, character, party, inventory, entities
+  extract.py     the contract: Extractor, Derived, Table, Column, and SQL fragments facts share
+  index.py       walks a capture once with every extractor, then runs the derived facts
+  store.py       the ClickHouse tables and each unit's write
+  resources.py   mirrors and loads retail-resources' names
+  cli.py         ffxi-extractors index
+  combat.py      the action packet (0x028), resends, defeats, and which ids are mobs
+  link.py        the event a change follows
+  vana.py        Vana'diel time
+  sql/setup.sql  SQL functions and views the facts share
+  extractors/    packet extractors, listed in extractors/__init__.py (ALL)
+    battle/      actions, HP, delay, immunity, fights, effects, engages, defeats, kills, ...
+    items/       drops, obtained, holdings, trades, shops, synths, digs, fishing
+    world/       zones, entities, spawns, levels, looks, weather, conquest, party, character, ...
+    progress/    events, key items, battlefields, experience
+  facts/         derived facts, ClickHouse SQL, listed in facts/__init__.py (DERIVED)
+tests/           the same domains; tests/expected/ pins each unit's output on the fixtures
+```
 
 The specs are in `openspec/specs/`; the specs of most analyses are still in Scholar, beside the mob pages that show them, and follow later. CONTRIBUTING.md says how to add or change an analysis.
 

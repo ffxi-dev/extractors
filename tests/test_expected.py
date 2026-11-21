@@ -12,7 +12,8 @@ from conftest import CAPTAIN, MEMORIA
 from fill import records
 
 from ffxi_extractors.capture import read
-from ffxi_extractors.extractors import ALL, DERIVED
+from ffxi_extractors.extractors import ALL
+from ffxi_extractors.facts import DERIVED
 from ffxi_extractors.index import walk
 
 EXPECTED = Path(__file__).parent / "expected"

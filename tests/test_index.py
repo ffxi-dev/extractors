@@ -5,7 +5,9 @@ from ffxi_packets import Decoder
 
 from ffxi_extractors import extract, store
 from ffxi_extractors.capture import Packet
-from ffxi_extractors.extractors import ALL, DERIVED, Kills
+from ffxi_extractors.extractors import ALL
+from ffxi_extractors.extractors.battle.kills import Kills
+from ffxi_extractors.facts import DERIVED
 from ffxi_extractors.index import run
 from ffxi_extractors.world import WORLD
 
@@ -147,7 +149,7 @@ def test_kills_alone_equal_a_full_run(con, monkeypatch):
 
 def test_a_sink_writes_finished_rows_and_keeps_those_still_filled(monkeypatch):
     """Past FLUSH rows a sink writes all but the rows its extractor still holds."""
-    from ffxi_extractors.extractors import Zones
+    from ffxi_extractors.extractors.world.zones import Zones
 
     monkeypatch.setattr(extract, "FLUSH", 3)
     written = []

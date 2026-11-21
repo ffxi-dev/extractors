@@ -9,8 +9,8 @@ from importlib.metadata import version
 import numpy as np
 from ffxi_packets import Decoder
 
-from .capture import Fields, Packet
-from .world import WORLD_VERSION
+from ffxi_extractors.capture import Fields, Packet
+from ffxi_extractors.world import WORLD_VERSION
 
 # Every unit's rows depend on the decoder and on what the world keeps: a change to either re-runs them all.
 DECODER_VERSION = f"{version('ffxi-packets')}+world{WORLD_VERSION}"

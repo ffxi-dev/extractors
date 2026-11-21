@@ -25,6 +25,7 @@ The tests use the compose file's ClickHouse; `FFXI_TEST_CLICKHOUSE` names anothe
 - ClickHouse is pinned exactly, at the version Scholar runs, in `compose.yaml` and the Dockerfile's two `COPY --from` lines: bump all three. The default profile in `clickhouse/users.xml` is part of what the SQL means (`store.SETTINGS` checks it), and Scholar's server keeps the same one: change both at once.
 - Fixtures and test cases come only from public Mogsafe captures. Keep them few and small.
 - Specs live in `openspec/`: a change in behaviour updates its spec in the same commit.
+- A helper two units share lives once: in `combat.py`, `link.py`, `vana.py`, or `extract.py` when domains share it, or in a module of its own beside them (`battle/positions.py`, `items/gathering.py`) when one domain does. Imports are absolute.
 
 ## Writing
 
