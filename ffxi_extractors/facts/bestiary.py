@@ -82,10 +82,20 @@ rsam AS (SELECT capture_id, idx FROM (
   SELECT r.capture_id AS capture_id, r.idx AS idx, j.sam AS sam
   FROM (SELECT capture_id, idx FROM rounds WHERE tp_gain IS NOT NULL) r
   ASOF JOIN rj j ON j.capture_id = r.capture_id AND j.idx <= r.idx) WHERE sam),
+-- Whether a round's first swing missed: evaded, guarded, parried, blocked, or taken by a shadow. Zanshin
+-- swings again only after a single swing that missed, so a mob with it swings twice more often after one.
+sw1 AS (SELECT capture_id, idx, any(miss) != 0 AS first_missed FROM action_results
+  WHERE {ONE} AND category = 1 AND target_index = 0 AND result_index = 0 GROUP BY capture_id, idx),
 ar AS (
   SELECT f.mob_id AS mob_id, f.fidx AS fidx, r.* FROM rounds r
   JOIN fk f ON r.capture_id = f.capture_id AND r.actor_id = f.mob_id AND r.idx BETWEEN f.fidx AND f.end_idx
   WHERE r.actor_is_mob AND r.main_hand IS NOT NULL
+),
+fsw AS (
+  SELECT a.capture_id AS capture_id, a.mob_id AS mob_id, a.fidx AS fidx,
+    {ordered("tuple(a.main_hand AS main_hand, w.first_missed AS first_missed)", "a.idx")} AS first_swings
+  FROM ar a JOIN sw1 w ON w.capture_id = a.capture_id AND w.idx = a.idx
+  WHERE a.targets = 1 AND NOT a.cut_short GROUP BY a.capture_id, a.mob_id, a.fidx
 ),
 rd AS (
   SELECT capture_id, mob_id, fidx,
@@ -376,7 +386,7 @@ SELECT f.capture_id AS capture_id, f.idx AS idx, f.ts_ms AS ts_ms, f.client_vers
   coalesce(hh.held, []) AS held, coalesce(hz.capture_id, '') != '' AS held_known,
   h.hp_min AS hp_min, h.hp_max AS hp_max, h.contradictions > 0 AS hp_shaky,
   h.regen AS hp_regen, h.regen_rate AS hp_regen_rate, h.healing AS hp_healing,
-  d.delays AS delays, rd.tp_gains AS tp_gains, rd.rounds AS rounds,
+  d.delays AS delays, rd.tp_gains AS tp_gains, rd.rounds AS rounds, fsw.first_swings AS first_swings,
   acc.swings_at_recorder AS swings_at_recorder,
   tp.tp AS tp, coalesce(sd.skill_delays, []) AS skill_delays,
   c.spells AS spells, ic.idle_spells AS idle_spells,
@@ -392,6 +402,7 @@ LEFT JOIN (SELECT * FROM mob_hp WHERE {ONE}) h
   ON h.capture_id = f.capture_id AND h.mob_id = f.mob_id AND h.idx = f.end_idx
 LEFT JOIN d ON d.capture_id = f.capture_id AND d.mob_id = f.mob_id AND d.fidx = f.idx
 LEFT JOIN rd ON rd.capture_id = f.capture_id AND rd.mob_id = f.mob_id AND rd.fidx = f.idx
+LEFT JOIN fsw ON fsw.capture_id = f.capture_id AND fsw.mob_id = f.mob_id AND fsw.fidx = f.idx
 LEFT JOIN acc ON acc.capture_id = f.capture_id AND acc.mob_id = f.mob_id AND acc.fidx = f.idx
 LEFT JOIN tp ON tp.capture_id = f.capture_id AND tp.mob_id = f.mob_id AND tp.fidx = f.idx
 LEFT JOIN sd ON sd.capture_id = f.capture_id AND sd.mob_id = f.mob_id AND sd.fidx = f.idx
@@ -416,8 +427,8 @@ class Bestiary(Derived):
     # 12: skillchains; 13: tp ready, coarse; 14: cast_times; 15: th; 16: held, held_known; 17: skill_delays;
     # 18: tp shadows; 19: skillchains apart by capture; 20: skillchains exposed to the day or weather;
     # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first;
-    # 23: no world in fight_key
-    version = 23
+    # 23: no world in fight_key; 24: first_swings
+    version = 24
     doc = (
         "One row of facts per fight, from the combat, mob, and loot tables, for the mob pages: HP, delay, TP"
         " moves, spells, drops, and elemental resistance (EEM) from skillchains."
@@ -505,6 +516,13 @@ class Bestiary(Derived):
                     None,
                     "Its auto-attack rounds against one target that lived through them: swings, main hand,"
                     " off hand, and kicks.",
+                ),
+                Column(
+                    "first_swings",
+                    None,
+                    "The rounds of those whose first swing the packets name: main-hand swings, and whether"
+                    " the first missed (evaded, guarded, parried, blocked, or taken by a shadow). Zanshin"
+                    " swings again only after a single swing that missed.",
                 ),
                 Column(
                     "swings_at_recorder",

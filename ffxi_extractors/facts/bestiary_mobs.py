@@ -41,6 +41,11 @@ SELECT zone_id, mob_name, model, capture_id, now64(9) AS at,
   sumIfState(arraySum(r -> coalesce(r.kicks, 0), rounds), kept) AS kick_n,
   sumMapIfState(arrayMap(r -> assumeNotNull(r.main_hand), rounds), arrayMap(r -> toUInt64(1), rounds), kept)
     AS main_hands,
+  -- Main-hand swings by whether the round's first swing hit, which Zanshin's second swing sets apart.
+  sumMapIfState(arrayMap(r -> assumeNotNull(r.main_hand), arrayFilter(r -> NOT r.first_missed, first_swings)),
+    arrayMap(r -> toUInt64(1), arrayFilter(r -> NOT r.first_missed, first_swings)), kept) AS hands_after_hit,
+  sumMapIfState(arrayMap(r -> assumeNotNull(r.main_hand), arrayFilter(r -> r.first_missed, first_swings)),
+    arrayMap(r -> toUInt64(1), arrayFilter(r -> r.first_missed, first_swings)), kept) AS hands_after_miss,
   sumState(arraySum(r -> coalesce(r.passed, 0), swings_at_recorder)) AS passed,
   sumState(arraySum(r -> coalesce(r.missed, 0), swings_at_recorder)) AS missed,
   sumState(arraySum(r -> coalesce(r.hits, 0), swings_at_recorder)) AS hit_n,
@@ -185,8 +190,8 @@ class BestiaryMobs(Derived):
     # move_ready_coarse; 9: range_uses, range_missed; 10: cast_ready, recast, recast_n;
     # 11: th_kills and th_items by bestiary's th; 12: th_held, th_blind; 13: skill_delay_*; 14: move_shadows,
     # move_through; 15: move_distances; 16: no kick_rounds, swing_counts, hp_lo/hi/shakes, respawn_most,
-    # spots, or per-level shakes: no page read them
-    version = 17
+    # spots, or per-level shakes: no page read them; 18: hands_after_hit, hands_after_miss
+    version = 18
     doc = "Each capture's share of every mob page's figures, as aggregate states the page merges."
     reads = frozenset({"bestiary"})
     order = "zone_id, mob_name, model, capture_id"
