@@ -65,15 +65,20 @@ def test_the_catalog_gives_prices_by_standing_and_a_guilds_latest_stock(con):
     assert [s[:3] for s in ingot["stock"]] == [[7000, 45, 80], [2000, 30, 80]], "the latest first"
 
 
-def test_the_shops_page_lists_every_item_by_zone_npc_and_list_with_its_prices(con):
-    setup(con, "a", [listed(1, 1000, "shop", NPC, STEW, 60, 8),
-                     listed(2, 2000, "guild_sells", GUILD, INGOT, 8000, 8, stock=30)])  # fmt: skip
+def test_the_shops_index_gives_each_npc_its_lists_items_openings_and_last_capture(con):
+    setup(con, "a", [listed(1, 1000, "shop", NPC, STEW, 60, 8), listed(9, 9000, "shop", NPC, STEW, 60, 8),
+                     listed(2, 2000, "guild_sells", GUILD, INGOT, 8000, 8, stock=30),
+                     listed(3, 2000, "guild_buys", GUILD, ORE, 100, 8)])  # fmt: skip
     setup(con, "b", [listed(1, 5000, "shop", NPC, STEW, 54, 10, conquest=1)])
     setup(con, "e", [listed(1, 1000, "shop", NPC, STEW, 1, 8)])
     store.trust(con, [("e", "flagged")])
-    keys = "item_name", "zone_name", "npc_name", "kind", "price_lo", "price_hi", "n", "captures"
-    got = [tuple(r[k] for k in keys) for r in ask(con, "shop_catalog")]
+    keys = "zone_name", "npc_name", "kinds", "items", "openings", "captures", "first", "last", "last_capture"
+    got = [tuple(r[k] for k in keys) for r in ask(con, "shop_npcs")]
     assert got == [
-        ("Quadav Stew", "Bastok Markets", "Hortense", "shop", 54, 60, 2, 2),
-        ("Steel Ingot", "Bastok Markets", "Smith", "guild_sells", 8000, 8000, 1, 1),
+        ("Bastok Markets", "Hortense", ["shop"], 1, 3, 2, 1000, 9000, "a"),
+        ("Bastok Markets", "Smith", ["guild_buys", "guild_sells"], 2, 1, 1, 2000, 2000, "a"),
     ]  # fmt: skip
+    assert [r["item_names"] for r in ask(con, "shop_npcs")] == [["Quadav Stew"], ["Iron Ore", "Steel Ingot"]]
+    # The NPC card's rows say when each item was last listed.
+    stew = next(r for r in ask(con, "npc_zone_shops", zone=ZONE) if r["item_name"] == "Quadav Stew")
+    assert (stew["last"], stew["last_capture"]) == (9000, "a")
