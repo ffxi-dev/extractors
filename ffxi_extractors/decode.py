@@ -12,6 +12,7 @@ import pyarrow as pa
 from ffxi_packets import Decoder
 
 from ffxi_extractors.capture import Capture, Fields, Packet
+from ffxi_extractors.extract import Column, Table, arrow
 from ffxi_extractors.world import WORLD_VERSION
 
 # Every unit's rows depend on the decoder and on what the world keeps: a change to either re-runs them all.
@@ -67,36 +68,97 @@ def _plain(col) -> list:
     return out
 
 
-# The decode unit's tables, which CaptureStats fills: each is (columns, ORDER BY, engine).
-TABLES = {
-    "captures": (
-        "capture_id String, client_version String, release Nullable(String), character Nullable(String),"
-        " character_id Nullable(Int64), retail Bool, start_ms Nullable(Int64), end_ms Nullable(Int64),"
-        " packets Int64, world Nullable(String), uploader Nullable(String), format Nullable(String),"
-        " source Nullable(String)",
-        "capture_id",
-        "MergeTree",
+# The decode unit's tables, which CaptureStats fills.
+CAPTURES = Table(
+    "captures",
+    "One row per capture: its header and Mogsafe's record. Join names on release.",
+    (
+        Column("capture_id", pa.string(), "The Mogsafe capture.", null=False),
+        Column(
+            "client_version",
+            pa.string(),
+            "The client build that recorded it, as its header says.",
+            null=False,
+        ),
+        Column(
+            "release",
+            pa.string(),
+            "The retail-resources release whose names fit it: its own, or the nearest before it.",
+        ),
+        Column("character", pa.string(), "The recording character."),
+        Column("character_id", pa.int64(), "Its id, from the header or its status (0x037)."),
+        Column(
+            "retail",
+            pa.bool_(),
+            "Recorded on retail: always true, as only retail captures are read.",
+            null=False,
+        ),
+        Column("start_ms", pa.int64(), "First packet, Unix ms UTC."),
+        Column("end_ms", pa.int64(), "Last packet."),
+        Column("packets", pa.int64(), "Packets in the capture.", null=False),
+        Column("world", pa.string(), "The world, from Mogsafe."),
+        Column("uploader", pa.string(), "Who uploaded it."),
+        Column("format", pa.string(), "xicap, captain, or packetviewer: what Mogsafe received."),
+        Column("source", pa.string(), "How Mogsafe converted it, for an import."),
     ),
-    "sessions": (
-        "capture_id String, name Nullable(String), start_idx Nullable(Int64), end_idx Nullable(Int64),"
-        " start_ms Nullable(Int64), end_ms Nullable(Int64), cut_short Bool",
-        "capture_id",
-        "MergeTree",
+    order="capture_id",
+)
+SESSIONS = Table(
+    "sessions",
+    "Captain /cap sessions: named ranges of a capture's packets, from Mogsafe.",
+    (
+        Column("capture_id", pa.string(), "The capture.", null=False),
+        Column("name", pa.string(), "The session's name."),
+        Column("start_idx", pa.int64(), "Its first packet."),
+        Column("end_idx", pa.int64(), "Its last packet."),
+        Column("start_ms", pa.int64(), "Start, Unix ms UTC."),
+        Column("end_ms", pa.int64(), "End."),
+        Column("cut_short", pa.bool_(), "The capture ended before the session.", null=False),
     ),
-    "sizes": (
-        "capture_id String, client_version String, direction LowCardinality(String), opcode Int32,"
-        " size Int32, packets Int64",
-        "direction, opcode, capture_id",
-        "MergeTree",
+    order="capture_id",
+)
+SIZES = Table(
+    "sizes",
+    "Packets by client version, direction, opcode, and size: a size seen only in older client versions shows"
+    " a layout that changed.",
+    (
+        Column("capture_id", pa.string(), "The capture.", null=False),
+        Column("client_version", pa.string(), "Its client build.", null=False),
+        Column("direction", pa.string(), "s2c or c2s.", null=False, low=True),
+        Column("opcode", pa.int32(), "The packet's id.", null=False),
+        Column("size", pa.int32(), "Bytes.", null=False),
+        Column("packets", pa.int64(), "How many.", null=False),
     ),
-    "zone_visits": (
-        "capture_id String, idx Int64, start_ms Int64, end_idx Int64, end_ms Int64, zone_id Int32,"
-        " zoned_in Bool",
-        "zone_id, capture_id, start_ms",
-        "MergeTree",
+    order="direction, opcode, capture_id",
+)
+ZONE_VISITS = Table(
+    "zone_visits",
+    "Each stretch of a capture spent in one zone.",
+    (
+        Column("capture_id", pa.string(), "The capture.", null=False),
+        Column("idx", pa.int64(), "The packet that put the character there.", null=False),
+        Column("start_ms", pa.int64(), "Its time.", null=False),
+        Column("end_idx", pa.int64(), "The visit's last packet.", null=False),
+        Column("end_ms", pa.int64(), "Its time.", null=False),
+        Column("zone_id", pa.int32(), "The zone.", null=False),
+        Column(
+            "zoned_in", pa.bool_(), "Whether a zone-in began it, rather than the capture's start.", null=False
+        ),
     ),
-    "activity": ("capture_id String, t Int64, n Int64", "capture_id, t", "MergeTree"),
-}
+    order="zone_id, capture_id, start_ms",
+)
+ACTIVITY = Table(
+    "activity",
+    "Packets per stretch of a capture: about 400 stretches of a second or more.",
+    (
+        Column("capture_id", pa.string(), "The capture.", null=False),
+        Column("t", pa.int64(), "The stretch's start, Unix ms UTC.", null=False),
+        Column("n", pa.int64(), "Packets in it.", null=False),
+    ),
+    order="capture_id, t",
+)
+TABLES = (CAPTURES, SESSIONS, SIZES, ZONE_VISITS, ACTIVITY)
+VISIT = ("idx", "start_ms", "end_idx", "end_ms", "zone_id", "zoned_in")  # a zone visit's values, in order
 
 
 class CaptureStats:
@@ -106,7 +168,7 @@ class CaptureStats:
         self.cap = cap
         self.sizes: Counter = Counter()
         self.seconds: Counter = Counter()
-        self.visits: list[list] = []  # [idx, start_ms, end_idx, end_ms, zone_id, zoned_in]
+        self.visits: list[list] = []  # one list per visit, as VISIT names its values
         self.zone: int | None = None
 
     def see(self, p: Packet, zone: int | None) -> None:
@@ -132,42 +194,33 @@ class CaptureStats:
         for second, n in self.seconds.items():
             activity[second * 1000 // bucket * bucket] += n
         v = self.visits
+        days = sorted(activity)
         return {
-            "captures": pa.table({
-                "capture_id": [cid], "client_version": [cap.client_version],
-                "release": pa.array([release], pa.string()),
-                "character": [cap.character], "character_id": pa.array([character_id], pa.int64()),
-                "retail": [True], "start_ms": pa.array([cap.start_ms], pa.int64()),
-                "end_ms": pa.array([cap.end_ms], pa.int64()), "packets": pa.array([cap.packets], pa.int64()),
-                **{k: pa.array([c.get(k)], pa.string()) for k in ("world", "uploader", "format", "source")},
-            }),
-            "sessions": pa.table({
-                "capture_id": pa.array([cid] * len(sessions), pa.string()),
-                "name": pa.array([s["name"] for s in sessions], pa.string()),
-                "start_idx": pa.array([s["start_packet"] for s in sessions], pa.int64()),
-                "end_idx": pa.array([s["end_packet"] for s in sessions], pa.int64()),
-                "start_ms": pa.array([s["start_ms"] for s in sessions], pa.int64()),
-                "end_ms": pa.array([s["end_ms"] for s in sessions], pa.int64()),
-                "cut_short": pa.array([bool(s.get("cut_short")) for s in sessions], pa.bool_()),
-            }),
-            "sizes": pa.table({
-                "capture_id": pa.array([cid] * len(self.sizes), pa.string()),
-                "client_version": pa.array([cap.client_version] * len(self.sizes), pa.string()),
-                "direction": pa.array([k[0] for k in self.sizes], pa.string()),
-                "opcode": pa.array([k[1] for k in self.sizes], pa.int32()),
-                "size": pa.array([k[2] for k in self.sizes], pa.int32()),
-                "packets": pa.array(list(self.sizes.values()), pa.int64()),
-            }),
-            "zone_visits": pa.table({
-                "capture_id": pa.array([cid] * len(v), pa.string()),
-                **{k: pa.array([x[i] for x in v], pa.int64())
-                   for i, k in enumerate(("idx", "start_ms", "end_idx", "end_ms"))},
-                "zone_id": pa.array([x[4] for x in v], pa.int32()),
-                "zoned_in": pa.array([x[5] for x in v], pa.bool_()),
-            }),
-            "activity": pa.table({
-                "capture_id": pa.array([cid] * len(activity), pa.string()),
-                "t": pa.array(sorted(activity), pa.int64()),
-                "n": pa.array([activity[t] for t in sorted(activity)], pa.int64()),
-            }),
+            t.name: arrow(t, cols)
+            for t, cols in (
+                (CAPTURES, {
+                    "capture_id": [cid], "client_version": [cap.client_version], "release": [release],
+                    "character": [cap.character], "character_id": [character_id], "retail": [True],
+                    "start_ms": [cap.start_ms], "end_ms": [cap.end_ms], "packets": [cap.packets],
+                    **{k: [c.get(k)] for k in ("world", "uploader", "format", "source")},
+                }),
+                (SESSIONS, {
+                    "capture_id": [cid] * len(sessions), "name": [s["name"] for s in sessions],
+                    "start_idx": [s["start_packet"] for s in sessions],
+                    "end_idx": [s["end_packet"] for s in sessions],
+                    "start_ms": [s["start_ms"] for s in sessions], "end_ms": [s["end_ms"] for s in sessions],
+                    "cut_short": [bool(s.get("cut_short")) for s in sessions],
+                }),
+                (SIZES, {
+                    "capture_id": [cid] * len(self.sizes),
+                    "client_version": [cap.client_version] * len(self.sizes),
+                    "direction": [k[0] for k in self.sizes], "opcode": [k[1] for k in self.sizes],
+                    "size": [k[2] for k in self.sizes], "packets": list(self.sizes.values()),
+                }),
+                (ZONE_VISITS, {
+                    "capture_id": [cid] * len(v),
+                    **{k: [x[i] for x in v] for i, k in enumerate(VISIT)},
+                }),
+                (ACTIVITY, {"capture_id": [cid] * len(days), "t": days, "n": [activity[t] for t in days]}),
+            )
         }  # fmt: skip

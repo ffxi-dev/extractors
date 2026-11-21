@@ -17,7 +17,7 @@ import clickhouse_connect
 import pyarrow as pa
 
 from ffxi_extractors.decode import TABLES
-from ffxi_extractors.extract import LENS
+from ffxi_extractors.extract import COMMON, LENS, Column, Table
 from ffxi_extractors.extractors import ALL
 from ffxi_extractors.facts import DERIVED
 from ffxi_extractors.facts.bestiary_mobs import partners, reroll
@@ -25,35 +25,83 @@ from ffxi_extractors.facts.views import VIEWS
 
 LOCAL = "http://ffxi:ffxi@127.0.0.1:8123/ffxi"  # compose.yaml's
 TYPES = {
-    pa.string(): "String", pa.int32(): "Int32", pa.int64(): "Int64", pa.bool_(): "Bool",
-    pa.float32(): "Float32", pa.float64(): "Float64",
+    pa.string(): "String", pa.int32(): "Int32", pa.int64(): "Int64", pa.uint64(): "UInt64",
+    pa.bool_(): "Bool", pa.float32(): "Float32", pa.float64(): "Float64",
 }  # fmt: skip
-# Every extractor row's leading columns, never empty.
-COMMON = "capture_id String, idx Int64, ts_ms Int64, client_version LowCardinality(String)"
 
-# The decoder's tables and the run records; a caller may add its own. Each is (columns, ORDER BY, engine).
-BASE = {
-    **TABLES,
-    "runs": (
-        "capture_id String, unit String, version String, decoder_version String,"
-        " state LowCardinality(String), error Nullable(String), started_ms Int64,"
-        " finished_ms Nullable(Int64), rows Nullable(Int64), at UInt64",
-        "capture_id, unit",
-        "ReplacingMergeTree(at)",
+RUNS = Table(
+    "runs",
+    "Which version of each unit wrote a capture's rows, or failed on it. Read it with FINAL.",
+    (
+        Column("capture_id", pa.string(), "The capture.", null=False),
+        Column(
+            "unit",
+            pa.string(),
+            "decode, an extractor's name, a derived fact's, or one a caller adds.",
+            null=False,
+        ),
+        Column("version", pa.string(), "The unit's version.", null=False),
+        Column(
+            "decoder_version",
+            pa.string(),
+            "The packets release and world version that decoded the capture.",
+            null=False,
+        ),
+        Column(
+            "state",
+            pa.string(),
+            "attempting, done, or failed: a unit that fails keeps the rows of its last good run, "
+            "unless it failed partway.",
+            null=False,
+            low=True,
+        ),
+        Column("error", pa.string(), "Why it failed."),
+        Column("started_ms", pa.int64(), "When the run began.", null=False),
+        Column("finished_ms", pa.int64(), "When it ended."),
+        Column("rows", pa.int64(), "Rows written."),
+        Column("at", pa.uint64(), "The write's version: the newest wins.", null=False),
     ),
-    "capture_trust": (
-        "capture_id String, trust Nullable(String), at UInt64",
-        "capture_id",
-        "ReplacingMergeTree(at)",
+    order="capture_id, unit",
+    engine="ReplacingMergeTree(at)",
+)
+TRUST = Table(
+    "capture_trust",
+    "Mogsafe's trust level for each capture; read it with FINAL.",
+    (
+        Column("capture_id", pa.string(), "The capture.", null=False),
+        Column(
+            "trust",
+            pa.string(),
+            "gold, silver, bronze, plain or flagged: figures across captures leave out flagged.",
+        ),
+        Column("at", pa.uint64(), "The write's version: the newest wins.", null=False),
     ),
-    "names": (
-        "release LowCardinality(String), kind LowCardinality(String), log_id Int64, id Int64,"
-        " name Nullable(String), name_passive Nullable(String), log Nullable(String)",
-        "release, kind, log_id, id",
-        "MergeTree",
+    order="capture_id",
+    engine="ReplacingMergeTree(at)",
+)
+NAMES_TABLE = Table(
+    "names",
+    "Every name, by release, kind, and id: the *_names views read it.",
+    (
+        Column("release", pa.string(), "The retail-resources release.", null=False, low=True),
+        Column(
+            "kind",
+            pa.string(),
+            "zone, entity, item, spell, and so on: what the id names.",
+            null=False,
+            low=True,
+        ),
+        Column("log_id", pa.int64(), "The quest or mission log, for those; 0 otherwise.", null=False),
+        Column("id", pa.int64(), "The id, as packets send it.", null=False),
+        Column("name", pa.string(), "The name."),
+        Column("name_passive", pa.string(), "A status effect's passive name."),
+        Column("log", pa.string(), "The log's name, for quests and missions."),
     ),
-}
-DECODE = tuple(TABLES)
+    order="release, kind, log_id, id",
+)
+# Every table that is not a unit's: the decoder's, the run records, and any a caller adds.
+BASE = {t.name: t for t in (*TABLES, RUNS, TRUST, NAMES_TABLE)}
+DECODE = tuple(t.name for t in TABLES)
 # The tables of units that are not extractors or derived facts: the decoder, and any a caller adds.
 UNITS = {"decode": DECODE}
 SQL = Path(__file__).parent / "sql"
@@ -98,11 +146,21 @@ def _create(con, name: str, cols: str, order: str, engine: str = "MergeTree") ->
     )
 
 
-def _type(t: pa.DataType) -> str:
-    """An extractor column's ClickHouse type: nullable, or a list of nullable values."""
-    if pa.types.is_list(t):
-        return f"Array(Nullable({TYPES[t.value_type]}))"
-    return f"Nullable({TYPES[t]})"
+def ch_type(c: Column) -> str:
+    """A column's ClickHouse type: ch as written, else pyarrow's, Nullable unless null is False and
+    LowCardinality when low. A list holds nullable values."""
+    if c.ch:
+        return c.ch
+    assert c.type is not None, f"{c.name}: a derived table's column takes its type from the SQL"
+    if pa.types.is_list(c.type):
+        return f"Array(Nullable({TYPES[c.type.value_type]}))"
+    t = f"Nullable({TYPES[c.type]})" if c.null else TYPES[c.type]
+    return f"LowCardinality({t})" if c.low else t
+
+
+def columns(cs) -> str:
+    """Columns as CREATE TABLE lists them."""
+    return ", ".join(f"{c.name} {ch_type(c)}" for c in cs)
 
 
 # Settings that change what the SQL means, as clickhouse/users.xml's default profile sets them.
@@ -120,14 +178,16 @@ def setup(con) -> None:
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
         raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
-    for name, (spec, order, engine) in BASE.items():
-        _create(con, name, spec, order, engine)
+    for t in BASE.values():
+        _create(con, t.name, columns(t.columns), t.order, t.engine)
     have = set(rows(con, "SELECT table, name FROM system.columns WHERE database = currentDatabase()"))
     lens = f", lens_url String ALIAS concat('{LENS}', capture_id, '#packet=', toString(idx))"
     for x in ALL:
         for t in x.tables:
-            cols = [(c.name, _type(c.type)) for c in t.columns]
-            _create(con, t.name, COMMON + "".join(f", `{c}` {typ}" for c, typ in cols) + lens, t.order)
+            cols = [(c.name, ch_type(c)) for c in t.columns]
+            _create(
+                con, t.name, columns(COMMON) + "".join(f", `{c}` {typ}" for c, typ in cols) + lens, t.order
+            )
             for c, typ in cols:
                 if (t.name, c) not in have:
                     con.command(f"ALTER TABLE {t.name} ADD COLUMN IF NOT EXISTS `{c}` {typ}")
@@ -205,25 +265,13 @@ def runs(con, capture_id: str | None = None) -> dict[tuple[str, str], tuple[str,
     return {(c, u): (v, d, s) for c, u, v, d, s in got}
 
 
-RUNS = [
-    "capture_id",
-    "unit",
-    "version",
-    "decoder_version",
-    "state",
-    "error",
-    "started_ms",
-    "finished_ms",
-    "rows",
-    "at",
-]
-
-
 def _runs(con, capture_id: str, units: dict[str, tuple], decoder: str, state: str, started: int) -> None:
     """One runs row per unit: units maps each to (version, rows, error)."""
     finished = int(time.time() * 1000) if state != "attempting" else None
-    con.insert("runs", [[capture_id, u, v, decoder, state, e, started, finished, n, now()]
-                        for u, (v, n, e) in units.items()], column_names=RUNS)  # fmt: skip
+    records = [
+        [capture_id, u, v, decoder, state, e, started, finished, n, now()] for u, (v, n, e) in units.items()
+    ]
+    con.insert("runs", records, column_names=[c.name for c in RUNS.columns])
 
 
 def delete(con, table: str, capture_id: str) -> None:
