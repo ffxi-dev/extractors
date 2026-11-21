@@ -57,10 +57,12 @@ CREATE OR REPLACE FUNCTION sc_ratio AS (chain, closing, damage) -> (damage + 0.5
 -- xi.spells.damage.calculateDayAndWeather and xi.data.element). Elements go as weekdays: Fire 0, Earth 1, Water 2,
 -- Wind 3, Ice 4, Thunder 5, Light 6, Dark 7; the weekday is Vana'diel days from LSB's vanadiel_epoch, 25 Vana'diel
 -- minutes a minute; a weather's element is its id's pair, Hot spell and Heat wave Fire and so on.
+-- The Vana'diel minute at a Unix time in ms: 25 to an Earth minute, from Vana'diel's epoch.
+CREATE OR REPLACE FUNCTION vana_minute AS (ts_ms) -> intDiv((ts_ms - 1009810800000) * 25, 60000);
 CREATE OR REPLACE FUNCTION sc_element AS (chain) -> transform(chain, [8, 12, 10, 13, 9, 14, 11, 7], [0, 1, 2, 3, 4, 5, 6, 7], -1);
 CREATE OR REPLACE FUNCTION sc_exposed AS (chain, ts_ms, weather) -> sc_element(chain) >= 0 AND hasAny(
   [sc_element(chain), transform(sc_element(chain), [0, 1, 2, 3, 4, 5, 6, 7], [2, 3, 5, 4, 0, 1, 7, 6], -1)],
-  [intDiv(intDiv((ts_ms - 1009810800000) * 25, 60000), 1440) % 8,
+  [intDiv(vana_minute(ts_ms), 1440) % 8,
    transform(intDiv(coalesce(weather, 0), 2), [2, 3, 4, 5, 6, 7, 8, 9], [0, 2, 1, 3, 4, 5, 6, 7], -1)]);
 
 -- A party member's name from each packet the party list gave it on, so a slot a trust held and another took after
@@ -154,7 +156,7 @@ CREATE OR REPLACE VIEW weather_names AS SELECT toInt64(i - 1) AS id, w[i] AS nam
 -- minutes a minute, from LSB's vanadiel_epoch. A row's previous weather ran from previous_start until it began.
 CREATE OR REPLACE VIEW weather_starts AS
 WITH w AS (
-  SELECT zone_id, weather_id, previous_id, capture_id, ts_ms, intDiv((ts_ms - 1009810800000) * 25, 60000) AS now_min,
+  SELECT zone_id, weather_id, previous_id, capture_id, ts_ms, vana_minute(ts_ms) AS now_min,
     now_min - ((((now_min - start_time) % 3110400) + 4665600) % 3110400 - 1555200) AS vmin,
     vmin - (((start_time - previous_start) % 3110400) + 3110400) % 3110400 AS prev_vmin
   FROM weather

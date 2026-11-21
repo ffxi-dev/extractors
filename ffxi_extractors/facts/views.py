@@ -162,7 +162,7 @@ ch AS (
       coalesce(p.start_time, intDiv(p.ts_ms, 1000)) AS entered,
       p.dropper = 0 AS unk, if(p.dropper = 0, '', coalesce(cn.name, 'a chest')) AS who,
       (p.zone_id, who) IN (SELECT zone_id, mob_name FROM bestiary_looks) AS mob
-    FROM pl p LEFT JOIN (SELECT release, id, any(name) AS name FROM entity_names GROUP BY release, id) cn
+    FROM pl p LEFT JOIN entity_names cn
       ON cn.release = p.release AND cn.id = p.dropper)
   GROUP BY item_id, zone_id, unk, mob, who
 ),
@@ -258,14 +258,13 @@ lg AS (
   WHERE (l.capture_id, l.event_idx) IN (SELECT capture_id, event_idx FROM oe) AND l.id IS NOT NULL
   GROUP BY l.capture_id, l.event_idx
 ),
-nm AS (SELECT release, id, any(name) AS name FROM entity_names GROUP BY release, id),
 oen AS (
   SELECT ot.capture_id AS cid, ot.idx AS at, ot.ts_ms AS ts, ot.item_id AS iid, ot.zone_id AS zid,
     ot.event_id AS eid,
     ot.handed AS handed, ot.handed_n AS handed_n, coalesce(nm.name, concat('NPC ',
       toString(ot.npc_id))) AS npc,
     coalesce(lg.step, '') AS step FROM ot
-  LEFT JOIN nm ON nm.release = ot.release AND nm.id = ot.npc_id
+  LEFT JOIN entity_names nm ON nm.release = ot.release AND nm.id = ot.npc_id
   LEFT JOIN lg ON lg.capture_id = ot.capture_id AND lg.event_idx = ot.event_idx
 ),
 trd AS (
