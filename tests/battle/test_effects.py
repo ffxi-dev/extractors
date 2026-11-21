@@ -129,6 +129,36 @@ def test_a_capture_hours_ahead_of_the_server_keeps_its_sources():
     assert (row["source_idx"], row["duration_ms"], row["expires_ms"]) == (2, 180_000, hit + 180_000)
 
 
+def test_a_capture_across_a_clock_change_sets_each_icon_back_by_its_own_offset():
+    """FhjghXg75qEJ ran from 30 October to 3 November 2026, stamped in local time: its clock fell back an hour
+    on 1 November, so its zone-ins gave two offsets. One for the whole capture read Diabolos' Nightmare as
+    lasting -3,510 s."""
+    hit, hour = T0 + 1000, 3_600_000
+    later = hit + 86_400_000
+    steps = ((0x00A, {"ntTimeSec": (T0 + hour) // 1000}), BAT, action(11, 392, 242, POISON),
+             icons((POISON, hit + hour + 30_000)), icons(),
+             (0x00A, {"ntTimeSec": (later - 1000) // 1000}), BAT, action(11, 392, 242, POISON),
+             icons((POISON, later + 30_000)))  # fmt: skip
+    times = [T0, T0, hit, hit + 300, hit + 30_000, later - 1000, later - 1000, later, later + 300]
+    rows = effects(*steps, times=times)
+    assert [r["duration_ms"] for r in rows] == [30_000, 30_000]
+
+
+def test_a_roll_or_an_art_a_player_used_on_the_character_comes_before_a_silent_move():
+    """TvyXoNQCQ3um: a corsair's Fighter's Roll (ability 98, its result 420 naming the total) landed on the
+    character 227 ms before its icon, and Diabolos' Ultimate Terror 347 ms after it; the icon went to the
+    move. Dark Arts, which names nothing, went to Ouryu's Slowga the same way."""
+    hit = T0 + 1000
+    roll = action(6, 98, 420, 5, actor=MEMBER)
+    steps = (BAT, roll, icons((316, hit + 300_000)), action(11, 2039, 264, 0))
+    (row,) = effects(*steps, times=[T0, hit, hit + 227, hit + 574])
+    assert (row["category"], row["action_id"], row["actor_id"], row["named"]) == (6, 98, MEMBER, False)
+    arts = action(6, 212, 100, 0, actor=PLAYER)
+    steps = (BAT, action(4, 356, 264, 0), arts, icons((359, hit + 7_200_000)))
+    (row,) = effects(*steps, times=[T0, hit - 761, hit, hit + 541])
+    assert (row["action_id"], row["actor_id"]) == (212, PLAYER)
+
+
 def test_a_renewal_a_zone_in_and_the_end():
     # Protect cast, cast again 600 s later, a zone-in that lists it 4 s later than before, and it wears off.
     first, again = T0, T0 + 600_000
