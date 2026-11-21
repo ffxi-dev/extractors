@@ -12,7 +12,7 @@ LEVEL = {9: "up", 11: "down"}  # LSB msg_basic LevelUp, LevelDown
 STATUS_ICONS = 9  # 0x063's type for the character's status list
 # Status effects that change the points a kill gives. LSB scripts/globals/experience_points.lua applies
 # Dedication, Sanction, Signet (a party's share), and Corsair's Roll (by EXP_BONUS); bg-wiki "Experience
-# Points" (flagged for verification, no JP entry) adds Commitment for capacity points and Ionis. Level Sync
+# Points" (unverified) adds Commitment for capacity points and Ionis. Level Sync
 # and Level Restriction change the level the points are graded on.
 EFFECTS = {249: "Dedication", 579: "Commitment", 326: "Corsair's Roll", 256: "Sanction", 512: "Ionis",
            269: "Level Sync", 143: "Level Restriction"}  # fmt: skip

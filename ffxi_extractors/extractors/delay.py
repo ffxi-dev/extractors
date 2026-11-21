@@ -48,8 +48,7 @@ class Delay(Extractor):
             " warning: not to be trusted on its own; latency, server ticks, Store TP, Subtle Blow, and"
             " hand-to-hand mobs move it. Use the median over many rounds. Swing counts are of results on"
             " the first target. Each swing counts under one outcome column, or none for a plain hit, so"
-            " plain hits are swings minus the outcome columns. Rows from version 1 have no value in the"
-            " columns version 2 added.",
+            " plain hits are swings minus the outcome columns.",
             (
                 Column("actor_id", pa.int64(), "Who attacked: the character, a party member, or a mob."),
                 Column("actor_is_mob", pa.bool_(), "Whether the attacker is one of the zone's own mobs."),

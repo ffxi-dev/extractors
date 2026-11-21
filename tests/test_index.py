@@ -90,7 +90,7 @@ class Lost(Exception):
 @pytest.mark.parametrize("after", [False, True], ids=["crash between tables", "lost acknowledgement"])
 def test_a_rerun_after_a_stop_counts_every_row_once(con, monkeypatch, after):
     """actions writes three tables. Stop after its first insert, with the insert landed or not: the run stays
-    attempting, so the planner runs it again, and the rerun's delete keeps every count single."""
+    attempting, so the next run does it again, and the rerun's delete keeps every count single."""
     run(con, CAPTAIN, "c")
     want = counts(con, "c")
     store.drop(con, "c")

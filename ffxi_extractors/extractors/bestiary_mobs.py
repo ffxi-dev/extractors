@@ -1,4 +1,5 @@
 from ..extract import ONE, Column, Derived, Table
+from ..store import LENS
 
 FLAGGED = "(SELECT capture_id FROM capture_trust FINAL WHERE trust = 'flagged')"
 MOVE = "{move:UInt32}"  # tp_move_figures' parameter: 0 for every move
@@ -244,7 +245,7 @@ VIEWS = (
 SELECT * EXCEPT (zone_release, zone, recorder_number, k_owner, k_copies), coalesce(model_id, -1) AS model,
   capture_id = k_owner AS kept, k_copies AS copies,
   coalesce(toString(nullIf(recorder_number, 0)), capture_id) AS recorder_id,
-  concat('https://lens.sruon.dev/c/', capture_id, '#packet=', toString(idx)) AS lens_url
+  concat('{LENS}', capture_id, '#packet=', toString(idx)) AS lens_url
 FROM (SELECT * FROM bestiary_fights WHERE capture_id NOT IN {FLAGGED}) b
 LEFT JOIN (SELECT fight_key, min(capture_id) AS k_owner, arraySort(groupUniqArray(capture_id)) AS k_copies
   FROM bestiary_fights WHERE capture_id NOT IN {FLAGGED} GROUP BY fight_key) k USING (fight_key)
@@ -314,7 +315,7 @@ LEFT JOIN nm ON nm.nid = u.id LEFT JOIN bl ON bl.bid = u.id""",
     # median is Chainspell or a mis-paired start, left out. Most mobs sit at 1.00 +- 0.05 of the reference;
     # a mob passes at a median ratio of 0.88 or less, two thirds of its spells at 0.92 or less, and its
     # spells' middle half within 0.15 of each other, so one fast spell doesn't carry it. ponytail: every
-    # spell's reference on each read, 0.4 s on prod; a table refreshed with the roll-up if that grows.
+    # spell's reference on each read, 0.4 s today; a table refreshed with the roll-up if that grows.
     f"""CREATE OR REPLACE VIEW fast_cast AS
 WITH cr AS (
   SELECT zone_id, mob_name, k.1 AS spell, k.2 AS ms, n FROM (

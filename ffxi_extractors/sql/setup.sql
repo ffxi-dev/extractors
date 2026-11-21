@@ -1,4 +1,4 @@
--- Functions, name views, and constants the page, search, bestiary, and agents' queries share. store.setup runs
+-- Functions, name views, and constants the derived facts and queries over them share. store.setup runs
 -- each statement; functions are server-wide.
 
 -- The Wilson interval of k successes in n at z (1.96 for 95%), as fractions; none when n is 0.
@@ -87,7 +87,7 @@ CREATE OR REPLACE FUNCTION acc_diff_hi AS (ci, lmin) -> if(tupleElement(ci, 'hi'
 CREATE OR REPLACE FUNCTION acc_state AS (ci) -> multiIf(tupleElement(ci, 'hi') >= 0.95 AND tupleElement(ci, 'lo') <= 0.2,
   'wide', tupleElement(ci, 'hi') >= 0.95, 'cap', tupleElement(ci, 'lo') <= 0.2, 'floor', 'range');
 
--- Names by release, as retail-resources publishes them (resources.py loads names hourly). A spell's id is
+-- Names by release, as retail-resources publishes them (resources.py loads them). A spell's id is
 -- its index, as packets send it; a quest's or mission's is its bit or value in its log.
 -- One name per release and id: a release may list an id twice, as Whitegate's two entity DATs do.
 CREATE OR REPLACE VIEW zone_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'zone' GROUP BY release, id;
@@ -102,7 +102,7 @@ CREATE OR REPLACE VIEW mob_skill_names AS SELECT release, id, any(name) AS name 
 CREATE OR REPLACE VIEW quest_names AS SELECT release, log_id, any(log) AS log, id, any(name) AS name FROM names WHERE kind = 'quest' GROUP BY release, log_id, id;
 CREATE OR REPLACE VIEW mission_names AS SELECT release, log_id, any(log) AS log, id, any(name) AS name FROM names WHERE kind = 'mission' GROUP BY release, log_id, id;
 -- The client's text for each message id 0x028 and 0x029 send, its blanks as tokens ("{actor}"): the grammar is
--- retail-resources' docs/FORMATS.md, and capture.js fills them.
+-- retail-resources' docs/FORMATS.md.
 CREATE OR REPLACE VIEW battle_messages AS SELECT release, id, any(name) AS text FROM names WHERE kind = 'battle_message' GROUP BY release, id;
 
 -- The zones where a mob above the character's level gains accuracy for it, copied from LSB's
@@ -152,7 +152,6 @@ CREATE OR REPLACE VIEW weather_names AS SELECT toInt64(i - 1) AS id, w[i] AS nam
 -- began as a Vana'diel minute of the zone's 2160-day weather cycle, 3,110,400 minutes, which repeats exactly
 -- (cocosolos' WeatherWatch), so the cycle that holds it is the one nearest the packet's own time: 25 Vana'diel
 -- minutes a minute, from LSB's vanadiel_epoch. A row's previous weather ran from previous_start until it began.
-DROP VIEW IF EXISTS weather_periods;
 CREATE OR REPLACE VIEW weather_starts AS
 WITH w AS (
   SELECT zone_id, weather_id, previous_id, capture_id, ts_ms, intDiv((ts_ms - 1009810800000) * 25, 60000) AS now_min,

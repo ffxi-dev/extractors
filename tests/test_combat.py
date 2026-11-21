@@ -298,6 +298,34 @@ def test_spikes_damage_the_attacker():
     assert rows[0]["damage"] == 100
 
 
+def test_a_countered_swing_is_no_hit_on_the_mob():
+    """A counter did no damage to the mob, but counted as a hit: the kill's range came out (501, 500)."""
+    (m,) = raw(
+        Hp,
+        (0, act(PLAYER, 1, 0, [(MOB, [r(1, 500)])])),
+        (1000, act(PLAYER, 1, 0, [(MOB, [r(33, react=(50, 33))])])),
+        (2000, message(PLAYER, MOB, 6)),
+    )["mob_hp"]
+    assert (m["hits"], m["hp_min"], m["hp_max"]) == (1, 1, 500)
+
+
+def test_a_trust_that_falls_is_no_mob():
+    trust = MOB | 0x700
+    rows = raw(
+        Hp,
+        (0, act(MOB, 1, 0, [(trust, [r(1, 300)])])),
+        (1000, message(MOB, trust, 6)),
+    )["mob_hp"]
+    assert rows == []
+
+
+def test_regen_with_no_window_left_standing_falls_back_on_the_damage():
+    m = _Mob(100, 100)
+    m.regen, m.windows = 1, [(10, 5)]  # healed, then hit by a tick: every window inverted
+    m.hit(300, False, 0)
+    assert m.range() == (1, 300)
+
+
 def test_hp_tracks_no_player_and_ends_on_the_last_hit_and_its_procs():
     """A mob's hits on the party made a tracker per player, kept until the zone changed; each round summed
     the mob's whole hit list again (Codex's review, 9)."""

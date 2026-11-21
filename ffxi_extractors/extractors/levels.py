@@ -9,7 +9,7 @@ CHECK = range(170, 178 + 1)  # /check replies that carry the level (LSB msg_basi
 
 class Levels(Extractor):
     """Ported from captain's levelrangetrack, plus /check replies. levelrangetrack keeps a range per mob;
-    This keeps each new report in a mob's life, so a kill can take the level its own life had."""
+    this keeps each new report in a mob's life, so a kill can take the level its own life had."""
 
     name = "levels"
     version = 2  # 2: a row per change of level in a mob's life, which ends at its defeat, despawn, or a zone

@@ -8,7 +8,7 @@ from . import combat
 FRESH_MS = 2000  # a mob's heading older than this at its TP move is unknown
 NEAR = 30.0  # yalms: bystanders farther from the mob than this are not kept; targets always are
 INTERRUPT = 28787  # a start's cmd_arg low half when it stops what began (LSB's interrupt); 24931 begins it
-STALE_MS = 30000  # a start older than this is not the finish's: on prod, pairs past it were a later mob's
+STALE_MS = 30000  # a start older than this is not the finish's: pairs past it were a later mob's
 FINISH = {11: 7, 4: 8, 2: 12}  # a finish's category -> its start's
 
 

@@ -3,7 +3,7 @@ packets. The captures are the only permanent copy; these tables can be rebuilt f
 
 A unit's write for one capture is an idempotent replace: it records an attempt in runs, deletes the
 capture's rows from its tables only when an earlier attempt exists, inserts, then records done. A crash or a
-lost acknowledgement leaves the attempt, so the planner runs the unit again and the delete keeps counts
+lost acknowledgement leaves the attempt, so the next run of the unit does it again and the delete keeps counts
 single, while a first ingest sends no DELETE."""
 
 from __future__ import annotations
@@ -76,10 +76,10 @@ BASE = {
 DECODE = ("captures", "sessions", "sizes", "zone_visits", "activity")
 # The tables of units that are not extractors or derived facts: the decoder, and any a caller adds.
 UNITS = {"decode": DECODE}
-# An extractor table sorted other than by capture and packet (design 2).
+# An extractor table sorted other than by capture and packet.
 ORDER = {"entity_changes": "entity_id, capture_id, idx"}
 # Indexes that skip the blocks without a value: a move among every capture's actions; and in bestiary_fights,
-# which is sorted by mob for the mob pages, one capture's fights and the copies of a fight.
+# which is sorted by mob, one capture's fights and the copies of a fight.
 INDEXES = {
     "actions": ("action action_id TYPE bloom_filter GRANULARITY 1",),
     "bestiary_fights": (
@@ -135,11 +135,23 @@ def _type(t: pa.DataType) -> str:
     return f"Nullable({TYPES[t]})"
 
 
+# Settings that change what the SQL means, as clickhouse/users.xml's default profile sets them.
+SETTINGS = {
+    "join_use_nulls": 1,
+    "prefer_column_name_to_alias": 1,
+    "aggregate_functions_null_for_empty": 1,
+    "enable_named_columns_in_function_tuple": 1,
+}
+
+
 def setup(con) -> None:
     """Make every table, view, function, and dictionary the units need, and add the columns a new extractor
     version brings. Derived tables come from their SQL."""
     from .extractors import ALL, DERIVED
 
+    got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
+    if list(got) != list(SETTINGS.values()):
+        raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
     for name, (cols, order, engine) in BASE.items():
         _create(con, name, cols, order, engine)
     have = set(rows(con, "SELECT table, name FROM system.columns WHERE database = currentDatabase()"))
@@ -164,8 +176,7 @@ def views(con) -> None:
     """The bestiary's views, made again from this code, so a changed definition or table takes effect."""
     from .extractors.bestiary_mobs import VIEWS
 
-    # bestiary_copies and bestiary_recount were the hourly party-copy merge that fight_key replaced.
-    for view in ("bestiary_list", "bestiary", "bestiary_recount", "bestiary_copies"):
+    for view in ("bestiary_list", "bestiary"):
         con.command(f"DROP VIEW IF EXISTS {view} SYNC")
     for statement in VIEWS:
         con.command(statement)

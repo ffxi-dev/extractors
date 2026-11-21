@@ -48,7 +48,7 @@ class Music(Extractor):
         emit("music", p, zone_id=world.zone, slot=f("Slot"), track=f("MusicNum"))
 ```
 
-`f(path)` gives the packet's fields by packets' paths (`UniqueNo`, `SendFlg.Despawn`, `GrapIDTbl[3]`), or None for a field the packet does not hold. An extractor that needs to see a whole fight first keeps state on `self` (Scholar makes a fresh one per capture) and emits in `finish`.
+`f(path)` gives the packet's fields by packets' paths (`UniqueNo`, `SendFlg.Despawn`, `GrapIDTbl[3]`), or None for a field the packet does not hold. An extractor that needs to see a whole fight first keeps state on `self` (a run makes a fresh one per capture) and emits in `finish`.
 
 List the class in `ALL` in `extractors/__init__.py`, then test it on hand-built packets with `drive`:
 

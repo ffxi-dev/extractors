@@ -23,7 +23,9 @@ class Fishing(Extractor):
     as sent."""
 
     name = "fishing"
-    version = 2  # 2: the zone's offset is the one that explains the most casts, not a refusal's
+    # 2: the zone's offset is the one that explains the most casts, not a refusal's; 3: an emptied slot holds
+    # no rod or bait
+    version = 3
     doc = "Each cast the character made: where, with what rod and bait, what bit, its minigame, its outcome."
     reads = Place.reads | Held.reads | {
         (1, 0x01A), (1, 0x110), (0, 0x115), (0, 0x027), (0, 0x02A), (0, 0x036), (0, 0x037), (0, 0x050)
@@ -161,7 +163,8 @@ class Fishing(Extractor):
             self.seen[-1][1].setdefault("catch", (f("MesNum"), f("Num1[0]"), f("Num1[1]"), p.ts_ms))
 
     def _cast(self, p, world, emit):
-        rod, bait = (world.items.get(self.equip[k]) if k in self.equip else None for k in (ROD, BAIT))
+        # Index 0 empties a slot; (0, 0) is the gil.
+        rod, bait = (world.items.get(e) if (e := self.equip.get(k)) and e[1] else None for k in (ROD, BAIT))
         self.row = emit(
             "fishing", p, **self.place.row(p, world), rod_id=rod, bait_id=bait, hook_ms=None, end_ms=None,
             **dict.fromkeys(GAME), hook=None, feeling=None, sensed_id=None, reel=None, outcome=None,
