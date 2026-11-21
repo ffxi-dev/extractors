@@ -6,7 +6,7 @@ Turns FFXI captures into ClickHouse tables and findings. **Extractors** read one
 
 ## Quick start
 
-You need [uv](https://docs.astral.sh/uv/), Docker, and a C++20 compiler with CMake and zstd, which xicap's reader builds with.
+You need [uv](https://docs.astral.sh/uv/), Docker, and a C++20 compiler with CMake and zstd, which xicap's reader builds with. Until [packets](https://github.com/ffxi-dev/packets) is public, `uv sync` needs read access to it.
 
 ```bash
 uv sync
@@ -16,7 +16,7 @@ uv run ffxi-extractors index tests/data/*.xicap      # the fixtures, with names
 docker compose exec clickhouse clickhouse-client --user ffxi --password ffxi -d ffxi
 ```
 
-`ffxi-extractors index` downloads [retail-resources](https://github.com/ffxi-dev/retail-resources)' names into `var/names` the first time; `--no-names` skips them.
+`ffxi-extractors index` downloads [retail-resources](https://github.com/ffxi-dev/retail-resources)' names into `var/names` the first time; `--no-names` skips them. It writes to `FFXI_CLICKHOUSE` (`http://user:password@host:8123/database`), else to compose's ClickHouse, database `ffxi`. A capture's id is its file name, so save a Mogsafe capture as `<id>.xicap` for its Lens links to work.
 
 ## Captures
 

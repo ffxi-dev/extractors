@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ github.event.repository.private && fromJSON('["self-hosted","lsb"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
-      # PACKETS_DEPLOY_KEY goes once packets is public (open-extractors 4.3), and the secret with it.
+      # PACKETS_DEPLOY_KEY goes once packets is public, and the secret with it.
       - env:
           PACKETS_KEY: ${{ secrets.PACKETS_DEPLOY_KEY }}
         run: >-

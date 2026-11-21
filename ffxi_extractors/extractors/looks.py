@@ -38,7 +38,7 @@ class Looks(Extractor):
     tables = (
         Table(
             "entity_looks",
-            "One row per entity and state its updates (0x00E) put it in within a capture: the speeds,"
+            "One row per entity and state its updates (0x00E) put it in within a zone visit: the speeds,"
             " animation, flags, and model or look as last sent. idx is the update that first put it there.",
             (
                 Column("entity_id", pa.int64(), "The entity; an NPC's or mob's id holds its zone."),

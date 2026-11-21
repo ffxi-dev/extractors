@@ -31,7 +31,7 @@ class Influence(Extractor):
     """Ported from captain's campaigntrack and colonizationtrack, which log the two modes of one packet
     (0x071): the Campaign map of the Crystal War (mode 2, two packets of 13 areas) and Adoulin's
     colonization map (mode 3). The server sends both at each zone-in and when the map opens, after the
-    conquest map. The character's own allied notes, bayld, and coalition ranks stay in s2c_0x071."""
+    conquest map. The character's own allied notes, bayld, and coalition ranks are not kept here."""
 
     name = "influence"
     version = 1

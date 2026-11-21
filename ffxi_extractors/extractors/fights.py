@@ -4,7 +4,7 @@ from ..extract import Column, Extractor, Table
 from . import combat
 
 # A fight with no action between its mob and a player, Trust, or pet for this long is over. Inside fights
-# 99.9% of gaps are under 18 s; the 30 to 180 s ones are fights partly out of range (scholar-combat design).
+# 99.9% of gaps are under 18 s; the 30 to 180 s ones are fights partly out of range.
 IDLE_MS = 180_000
 
 
@@ -12,7 +12,7 @@ class Fights(Extractor):
     """One row per mob life the capture saw fight: from the first action between it and a player, Trust,
     or pet to its defeat, its despawn, a zone change, three minutes with no such action, or the capture's
     end. A mob's casts on itself or another mob do not count. No captain addon records this; it is the
-    unit the capture page shows. A defeat with no action seen before it, such as a party member's kill
+    unit fight analyses count. A defeat with no action seen before it, such as a party member's kill
     out of range, still makes a fight, with no actions."""
 
     name = "fights"

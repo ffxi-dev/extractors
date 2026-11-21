@@ -88,7 +88,7 @@ def test_a_move_that_gives_its_effects_silently():
 
 
 def test_a_silent_move_lands_and_gives_no_buff():
-    """Dendainsonne's Wild Horn on prod: a Regen icon 1 s after it, which no result names. Regen is a buff,
+    """Dendainsonne's Wild Horn, archived: a Regen icon 1 s after it, which no result names. Regen is a buff,
     which a mob's move never gives. A missed move (188) gives nothing, though a stun icon follows it."""
     hit = T0 + 1000
     (regen,) = effects(

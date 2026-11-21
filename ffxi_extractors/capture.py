@@ -10,7 +10,7 @@ from typing import Any
 import xicap
 
 Fields = Callable[[str], Any]  # f(path) -> a field of the current packet, or None
-BATCH = 50_000  # packets read and decoded at once: a worker stays well under 1 GB
+BATCH = 50_000  # packets read and decoded at once: well under 1 GB of memory
 
 
 @dataclass(slots=True)
@@ -25,14 +25,14 @@ class Packet:
 
 
 class Skipped(Exception):
-    """A capture this does not read; the message is the line Mogsafe's capture page shows."""
+    """A capture this does not read; the message says why."""
 
 
 class NotRetail(Skipped):
     """Only retail captures are read."""
 
 
-# The largest capture read, as Mogsafe limits a capture (vault add-abuse-limits).
+# The largest capture read, as Mogsafe limits a capture.
 MAX_PACKETS = 60_000_000
 TOO_LARGE = f"Not analysed: over {MAX_PACKETS:,} packets"
 

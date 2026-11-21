@@ -42,6 +42,16 @@ def fish(*after):
     return drive(Fishing, *steps, directions=directions)["fishing"]
 
 
+def test_a_cast_with_the_bait_taken_off_has_no_bait():
+    """Index 0 empties the slot, and inventory slot 0 holds the gil: the bait read as gil (65535)."""
+    (row,) = fish(
+        (0x020, {"Category": 0, "ItemIndex": 0, "ItemNo": 65535, "ItemNum": 1000}),
+        (0x050, {"EquipKind": 3, "Category": 0, "PropertyItemIndex": 0}),
+        cast(), said(4), status(62),
+    )  # fmt: skip
+    assert (row["rod_id"], row["bait_id"]) == (ROD, None)
+
+
 def test_a_cast_its_minigame_and_its_catch():
     rows = fish(
         cast(), said(4), status(62),  # nothing bit: the zone's offset

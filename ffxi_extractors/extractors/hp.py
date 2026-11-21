@@ -117,7 +117,7 @@ class _Mob:
         but the last hit (and the procs and reactions after it) and everything. With regen the damage
         overstates HP, so only the HP% windows bound it, by vote: the HP the most windows allow. Regen
         the bar doesn't show yet throws a window off, and taking the first window that narrows the range
-        let one bad window rule out every later one (Fafnir came out at 79,000 and 90,000, not 61,600)."""
+        let one bad window rule out every later one. With no window left standing, the damage bounds it."""
         if self.regen and self.windows:
             edges = sorted([(lo, 1) for lo, _ in self.windows] + [(hi + 1, -1) for _, hi in self.windows])
             best = cur = 0
@@ -132,7 +132,8 @@ class _Mob:
                 elif cur < best and at is not None:
                     spans.append((at, x - 1))
                     at = None
-            return spans[0][0], spans[-1][1]
+            if spans:
+                return spans[0][0], spans[-1][1]
         total = self.net()
         if self.hits == 1:
             return max(1, self.hp_min), min(total, self.hp_max if self.hp_max is not None else total)
@@ -150,8 +151,9 @@ class Hp(Extractor):
     could not see, such as a party member's out of range, is missing, so the range is low then."""
 
     name = "hp"
-    # 2: a despawn ends the mob's life; 3: regen; 4: slow regen's rate; 5: HP by vote under regen
-    version = 6
+    # 2: a despawn ends the mob's life; 3: regen; 4: slow regen's rate; 5: HP by vote under regen; 7: a
+    # counter is no hit on the mob, trusts and pets are not mobs
+    version = 7
     doc = "Each defeated mob's damage taken and HP range (0x028, 0x029, 0x00E)."
     reads = frozenset({(0, 0x028), (0, 0x029), (0, 0x00E), (0, 0x00A)})
     tables = (
@@ -240,25 +242,26 @@ class Hp(Extractor):
         signs = MSG_TYPES.get(cat, {})
         dealt: dict[int, int] = {}
         for target_id, results in a["targets"]:
-            mob = target_id >= 0x1000000  # a player's own damage and healing are not tracked
+            mob = combat.is_mob(target_id)  # a player's, trust's, or pet's damage and healing are not tracked
             for r in results:
                 sign = signs.get(r["message"])
                 react = r["react"] if r["react"] and r["react"]["message"] in REACTS else None
                 if sign == _H and r["value"]:
                     if mob:
-                        self._mob(target_id).healing += r["value"]
-                        self._mob(target_id).healed = True
+                        m = self._mob(target_id)
+                        m.healing += r["value"]
+                        m.healed = True
                         dealt[target_id] = dealt.get(target_id, 0) - r["value"]
                 elif (sign == _D and r["value"]) or react:
                     damage = r["value"] if sign == _D else 0
                     proc = r["proc"]
-                    if mob:
+                    if mob and damage:  # a countered swing does no damage: it is no hit
                         self._mob(target_id).hit(damage, False, ts_ms)
                         dealt[target_id] = dealt.get(target_id, 0) + damage
                         if proc and proc["message"] in PROCS and proc["value"]:
                             self._mob(target_id).hit(proc["value"], True, ts_ms)
                             dealt[target_id] += proc["value"]
-                    if react and react["value"] and actor >= 0x1000000:
+                    if react and react["value"] and combat.is_mob(actor):
                         self._mob(actor).hit(react["value"], True, ts_ms)
                         dealt[actor] = dealt.get(actor, 0) + react["value"]
         for mob_id, d in dealt.items():

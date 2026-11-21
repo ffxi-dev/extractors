@@ -74,7 +74,7 @@ d AS (
   WHERE r.interval_ms IS NOT NULL GROUP BY f.capture_id, f.mob_id, f.fidx
 ),
 -- Whether the recorder was SAM, main or sub: its Store TP trait raises the TP it gains when hit (1.13 to 1.32
--- times the gain its attack intervals give, on prod), so those gains leave TP delay. Gear and Samurai Roll
+-- times the gain its attack intervals give), so those gains leave TP delay. Gear and Samurai Roll
 -- add Store TP too, which a capture does not say; the mob page flags a TP delay its intervals disagree with.
 rj AS (SELECT capture_id, idx, coalesce(main_job, '') = 'SAM' OR coalesce(sub_job, '') = 'SAM' AS sam
   FROM character WHERE {ONE} AND main_job IS NOT NULL),

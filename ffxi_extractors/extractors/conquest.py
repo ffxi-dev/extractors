@@ -12,7 +12,7 @@ ORDERS = "0 train, 1 advance, 2 attack, 3 retreat, 4 defend, 5 prepare"
 class Conquest(Extractor):
     """Ported from captain's conquesttrack and besiegedtrack, which log the two halves of one packet (0x05E),
     and so what regiontrack's polls bring. The server sends it at each zone-in and when the map opens. The
-    character's own conquest points and imperial standing stay in s2c_0x05e."""
+    character's own conquest points and imperial standing are not kept here."""
 
     name = "conquest"
     version = 2  # 2: an AstralCandescence past the strongholds is unknown, not a failed capture

@@ -17,9 +17,6 @@ DATA = Path(__file__).parent / "data"
 # QWFQtl0r5ciu, a converted captain log.
 MEMORIA = DATA / "memoria.xicap"
 CAPTAIN = DATA / "captain.xicap"
-# The Memoria recording's packets as stored, in the small frames a recorder writes live. The archived copy
-# is one frame; a cut-off copy of this one reads part of it, as Mogsafe serves a recording still uploading.
-MEMORIA_LIVE = DATA / "memoria-live.xicap"
 # A ClickHouse server, as compose.yaml starts it. Setup takes seconds, so a session sets up each database once
 # and empties it for each test.
 SERVER = os.environ.get("FFXI_TEST_CLICKHOUSE", "http://ffxi:ffxi@127.0.0.1:8123")

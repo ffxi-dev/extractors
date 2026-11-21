@@ -63,7 +63,7 @@ def _fetch(base: str, version: str, name: str, into: Path) -> None:
             open(into / f"{name}.parquet.part", "wb") as out,
         ):
             shutil.copyfileobj(r, out, 1 << 20)
-        (into / f"{name}.parquet.part").rename(into / f"{name}.parquet")
+        (into / f"{name}.parquet.part").replace(into / f"{name}.parquet")
     except urllib.error.HTTPError as e:
         if e.code != 404:
             raise
