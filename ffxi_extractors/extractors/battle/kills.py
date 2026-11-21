@@ -6,12 +6,14 @@ from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Tab
 TH_UP = (
     603  # LSB msg_basic TreasureHunterUp: "Treasure Hunter effectiveness against <target> increases to <n>"
 )
+GIL = 565  # "<target> obtains <gil>.": the character's share of a defeated mob's gil
+GIL_MS = 10_000  # it comes after the defeat and the experience, within this
 
 
 class Kills(Extractor):
     name = "kills"
-    version = 3  # 2: a captain log names the character by its 0x037; 3: a despawn clears the claim and TH,
-    # and the party follows 0x0E2 and 0x0C8
+    version = 4  # 2: a captain log names the character by its 0x037; 3: a despawn clears the claim and TH,
+    # and the party follows 0x0E2 and 0x0C8; 4: gil and players
     doc = "Each mob defeat the capture saw, with its claim and Treasure Hunter level."
     reads = frozenset({(0, 0x028), (0, 0x029), (0, 0x00E), (0, 0x00A)})
     tables = (
@@ -42,6 +44,18 @@ class Kills(Extractor):
                     "The highest Treasure Hunter level the battle messages showed on this mob since it last"
                     f" died, despawned, or the character zoned (message {TH_UP}); none if they showed none.",
                 ),
+                Column(
+                    "gil",
+                    pa.int64(),
+                    f"The gil the character obtained for it (message {GIL}, within {GIL_MS // 1000} s of a"
+                    " defeat by the character, its party, or their claim): its share, the party splitting it;"
+                    " none if none came.",
+                ),
+                Column(
+                    "players",
+                    pa.int32(),
+                    "Other players in the character's party and alliance at the defeat: they share its gil.",
+                ),
                 Column("message", pa.int32(), "6 (defeats) or 20 (falls to the ground)."),
                 Column("zone_id", pa.int32(), "The zone."),
             ),
@@ -52,6 +66,7 @@ class Kills(Extractor):
         self.th: dict[int, int] = {}  # mob id -> highest Treasure Hunter level seen
         self.claims: dict[int, int] = {}  # mob id -> last claimer; an update may clear it before the defeat
         self.resends = combat.Resends()
+        self.ours: dict | None = None  # the last defeat by the character, its party, or their claim
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         if p.opcode == 0x00A:
@@ -76,6 +91,11 @@ class Kills(Extractor):
                             self.th[target_id] = max(self.th.get(target_id, 0), x["value"] or 0)
             return
         mob_id, msg = f("UniqueNoTar"), f("MessageNum")
+        if msg == GIL and mob_id == world.character_id:
+            row = self.ours
+            if row and row["gil"] is None and p.ts_ms - row["ts_ms"] <= GIL_MS:
+                row["gil"] = f("Data")
+            return
         if not combat.is_mob(mob_id):
             return
         if msg == TH_UP:
@@ -83,6 +103,11 @@ class Kills(Extractor):
         elif msg in combat.DEFEAT:
             killer = f("UniqueNoCas")
             claim = self.claims.pop(mob_id, None)
-            emit("kills", p, mob_id=mob_id, killer_id=killer if msg == 6 and killer != mob_id else None,
-                 claim_id=claim, claimed_by_party=world.claimed_by_party(claim) if claim else None,
-                 th_level=self.th.pop(mob_id, None), message=msg, zone_id=world.zone)  # fmt: skip
+            killer = killer if msg == 6 and killer != mob_id else None
+            players = sum(1 for m in world.party if m != world.character_id and m >> 24 == 0)  # no trusts
+            row = emit("kills", p, mob_id=mob_id, killer_id=killer, claim_id=claim,
+                       claimed_by_party=world.claimed_by_party(claim) if claim else None,
+                       th_level=self.th.pop(mob_id, None), gil=None, players=players, message=msg,
+                       zone_id=world.zone)  # fmt: skip
+            if world.claimed_by_party(killer) or world.claimed_by_party(claim):
+                self.ours = row

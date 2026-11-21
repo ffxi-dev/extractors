@@ -159,6 +159,46 @@ def test_a_defeats_treasure_hunter_comes_from_who_acted_on_it(con):
     assert got == [None, 3, None, 1, 5]
 
 
+def test_a_defeats_gil_and_gilfinder_come_from_who_acted_on_it(con):
+    """The recorder's share of the gil, the players sharing it, and Gilfinder as TH: the THF trait (II from
+    85) and gear once a zone-in sent the gear, 1 for a THF trust, none for a party member or BLU at 90."""
+    capture(con, "h")
+    me, member, trust = 0x0001_0001, 0x0001_0002, 0x01000000 | (ZONE << 12) | 0x710
+    mobs = [MOB + i for i in range(4)]
+    thf = {"capture_id": "h", "character_id": me, "main_job": "THF", "main_level": 99, "sub_job": "NIN",
+           "sub_level": 49}  # fmt: skip
+    put(con, "character", [{**thf, "idx": 0, "ts_ms": 0},
+                           {**thf, "idx": 45, "ts_ms": 45 * S, "main_job": "BLU"}])  # fmt: skip
+    put(con, "zones", [{"capture_id": "h", "idx": 5, "ts_ms": 5 * S, "zone_id": ZONE}])
+    ring = {
+        "capture_id": "h",
+        "idx": 6,
+        "ts_ms": 6 * S,
+        "character_id": me,
+        "slot": "ring1",
+        "item_id": 26197,
+    }
+    put(con, "character_gear", [ring])
+    put(con, "entity_changes", [{"capture_id": "h", "idx": 1, "ts_ms": 0, "entity_id": trust,
+                                 "name": "NanaaMihgo"}])  # fmt: skip
+    windows = list(zip(mobs, [(10, 20), (30, 40), (50, 60), (70, 80)], strict=True))
+    put(con, "fights", [{"capture_id": "h", "idx": a, "ts_ms": a * S, "end_idx": b, "end_ms": b * S,
+                         "mob_id": m, "outcome": "defeated", "actions": 2, "zone_id": ZONE}
+                        for m, (a, b) in windows])  # fmt: skip
+    put(con, "kills", [{"capture_id": "h", "idx": b, "ts_ms": b * S, "mob_id": m, "claimed_by_party": True,
+                        "gil": 100 + i, "players": i, "message": 6, "zone_id": ZONE}
+                       for i, (m, (_, b)) in enumerate(windows)])  # fmt: skip
+    acted = [(12, me, 0), (32, me, 1), (33, member, 1), (52, trust, 2), (72, me, 3)]
+    put(con, "action_results", [{"capture_id": "h", "idx": i, "ts_ms": i * S, "actor_id": a,
+                                 "target_id": mobs[k], "category": 1} for i, a, k in acted])  # fmt: skip
+    run(con, None, "h", units={"bestiary"})
+    got = [
+        (r["gil"], r["players"], r["gf"]) for r in records(con, "SELECT * FROM bestiary_fights ORDER BY idx")
+    ]
+    # THF 99 and a +2 ring; a party member too; Nanaa alone; BLU 99.
+    assert got == [(100, 0, 4), (101, 1, None), (102, 2, 1), (103, 3, None)]
+
+
 def test_a_defeat_keeps_the_rare_items_the_recorder_held(con):
     """Its bags' slots as they stood at the defeat, once a zone-in listed them; only items flagged Rare. A
     slot emptied, or its Rare item swapped for another, holds what it held last."""
