@@ -15,10 +15,11 @@ def setup(con, cid, items, actions=(), release="r"):
     put(con, "captures", [{"capture_id": cid, "client_version": "v", "release": release, "retail": True,
                            "packets": 0, "start_ms": 0}])  # fmt: skip
     seen = {"capture_id": cid, "idx": 0, "ts_ms": 0, "client_version": "v"}
+    at = {"x": -10.5, "y": 2.0, "z": -40.0}  # Hortense stands still; Smith's position never came
     put(
         con,
         "entity_changes",
-        [{**seen, "entity_id": e, "name": n} for e, n in ((NPC, "Hortense"), (GUILD, "Smith"))],
+        [{**seen, "entity_id": NPC, "name": "Hortense", **at}, {**seen, "entity_id": GUILD, "name": "Smith"}],
     )
     names = (STEW, "Quadav Stew"), (ORE, "Iron Ore"), (INGOT, "Steel Ingot")
     named = [{"release": release, "kind": "item", "log_id": 0, "id": i, "name": n} for i, n in names]
@@ -79,6 +80,5 @@ def test_the_shops_index_gives_each_npc_its_lists_items_openings_and_last_captur
         ("Bastok Markets", "Smith", ["guild_buys", "guild_sells"], 2, 1, 1, 2000, 2000, "a"),
     ]  # fmt: skip
     assert [r["item_names"] for r in ask(con, "shop_npcs")] == [["Quadav Stew"], ["Iron Ore", "Steel Ingot"]]
-    # The NPC card's rows say when each item was last listed.
-    stew = next(r for r in ask(con, "npc_zone_shops", zone=ZONE) if r["item_name"] == "Quadav Stew")
-    assert (stew["last"], stew["last_capture"]) == (9000, "a")
+    # Where the NPC stands: the middle of where its captures saw it; none when they never did.
+    assert [r["pos"] for r in ask(con, "shop_npcs")] == [[-10.5, 2.0, -40.0], []]
