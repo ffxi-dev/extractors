@@ -7,6 +7,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import pyarrow as pa
 
@@ -19,6 +20,9 @@ class Column:
     name: str
     type: pa.DataType | None  # None in a derived unit's table, whose SQL sets the types
     doc: str
+    null: bool = True  # whether a row may have no value
+    low: bool = False  # few distinct values, which ClickHouse keeps as a dictionary (LowCardinality)
+    ch: str | None = None  # the ClickHouse type as written, for one pyarrow has no match for
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,7 @@ class Table:
     columns: tuple[Column, ...]
     order: str = "capture_id, idx"  # an extractor table's ORDER BY; a derived table takes Derived.order
     indexes: tuple[str, ...] = ()  # skip indexes, as ClickHouse's ADD INDEX takes them
+    engine: str = "MergeTree"
 
 
 # Where Lens opens a capture: append the capture id, then "#packet=" and the packet's idx.
@@ -35,17 +40,28 @@ LENS = "https://lens.sruon.dev/c/"
 
 # Every extractor row carries these, before its own columns.
 COMMON = (
-    Column("capture_id", pa.string(), "The Mogsafe capture the row came from."),
+    Column("capture_id", pa.string(), "The Mogsafe capture the row came from.", null=False),
     Column(
         "idx",
         pa.int64(),
         "The packet the row came from: its position in the capture, as Lens's #packet= counts.",
+        null=False,
     ),
-    Column("ts_ms", pa.int64(), "That packet's time, Unix milliseconds UTC."),
+    Column("ts_ms", pa.int64(), "That packet's time, Unix milliseconds UTC.", null=False),
     Column(
-        "client_version", pa.string(), "The capture's client version; ids are as that version numbers them."
+        "client_version",
+        pa.string(),
+        "The capture's client version; ids are as that version numbers them.",
+        null=False,
+        low=True,
     ),
 )
+
+
+def arrow(table: Table, values: dict[str, Any]) -> pa.Table:
+    """A table's rows from a list per column, each typed as the table declares it."""
+    return pa.table({c.name: pa.array(values[c.name], c.type) for c in table.columns})
+
 
 Emit = Callable[..., dict]  # emit(table, packet, **values) -> the row
 
