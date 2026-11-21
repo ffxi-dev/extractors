@@ -290,8 +290,7 @@ s AS (
 ),
 k AS (
   SELECT f.capture_id AS capture_id, f.mob_id AS mob_id, f.fidx AS fidx, k.idx AS kill_idx,
-    k.ts_ms AS kill_ms, k.claimed_by_party AS claimed_by_party, k.th_level AS th_level, k.gil AS gil,
-    k.players AS players
+    k.ts_ms AS kill_ms, k.claimed_by_party AS claimed_by_party, k.th_level AS th_level, k.gil AS gil
   FROM fk f ASOF JOIN kl k ON k.capture_id = f.capture_id AND k.mob_id = f.mob_id AND k.idx <= f.end_idx
   WHERE k.idx >= f.fidx
 ),
@@ -402,7 +401,7 @@ SELECT f.capture_id AS capture_id, f.idx AS idx, f.ts_ms AS ts_ms, f.client_vers
   f.actions AS actions, ck.coarse AS coarse,
   k.claimed_by_party AS claimed, k.th_level AS th_level,
   coalesce(k.th_level, if(f.zone_id IN {TH_ZONES}, NULL, t.th)) AS th,
-  k.gil AS gil, k.players AS players, if(f.zone_id IN {TH_ZONES}, NULL, t.gf) AS gf,
+  k.gil AS gil, if(f.zone_id IN {TH_ZONES}, NULL, t.gf) AS gf,
   coalesce(hh.held, []) AS held, coalesce(hz.capture_id, '') != '' AS held_known,
   h.hp_min AS hp_min, h.hp_max AS hp_max, h.contradictions > 0 AS hp_shaky,
   h.regen AS hp_regen, h.regen_rate AS hp_regen_rate, h.healing AS hp_healing,
@@ -447,8 +446,9 @@ class Bestiary(Derived):
     # 12: skillchains; 13: tp ready, coarse; 14: cast_times; 15: th; 16: held, held_known; 17: skill_delays;
     # 18: tp shadows; 19: skillchains apart by capture; 20: skillchains exposed to the day or weather;
     # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first;
-    # 23: no world in fight_key; 24: first_swings; 25: gil, players, gf
-    version = 25
+    # 23: no world in fight_key; 24: first_swings; 25: gil, players, gf; 26: gil whole, from the pool, so no
+    # players
+    version = 26
     doc = (
         "One row of facts per fight, from the combat, mob, and loot tables, for the mob pages: HP, delay, TP"
         " moves, spells, drops, and elemental resistance (EEM) from skillchains."
@@ -516,8 +516,7 @@ class Bestiary(Derived):
                     " highest that the recorder (THF trait and gear), its trusts, and its pets brought when"
                     " no one else acted on it. None when unknown.",
                 ),
-                Column("gil", None, "For a defeat: the recorder's share of its gil (kills.gil)."),
-                Column("players", None, "For a defeat: the other players sharing its gil (kills.players)."),
+                Column("gil", None, "For a defeat: the gil it gave, whole (kills.gil)."),
                 Column(
                     "gf",
                     None,

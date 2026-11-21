@@ -6,16 +6,18 @@ from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Tab
 TH_UP = (
     603  # LSB msg_basic TreasureHunterUp: "Treasure Hunter effectiveness against <target> increases to <n>"
 )
-GIL = 565  # "<target> obtains <gil>.": the character's share of a defeated mob's gil
-GIL_MS = 10_000  # it comes after the defeat and the experience, within this
+# A defeated mob's gil comes with its treasure pool entry (0x0D2's Gold, LSB: "Gil Found"), whole, before the
+# party splits it, and goes into the bags with no message. The pool comes with the defeat or soon after.
+GIL_MS = 60_000
 
 
 class Kills(Extractor):
     name = "kills"
-    version = 4  # 2: a captain log names the character by its 0x037; 3: a despawn clears the claim and TH,
-    # and the party follows 0x0E2 and 0x0C8; 4: gil and players
+    version = 5  # 2: a captain log names the character by its 0x037; 3: a despawn clears the claim and TH,
+    # and the party follows 0x0E2 and 0x0C8; 4: gil and players, from 565; 5: gil from the pool's Gold, which
+    # is the whole find (565 after a defeat is a training regime's reward), so no players
     doc = "Each mob defeat the capture saw, with its claim and Treasure Hunter level."
-    reads = frozenset({(0, 0x028), (0, 0x029), (0, 0x00E), (0, 0x00A)})
+    reads = frozenset({(0, 0x028), (0, 0x029), (0, 0x00E), (0, 0x00A), (0, 0x0D2)})
     tables = (
         Table(
             "kills",
@@ -47,14 +49,9 @@ class Kills(Extractor):
                 Column(
                     "gil",
                     pa.int64(),
-                    f"The gil the character obtained for it (message {GIL}, within {GIL_MS // 1000} s of a"
-                    " defeat by the character, its party, or their claim): its share, the party splitting it;"
-                    " none if none came.",
-                ),
-                Column(
-                    "players",
-                    pa.int32(),
-                    "Other players in the character's party and alliance at the defeat: they share its gil.",
+                    "The gil it gave, whole, before the party splits it: the Gold of its treasure pool entry"
+                    f" (0x0D2) within {GIL_MS // 1000} s of a defeat by the character, its party, or their"
+                    " claim. None if no entry carried any.",
                 ),
                 Column("message", pa.int32(), "6 (defeats) or 20 (falls to the ground)."),
                 Column("zone_id", pa.int32(), "The zone."),
@@ -66,7 +63,7 @@ class Kills(Extractor):
         self.th: dict[int, int] = {}  # mob id -> highest Treasure Hunter level seen
         self.claims: dict[int, int] = {}  # mob id -> last claimer; an update may clear it before the defeat
         self.resends = combat.Resends()
-        self.ours: dict | None = None  # the last defeat by the character, its party, or their claim
+        self.ours: dict[int, dict] = {}  # mob id -> its last defeat by the character, its party, their claim
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         if p.opcode == 0x00A:
@@ -81,6 +78,12 @@ class Kills(Extractor):
             elif f("SendFlg.ClaimStatus") and (claim := f("BtTargetID")):
                 self.claims[uid] = claim
             return
+        # One entry of a defeat's pool carries the gold; one seen again at a zone-in is old (Entry 1).
+        if p.opcode == 0x0D2:
+            row = self.ours.get(f("TargetUniqueNo"))
+            if (gold := f("Gold")) and not f("Entry") and row and p.ts_ms - row["ts_ms"] <= GIL_MS:
+                row["gil"] = gold
+            return
         if self.resends.is_resend(p):
             return
         if p.opcode == 0x028:
@@ -91,11 +94,6 @@ class Kills(Extractor):
                             self.th[target_id] = max(self.th.get(target_id, 0), x["value"] or 0)
             return
         mob_id, msg = f("UniqueNoTar"), f("MessageNum")
-        if msg == GIL and mob_id == world.character_id:
-            row = self.ours
-            if row and row["gil"] is None and p.ts_ms - row["ts_ms"] <= GIL_MS:
-                row["gil"] = f("Data")
-            return
         if not combat.is_mob(mob_id):
             return
         if msg == TH_UP:
@@ -104,10 +102,9 @@ class Kills(Extractor):
             killer = f("UniqueNoCas")
             claim = self.claims.pop(mob_id, None)
             killer = killer if msg == 6 and killer != mob_id else None
-            players = sum(1 for m in world.party if m != world.character_id and m >> 24 == 0)  # no trusts
             row = emit("kills", p, mob_id=mob_id, killer_id=killer, claim_id=claim,
                        claimed_by_party=world.claimed_by_party(claim) if claim else None,
-                       th_level=self.th.pop(mob_id, None), gil=None, players=players, message=msg,
+                       th_level=self.th.pop(mob_id, None), gil=None, message=msg,
                        zone_id=world.zone)  # fmt: skip
             if world.claimed_by_party(killer) or world.claimed_by_party(claim):
-                self.ours = row
+                self.ours[mob_id] = row

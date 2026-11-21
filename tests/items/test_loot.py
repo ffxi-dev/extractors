@@ -43,21 +43,28 @@ def test_treasure_hunter_goes_up():
     assert [(k["th_level"], k["killer_id"]) for k in kills] == [(4, PLAYER), (None, None)]
 
 
-def gil(n):  # "Me obtains n gil."
-    return 0x029, {"UniqueNoCas": PLAYER, "UniqueNoTar": PLAYER, "MessageNum": 565, "Data": n}
+def pool(gold, item=0, entry=0, mob=MOB):  # a treasure pool entry: its item, and the gil found
+    return 0x0D2, {"TargetUniqueNo": mob, "TrophyItemNo": item, "TrophyItemNum": 1, "Gold": gold,
+                   "Entry": entry, "TrophyItemIndex": 0}  # fmt: skip
 
 
-def test_a_defeat_keeps_the_characters_share_of_its_gil():
-    """After the defeat and the experience the character obtains its share of the gil: the party, here one
-    other player, splits it."""
-    exp = (0x029, {"UniqueNoCas": PLAYER, "UniqueNoTar": PLAYER, "MessageNum": 8, "Data": 120})
-    (k,) = drive(Kills, claim(MEMBER), defeat(MEMBER), exp, gil(37))["kills"]
-    assert (k["gil"], k["players"]) == (37, 1)
-    # A stranger's kill gives the character none: gil just after it is not its.
-    (k,) = drive(Kills, claim(STRANGER), defeat(STRANGER), gil(500))["kills"]
+def message(n, value=0):  # a battle message to the character
+    return 0x029, {"UniqueNoCas": PLAYER, "UniqueNoTar": PLAYER, "MessageNum": n, "Data": value}
+
+
+def test_a_defeats_gil_is_its_pool_entrys_gold():
+    """pMkYUwlKkvqN: the mob's pool entry carries the gil found (Gold 114), whole, with no item, and no
+    message gives it. A training regime's reward (558, 559, then 565 for 575 gil, cDWPYenpUzfI) is not the
+    mob's: kills 4 took it."""
+    regime = (message(558, 2), message(559), message(565, 575))
+    (k,) = drive(Kills, claim(MEMBER), defeat(MEMBER), *regime, pool(114))["kills"]
+    assert k["gil"] == 114
+    (k,) = drive(Kills, claim(PLAYER), defeat(PLAYER), *regime)["kills"]
     assert k["gil"] is None
-    # Nor is gil long after the defeat, from a chest or a sale.
-    (k,) = drive(Kills, claim(PLAYER), defeat(PLAYER), gil(80), times=[0, 1000, 15_000])["kills"]
+    # Another's kill, and the pool sent again at a zone-in, give none.
+    (k,) = drive(Kills, claim(STRANGER), defeat(STRANGER), pool(500))["kills"]
+    assert k["gil"] is None
+    (k,) = drive(Kills, claim(PLAYER), defeat(PLAYER), pool(80, item=4097, entry=1))["kills"]
     assert k["gil"] is None
 
 
