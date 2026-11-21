@@ -40,15 +40,18 @@ def links_to(x: str, k: str) -> str:
 
 
 # What started each engage, first match wins: the character's own action on the mob in the 30 s before; a
-# party member's, trust's, or pet's; a stranger's, or the mob already fighting someone. Else the mob started
-# it: a link when a mob of its name or model engaged under 10 s before within 15 yalms, in a fight someone
-# pulled or a link joined (k.started), and it went for someone; else an aggro on whomever it acted on first,
-# if before anyone answered it and not claimed by the other side. Mobs that aggro side by side are each an
-# aggro, not a link.
+# party member's, trust's, or pet's; a stranger's, or the mob already fighting someone; or a claim that came
+# with the engage, someone's pull the character did not see: a mob that aggroes is claimed when it hits or
+# is hit, after it engaged (0.3% of aggros on the character start claimed, 62% of its pulls). Else the mob
+# started it: a link when a mob of its name or model engaged under 10 s before within 15 yalms, in a fight
+# someone pulled or a link joined (k.started), and it went for someone; else an aggro on whomever it acted on
+# first, if before anyone answered it and not claimed by the other side. Mobs that aggro side by side are
+# each an aggro, not a link.
 KIND = f"""multiIf(
   me_action_id IN {PROVOKE}, 'pull_recorder',
   party_ms IS NOT NULL, 'pull_party',
   other_ms IS NOT NULL OR mob_acted_ms IS NOT NULL, 'other',
+  claim_ms = 0, 'other',
   coalesce(k.started AND {links_to("a", "k")}, false)
     AND (first_ms IS NOT NULL OR claimer_id IS NOT NULL), 'link',
   first_ms IS NULL OR first_ms > coalesce(answered_ms, first_ms), 'other',
@@ -119,7 +122,8 @@ COLUMNS = (
 
 class Aggro(Derived):
     name = "aggro"
-    version = 3  # 3: links only into a pulled fight; aggro_other
+    # 3: links only into a pulled fight; aggro_other; 4: an engage that starts claimed is no aggro
+    version = 4
     doc = "Each engage of an idle mob, sorted into an aggro, a link, a pull, or another's."
     reads = frozenset({"decode", "engages", "levels", "character", "entity_changes", "actions"})
     order = "zone_id, mob_name, ts_ms"  # a mob page reads its mob's rows
@@ -139,7 +143,7 @@ class Aggro(Derived):
                     " character; on its party, a trust, or a pet; or on a stranger), link (it started within"
                     " 15 yalms of a mob of its name or model engaged under 10 s before, in a fight someone"
                     " pulled or a link joined), pull_recorder or pull_party (they acted on it in the 30 s"
-                    " before), or other (a stranger acted on it first, or no telling).",
+                    " before), or other (a stranger acted on it first, it started claimed, or no telling).",
                 ),
                 Column(
                     "clean",

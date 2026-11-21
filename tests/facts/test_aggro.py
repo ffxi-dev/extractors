@@ -248,6 +248,9 @@ def test_each_engage_is_sorted_by_what_started_it(con):
             "link_distance": 5.0,
             "link_ms": 2000,
         },
+        # M4QccBXRGdjC's Locus Colibri: claimed by a stranger as it engaged, then went for them. The stranger
+        # pulled it from out of the character's sight; it was no aggro.
+        {"idx": 16, "ts_ms": 500_000, **stranger, "claim_ms": 0},
     )
     got = records(
         con,
@@ -270,6 +273,7 @@ def test_each_engage_is_sorted_by_what_started_it(con):
         "aggro_recorder",
         "other",
         "link",
+        "other",
     ]
     assert tuple(got[0].values())[2:] == ("Forest Hare", 12, "widescan", 20, "outdoors", True)
     # The crab's fight was not the only one on; the first of the side by side hares is clean.
