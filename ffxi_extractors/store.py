@@ -16,7 +16,11 @@ from urllib.parse import urlsplit, urlunsplit
 import clickhouse_connect
 import pyarrow as pa
 
-LENS = "https://lens.sruon.dev/c/"
+from ffxi_extractors.extract import LENS
+from ffxi_extractors.extractors import ALL
+from ffxi_extractors.facts import DERIVED
+from ffxi_extractors.facts.bestiary_mobs import VIEWS, partners, reroll
+
 LOCAL = "http://ffxi:ffxi@127.0.0.1:8123/ffxi"  # compose.yaml's
 TYPES = {
     pa.string(): "String", pa.int32(): "Int32", pa.int64(): "Int64", pa.bool_(): "Bool",
@@ -76,17 +80,6 @@ BASE = {
 DECODE = ("captures", "sessions", "sizes", "zone_visits", "activity")
 # The tables of units that are not extractors or derived facts: the decoder, and any a caller adds.
 UNITS = {"decode": DECODE}
-# An extractor table sorted other than by capture and packet.
-ORDER = {"entity_changes": "entity_id, capture_id, idx"}
-# Indexes that skip the blocks without a value: a move among every capture's actions; and in bestiary_fights,
-# which is sorted by mob, one capture's fights and the copies of a fight.
-INDEXES = {
-    "actions": ("action action_id TYPE bloom_filter GRANULARITY 1",),
-    "bestiary_fights": (
-        "capture capture_id TYPE bloom_filter GRANULARITY 1",
-        "fight fight_key TYPE bloom_filter GRANULARITY 1",
-    ),
-}
 SQL = Path(__file__).parent / "sql"
 
 
@@ -147,9 +140,6 @@ SETTINGS = {
 def setup(con) -> None:
     """Make every table, view, function, and dictionary the units need, and add the columns a new extractor
     version brings. Derived tables come from their SQL."""
-    from ffxi_extractors.extractors import ALL
-    from ffxi_extractors.facts import DERIVED
-
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
         raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
@@ -160,12 +150,11 @@ def setup(con) -> None:
     for x in ALL:
         for t in x.tables:
             cols = [(c.name, _type(c.type)) for c in t.columns]
-            order = ORDER.get(t.name, "capture_id, idx")
-            _create(con, t.name, COMMON + "".join(f", `{c}` {typ}" for c, typ in cols) + lens, order)
+            _create(con, t.name, COMMON + "".join(f", `{c}` {typ}" for c, typ in cols) + lens, t.order)
             for c, typ in cols:
                 if (t.name, c) not in have:
                     con.command(f"ALTER TABLE {t.name} ADD COLUMN IF NOT EXISTS `{c}` {typ}")
-            for index in INDEXES.get(t.name, ()):
+            for index in t.indexes:
                 con.command(f"ALTER TABLE {t.name} ADD INDEX IF NOT EXISTS {index}")
     script(con, "setup.sql")
     for d in DERIVED:
@@ -175,8 +164,6 @@ def setup(con) -> None:
 
 def views(con) -> None:
     """The bestiary's views, made again from this code, so a changed definition or table takes effect."""
-    from ffxi_extractors.facts.bestiary_mobs import VIEWS
-
     for view in ("bestiary_list", "bestiary"):
         con.command(f"DROP VIEW IF EXISTS {view} SYNC")
     for statement in VIEWS:
@@ -220,14 +207,11 @@ def create_derived(con, d, name: str) -> None:
         if c not in have:
             con.command(f"ALTER TABLE {name} ADD COLUMN `{c}` {typ} {after}")
         after = f"AFTER `{c}`"
-    for index in INDEXES.get(d.tables[0].name, ()):
+    for index in d.tables[0].indexes:
         con.command(f"ALTER TABLE {name} ADD INDEX IF NOT EXISTS {index}")
 
 
 def tables_of(unit: str) -> tuple[str, ...]:
-    from ffxi_extractors.extractors import ALL
-    from ffxi_extractors.facts import DERIVED
-
     if unit in UNITS:
         return UNITS[unit]
     for x in (*ALL, *DERIVED):
@@ -316,8 +300,6 @@ def fail(con, capture_id: str, versions: dict[str, str], decoder: str, error: st
 def drop(con, capture_id: str) -> None:
     """Remove every row of a capture: its runs, trust, and share of the mob pages with it. A fight it
     held a copy of counts in another capture's copy."""
-    from ffxi_extractors.facts.bestiary_mobs import partners, reroll
-
     others = partners(con, [capture_id])
     for (t,) in rows(
         con,
@@ -333,8 +315,6 @@ def trust(con, levels: list[tuple[str, str | None]]) -> None:
     """Mogsafe's trust level for each (capture, level), in one insert: gold, silver, bronze, plain or flagged;
     None forgets it. A mob page leaves out Flagged captures at once. A capture flagged or no longer
     flagged writes again its mob roll-up and its partners', whose copies it stops or starts counting."""
-    from ffxi_extractors.facts.bestiary_mobs import partners, reroll
-
     if levels:
         sql = "SELECT capture_id, trust FROM capture_trust FINAL WHERE capture_id IN {c:Array(String)}"
         before = dict(rows(con, sql, {"c": [c for c, _ in levels]}))
@@ -346,5 +326,5 @@ def trust(con, levels: list[tuple[str, str | None]]) -> None:
         reroll(con, changed + partners(con, changed))
 
 
-def levels(con) -> dict[str, str]:
+def trust_levels(con) -> dict[str, str]:
     return dict(rows(con, "SELECT capture_id, trust FROM capture_trust FINAL WHERE trust IS NOT NULL"))

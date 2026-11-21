@@ -1,5 +1,4 @@
-from ffxi_extractors.extract import ONE, Column, Derived, Table
-from ffxi_extractors.store import LENS
+from ffxi_extractors.extract import LENS, ONE, Column, Derived, Table
 
 FLAGGED = "(SELECT capture_id FROM capture_trust FINAL WHERE trust = 'flagged')"
 MOVE = "{move:UInt32}"  # tp_move_figures' parameter: 0 for every move
@@ -227,9 +226,7 @@ class BestiaryMobs(Derived):
 
 
 def partners(con, captures: list[str]) -> list[str]:
-    from ffxi_extractors.store import rows
-
-    return [c for (c,) in rows(con, PARTNERS, {"c": captures})] if captures else []
+    return [c for (c,) in con.query(PARTNERS, parameters={"c": captures}).result_rows] if captures else []
 
 
 def reroll(con, captures) -> None:

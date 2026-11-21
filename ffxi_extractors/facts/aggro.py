@@ -5,17 +5,17 @@ from ffxi_extractors.extractors.battle.engages import Engages
 PROVOKE = (2, 3, 7, 9, 15, 16)
 
 
-def source(table: str) -> tuple[Column, ...]:
+def engage_columns(table: str) -> tuple[Column, ...]:
     """An engages table's own columns, as a derived table lists them."""
     (t,) = (t for t in Engages.tables if t.name == table)
     return tuple(Column(c.name, None, c.doc) for c in t.columns)
 
 
-def named(table: str) -> str:
+def with_context(table: str) -> str:
     """table's rows with the mob's name as the bestiary spells it, the mob's level in that life, the
     character's level, the zone's type, and whether the capture's times are whole seconds (COARSE)."""
     life = "l.end_idx IS NULL OR l.end_idx >= e.idx"
-    cols = ", ".join(f"e.{c.name} AS {c.name}" for c in (*COMMON, *source(table)))
+    cols = ", ".join(f"e.{c.name} AS {c.name}" for c in (*COMMON, *engage_columns(table)))
     return f"""
 SELECT {cols}, n.entity_name AS mob_name, n.model_id AS model_id, if({life}, l.level, NULL) AS mob_level,
   if({life}, l.source, NULL) AS level_source, c.main_level AS recorder_level,
@@ -31,7 +31,7 @@ LEFT JOIN {COARSE} k ON k.capture_id = e.capture_id
 LEFT JOIN zone_types z ON z.zone_id = e.zone_id"""
 
 
-def joined(x: str, k: str) -> str:
+def links_to(x: str, k: str) -> str:
     """x engaged under 10 s after k, within 15 yalms of it, and k is of its name or model."""
     return (
         f"{x}.link_ms < 10000 AND {x}.link_distance < 15"
@@ -49,7 +49,7 @@ KIND = f"""multiIf(
   me_action_id IN {PROVOKE}, 'pull_recorder',
   party_ms IS NOT NULL, 'pull_party',
   other_ms IS NOT NULL OR mob_acted_ms IS NOT NULL, 'other',
-  coalesce(k.started AND {joined("a", "k")}, false)
+  coalesce(k.started AND {links_to("a", "k")}, false)
     AND (first_ms IS NOT NULL OR claimer_id IS NOT NULL), 'link',
   first_ms IS NULL OR first_ms > coalesce(answered_ms, first_ms), 'other',
   claimer_party != first_target_party, 'other',
@@ -63,7 +63,7 @@ KIND = f"""multiIf(
 PULLED = f"(me_action_id IN {PROVOKE} OR party_ms IS NOT NULL OR other_ms IS NOT NULL)"
 
 
-def on(k: str, x: str) -> str:
+def link_join(k: str, x: str) -> str:
     """k is the engage x took for the one it linked to."""
     return (
         f"{k}.capture_id = {x}.capture_id AND {k}.mob_id = {x}.link_mob_id"
@@ -72,8 +72,8 @@ def on(k: str, x: str) -> str:
 
 
 STARTED = f"""SELECT x.capture_id, x.mob_id, x.ts_ms, x.mob_name, x.model_id,
-    x.pulled OR (q.pulled AND {joined("x", "q")}) AS started
-  FROM p x LEFT JOIN p q ON {on("q", "x")}"""
+    x.pulled OR (q.pulled AND {links_to("x", "q")}) AS started
+  FROM p x LEFT JOIN p q ON {link_join("q", "x")}"""
 
 # A row the range and facing figures can trust, as a first measure over 875 captures chose them: outside
 # instances, a mob seen 5 s or more, the character's position under 1 s old, and times finer than whole
@@ -85,12 +85,12 @@ PLACED = (
 CLEAN = f"kind = 'aggro_recorder' AND link_mob_id IS NULL AND {PLACED}"
 
 SQL = f"""
-WITH a AS ({named("mob_engages")}),
+WITH a AS ({with_context("mob_engages")}),
 p AS (SELECT capture_id, mob_id, ts_ms, mob_name, model_id, link_mob_id, link_ms, link_distance,
   {PULLED} AS pulled FROM a)
 SELECT *, {CLEAN} AS clean FROM (
   SELECT a.*, {KIND} AS kind FROM a
-  LEFT JOIN ({STARTED}) k ON {on("k", "a")}
+  LEFT JOIN ({STARTED}) k ON {link_join("k", "a")}
 )
 """
 
@@ -130,7 +130,7 @@ class Aggro(Derived):
             "One row per mob_engages row, with the mob named, the levels, the zone's type, and what started"
             " it. Party copies of one engage are in each recorder's capture, each from its own view.",
             (
-                *source("mob_engages"),
+                *engage_columns("mob_engages"),
                 *COLUMNS,
                 Column(
                     "kind",
@@ -159,13 +159,13 @@ class AggroPasses(Derived):
     doc = "Each time the character passed an idle mob that did not engage, with the mob named."
     reads = frozenset({"decode", "engages", "levels", "character", "entity_changes", "actions"})
     order = "zone_id, mob_name, ts_ms"
-    sql = f"SELECT *, {PLACED} AS clean FROM ({named('mob_passes')})"
+    sql = f"SELECT *, {PLACED} AS clean FROM ({with_context('mob_passes')})"
     tables = (
         Table(
             "aggro_passes",
             "One row per mob_passes row, named as aggro's.",
             (
-                *source("mob_passes"),
+                *engage_columns("mob_passes"),
                 *COLUMNS,
                 Column("clean", None, "Whether the figures count it, as aggro's but for the kind."),
             ),

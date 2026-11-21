@@ -26,7 +26,12 @@ class Table:
     name: str
     doc: str
     columns: tuple[Column, ...]
+    order: str = "capture_id, idx"  # an extractor table's ORDER BY; a derived table takes Derived.order
+    indexes: tuple[str, ...] = ()  # skip indexes, as ClickHouse's ADD INDEX takes them
 
+
+# Where Lens opens a capture: append the capture id, then "#packet=" and the packet's idx.
+LENS = "https://lens.sruon.dev/c/"
 
 # Every extractor row carries these, before its own columns.
 COMMON = (
@@ -74,7 +79,9 @@ class Sink:
         self.written = 0
 
     def emit(self, table: str, p: Packet | None, **values) -> dict:
-        """Add a row; it is returned so an extractor can fill in a value a later packet gives."""
+        """Add a row; it is returned so an extractor can fill in a value a later packet gives. A row the
+        extractor still holds is written at the end, or once it lets go; one it holds to the end is never
+        written early, so FLUSH bounds only the rows it is done with."""
         row = dict(self.base, idx=p.idx if p else None, ts_ms=p.ts_ms if p else None)
         row.update(values)
         self.rows[table].append(row)

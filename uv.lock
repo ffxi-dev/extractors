@@ -76,7 +76,7 @@ wheels = [
 
 [[package]]
 name = "ffxi-extractors"
-version = "2.0.0"
+version = "3.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "clickhouse-connect" },
@@ -94,10 +94,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "clickhouse-connect", specifier = "==1.12.0" },
+    { name = "clickhouse-connect", specifier = ">=1.12,<2" },
     { name = "ffxi-packets", git = "https://github.com/ffxi-dev/packets?tag=v1.6.0" },
-    { name = "numpy", specifier = "==2.5.4" },
-    { name = "pyarrow", specifier = "==26.0.0" },
+    { name = "numpy", specifier = ">=2.5,<3" },
+    { name = "pyarrow", specifier = ">=26,<27" },
     { name = "xicap", git = "https://github.com/ffxi-dev/xicap?subdirectory=bindings%2Fpython&tag=v7.2.0" },
 ]
 

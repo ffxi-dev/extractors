@@ -577,5 +577,9 @@ class Bestiary(Derived):
                 Column("respawn_z", None, "Where it appeared."),
                 Column("respawn_idx", None, "The packet it appeared in."),
             ),
+            indexes=(
+                "capture capture_id TYPE bloom_filter GRANULARITY 1",
+                "fight fight_key TYPE bloom_filter GRANULARITY 1",
+            ),
         ),
     )

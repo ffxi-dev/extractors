@@ -35,7 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     for f in a.captures:
         try:
             rows = run(con, f, names=names)
-        except Skipped as e:
+        except Skipped as e:  # skipped partway, past the packets it may read: keep none of it
+            store.drop(con, f.stem)
             print(f"{f}: {e}", file=sys.stderr)
             continue
         print(f"{f.stem}: {sum(rows.values()):,} rows")

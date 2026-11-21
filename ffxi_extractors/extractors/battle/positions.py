@@ -8,7 +8,7 @@ class Places:
     position: NPCs, mobs, and trusts (0x00E), other players (0x00D), the character (0x015, zone-in), HP% from
     those and the party's (0x0DD, 0x0DF)."""
 
-    READS = frozenset({(0, 0x00A), (0, 0x00E), (0, 0x00D), (0, 0x0DD), (0, 0x0DF), (1, 0x015)})
+    reads = frozenset({(0, 0x00A), (0, 0x00E), (0, 0x00D), (0, 0x0DD), (0, 0x0DF), (1, 0x015)})
 
     def __init__(self):
         self.pos: dict[int, tuple[float, float, float]] = {}  # entity id -> last x, y, z
@@ -20,7 +20,7 @@ class Places:
         self.me_at = 0
 
     def update(self, p, f) -> bool:
-        """Keep what p says; True when p is one of READS."""
+        """Keep what p says; True when p is one of reads."""
         key = (p.direction, p.opcode)
         if key == (0, 0x00A):
             for d in (self.pos, self.at, self.dir, self.size, self.hpp):

@@ -94,7 +94,7 @@ class Fights(Extractor):
         elif op == 0x028:
             if self.resends.is_resend(p):
                 return
-            a = combat.read(f)
+            a = combat.action(f)
             actor = a["actor_id"]
             targets = {t for t, _ in a["targets"] if t is not None}
             # Only actions between a mob and someone else open or extend a fight: a mob buffing itself or a
