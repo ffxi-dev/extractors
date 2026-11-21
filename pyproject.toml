@@ -9,7 +9,7 @@ requires-python = ">=3.13,<3.14"
 # rest exactly, and a project that installs this one may resolve them within these ranges.
 dependencies = [
     "clickhouse-connect>=1.12,<2",
-    "ffxi-packets==1.6.0",
+    "ffxi-packets==2.0.0",
     "numpy>=2.5,<3",
     "pyarrow>=26,<27",
     "xicap>=7.2,<8",
@@ -23,7 +23,7 @@ dev = ["mypy==1.18.2", "pytest==9.2.0", "ruff==0.17.3"]
 
 [tool.uv.sources]
 xicap = { git = "https://github.com/ffxi-dev/xicap", tag = "v7.2.0", subdirectory = "bindings/python" }
-ffxi-packets = { git = "https://github.com/ffxi-dev/packets", tag = "v1.6.0" }
+ffxi-packets = { git = "https://github.com/ffxi-dev/packets", tag = "v2.0.0" }
 
 [build-system]
 requires = ["hatchling==1.33.0"]
