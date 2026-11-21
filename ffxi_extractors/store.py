@@ -72,7 +72,8 @@ def connect(url: str | None = None, create: bool = False):
     con = clickhouse_connect.get_client(
         dsn=url, autogenerate_session_id=False, connect_timeout=30, send_receive_timeout=3600
     )
-    con.dsn = url  # for workers, which connect on their own
+    # The URL it connected to, for workers that connect on their own (Scholar's indexer passes it on).
+    con.dsn = url  # type: ignore[attr-defined]
     return con
 
 
