@@ -18,6 +18,12 @@ TH_PALS = (
     "Aldo", "Chacharoon", "Fablinix", "Jakoh", "LehkoHabhoka", "Lion", "Maximilian", "NanaaMihgo",
     "RomaaMihgo", "ArkMR", "Maat", "Margret", "ThreestarLynn", "DipperYuly", "FaithfulFalcorr",
 )  # fmt: skip
+# Gilfinder on the recorder's gear, by item id, from the client's item text: "Gilfinder"+n, and +1 for those
+# that "enhance" it.
+GF_GEAR = {
+    10715: 1, 14075: 1, 15122: 1, 15585: 1, 16277: 1, 23269: 3, 23604: 4, 24058: 4, 26197: 2, 27162: 2,
+    27163: 3, 27585: 1,
+}  # fmt: skip
 # Abyssea, where atma add it, and Adoulin's areas, where a Kupower can: no known level there.
 TH_ZONES = (15, 45, 132, 215, 216, 217, 218, 253, 254, *range(256, 276))
 
@@ -284,7 +290,8 @@ s AS (
 ),
 k AS (
   SELECT f.capture_id AS capture_id, f.mob_id AS mob_id, f.fidx AS fidx, k.idx AS kill_idx,
-    k.ts_ms AS kill_ms, k.claimed_by_party AS claimed_by_party, k.th_level AS th_level
+    k.ts_ms AS kill_ms, k.claimed_by_party AS claimed_by_party, k.th_level AS th_level, k.gil AS gil,
+    k.players AS players
   FROM fk f ASOF JOIN kl k ON k.capture_id = f.capture_id AND k.mob_id = f.mob_id AND k.idx <= f.end_idx
   WHERE k.idx >= f.fidx
 ),
@@ -293,6 +300,9 @@ k AS (
 -- support level) and its gear, capped at 8 on THF and 4 else, known once a zone-in sent every slot it wore. A
 -- trust's or pet's is 1 for those in TH_PALS, else 0. A party member's or a stranger's is unknown.
 -- ponytail: a THF proc no message showed, and BLU's set spells at 98, are unseen; the latter counts unknown.
+-- Gilfinder the same way: the recorder's THF trait (I from 5 main or support, II from 85 main) and gear, none
+-- known on BLU from 90, whose set spells can add it; 1 for each of TH_PALS, all THF or with the trait.
+-- ponytail: a Moghancement (Money) is unseen, so a level counts it as none.
 ta AS (
   SELECT DISTINCT k.capture_id AS capture_id, k.mob_id AS mob_id, k.fidx AS fidx, r.idx AS idx,
     r.actor_id AS actor
@@ -313,7 +323,8 @@ tw AS (
 tg AS (
   SELECT w.capture_id AS capture_id, w.idx AS idx,
     sum(transform(g.item_id, {list(TH_GEAR)}, {list(TH_GEAR.values())}, 0)) AS gear,
-    max(g.item_id IN {TH_AUGMENTABLE}) AS augmentable
+    max(g.item_id IN {TH_AUGMENTABLE}) AS augmentable,
+    sum(transform(g.item_id, {list(GF_GEAR)}, {list(GF_GEAR.values())}, 0)) AS gf_gear
   FROM (SELECT DISTINCT capture_id, idx, slot FROM tw ARRAY JOIN {list(SLOTS)} AS slot WHERE me) w
   ASOF LEFT JOIN (SELECT capture_id, slot, idx, item_id FROM character_gear WHERE {ONE}) g
     ON g.capture_id = w.capture_id AND g.slot = w.slot AND g.idx <= w.idx
@@ -327,11 +338,19 @@ te AS (
       w.sj = 'THF' AND w.sl >= 45, 2, w.sj = 'THF' AND w.sl >= 15, 1, 0)))),
     bitShiftRight(w.actor, 24) = 1 AND bitAnd(w.actor, 0xFFF) >= 0x700 AND w.name IS NOT NULL,
       toNullable(toInt64(arrayExists(p -> startsWith(w.name, p), {list(TH_PALS)}))),
-    NULL) AS th
+    NULL) AS th,
+    multiIf(
+    w.me AND (NOT w.zoned OR (w.mj = 'BLU' AND w.ml >= 90)), NULL,
+    w.me, toNullable(toInt64(g.gf_gear + multiIf(w.mj = 'THF' AND w.ml >= 85, 2,
+      (w.mj = 'THF' AND w.ml >= 5) OR (w.sj = 'THF' AND w.sl >= 5), 1, 0))),
+    bitShiftRight(w.actor, 24) = 1 AND bitAnd(w.actor, 0xFFF) >= 0x700 AND w.name IS NOT NULL,
+      toNullable(toInt64(arrayExists(p -> startsWith(w.name, p), {list(TH_PALS)}))),
+    NULL) AS gf
   FROM tw w LEFT JOIN tg g ON g.capture_id = w.capture_id AND g.idx = w.idx AND w.me
 ),
 tf AS (
-  SELECT capture_id, mob_id, fidx, if(countIf(th IS NULL) > 0, NULL, max(th)) AS th FROM te
+  SELECT capture_id, mob_id, fidx, if(countIf(th IS NULL) > 0, NULL, max(th)) AS th,
+    if(countIf(gf IS NULL) > 0, NULL, max(gf)) AS gf FROM te
   GROUP BY capture_id, mob_id, fidx
 ),
 -- The Rare items the recorder held at each defeat, its bags' slots as they stood then, the Recycle Bin (17)
@@ -383,6 +402,7 @@ SELECT f.capture_id AS capture_id, f.idx AS idx, f.ts_ms AS ts_ms, f.client_vers
   f.actions AS actions, ck.coarse AS coarse,
   k.claimed_by_party AS claimed, k.th_level AS th_level,
   coalesce(k.th_level, if(f.zone_id IN {TH_ZONES}, NULL, t.th)) AS th,
+  k.gil AS gil, k.players AS players, if(f.zone_id IN {TH_ZONES}, NULL, t.gf) AS gf,
   coalesce(hh.held, []) AS held, coalesce(hz.capture_id, '') != '' AS held_known,
   h.hp_min AS hp_min, h.hp_max AS hp_max, h.contradictions > 0 AS hp_shaky,
   h.regen AS hp_regen, h.regen_rate AS hp_regen_rate, h.healing AS hp_healing,
@@ -427,8 +447,8 @@ class Bestiary(Derived):
     # 12: skillchains; 13: tp ready, coarse; 14: cast_times; 15: th; 16: held, held_known; 17: skill_delays;
     # 18: tp shadows; 19: skillchains apart by capture; 20: skillchains exposed to the day or weather;
     # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first;
-    # 23: no world in fight_key; 24: first_swings
-    version = 24
+    # 23: no world in fight_key; 24: first_swings; 25: gil, players, gf
+    version = 25
     doc = (
         "One row of facts per fight, from the combat, mob, and loot tables, for the mob pages: HP, delay, TP"
         " moves, spells, drops, and elemental resistance (EEM) from skillchains."
@@ -495,6 +515,14 @@ class Bestiary(Derived):
                     "For a defeat: its Treasure Hunter level where the capture tells it: th_level, else the"
                     " highest that the recorder (THF trait and gear), its trusts, and its pets brought when"
                     " no one else acted on it. None when unknown.",
+                ),
+                Column("gil", None, "For a defeat: the recorder's share of its gil (kills.gil)."),
+                Column("players", None, "For a defeat: the other players sharing its gil (kills.players)."),
+                Column(
+                    "gf",
+                    None,
+                    "For a defeat: its Gilfinder level where the capture tells it, as th: the recorder's THF"
+                    " trait and gear, its trusts, and its pets, when no one else acted on it; else none.",
                 ),
                 Column("hp_min", None, "The kill's least max HP (mob_hp)."),
                 Column("hp_max", None, "The kill's most max HP."),

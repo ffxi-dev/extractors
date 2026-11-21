@@ -43,6 +43,24 @@ def test_treasure_hunter_goes_up():
     assert [(k["th_level"], k["killer_id"]) for k in kills] == [(4, PLAYER), (None, None)]
 
 
+def gil(n):  # "Me obtains n gil."
+    return 0x029, {"UniqueNoCas": PLAYER, "UniqueNoTar": PLAYER, "MessageNum": 565, "Data": n}
+
+
+def test_a_defeat_keeps_the_characters_share_of_its_gil():
+    """After the defeat and the experience the character obtains its share of the gil: the party, here one
+    other player, splits it."""
+    exp = (0x029, {"UniqueNoCas": PLAYER, "UniqueNoTar": PLAYER, "MessageNum": 8, "Data": 120})
+    (k,) = drive(Kills, claim(MEMBER), defeat(MEMBER), exp, gil(37))["kills"]
+    assert (k["gil"], k["players"]) == (37, 1)
+    # A stranger's kill gives the character none: gil just after it is not its.
+    (k,) = drive(Kills, claim(STRANGER), defeat(STRANGER), gil(500))["kills"]
+    assert k["gil"] is None
+    # Nor is gil long after the defeat, from a chest or a sale.
+    (k,) = drive(Kills, claim(PLAYER), defeat(PLAYER), gil(80), times=[0, 1000, 15_000])["kills"]
+    assert k["gil"] is None
+
+
 ENTRY = {"TrophyItemNo": 1050, "TrophyItemNum": 1, "TargetUniqueNo": MOB, "TargetActIndex": 0x010,
          "TrophyItemIndex": 0, "StartTime": 1_777_000_000}  # fmt: skip
 
