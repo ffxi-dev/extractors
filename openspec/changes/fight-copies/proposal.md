@@ -11,7 +11,7 @@ Each split counts a fight twice on the mob pages: its HP, its drops, its TP move
 
 ## What Changes
 
-- **Instance by zone server first.** The instance is the zone server when the capture knows it, else the roster, else the capture. Two captures on one zone server are on one instance by definition, so the 33,004 pairs match. A capture that began inside the zone has no server and keeps the roster, as now. Of the 173,875 pairs the key matches today, 18 have a server on one side only and would split; 33,004 would merge.
+- **Instance by zone server first.** The instance is the zone server when the capture knows it, else the roster, else the capture. Two captures on one zone server are on one instance by definition, so the 33,004 pairs match. A capture that began inside the zone has no server and keeps the roster, as now: player ids are unique across servers, so a roster never joins two instances. Of the 173,875 pairs the key matches today, 18 have a server on one side only and would split; 33,004 would merge.
 - **Not now: the minute.** A window on end times cannot tell copies from a mob's next fight: copies end a median 105 ms apart but up to 58.7 s, while one capture's next fight on the same mob id comes within 4.2 s for 1% of fights and 26 s for 10%. Matching copies by overlapping fight intervals across captures would fix the 1,907; it is a larger change to the key, the owners, and the rerolls, so it waits until the instance change shows what is left.
 
 ## Capabilities
@@ -21,5 +21,5 @@ Each split counts a fight twice on the mob pages: its HP, its drops, its TP move
 
 ## Impact
 
-- `facts/bestiary.py`: the instance's order in `fight_key`; `bestiary` and `bestiary_mobs` versions bump, so Scholar rebuilds both.
-- Its pins on the fixtures move only if a fixture fight has both a roster and a server.
+- `facts/bestiary.py`: the instance's order in `fight_key`; `bestiary` goes to version 22, and `bestiary_mobs`, which reads it, re-runs with it.
+- `ffxi-packets` 2.0.0 rides along, as the owner asked: wider-than-53-bit integers come as decimal text, and `decode_column` refuses a layout whose offsets depend on the data.

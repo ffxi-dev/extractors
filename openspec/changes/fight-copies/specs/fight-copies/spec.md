@@ -11,4 +11,4 @@ The bestiary SHALL key each fight by the world, the zone, the mob, the minute it
 
 #### Scenario: A capture that began inside the zone
 - **WHEN** a capture has no zone server for the zone and its party recorded the fight in another capture
-- **THEN** the two copies match by roster, as before
+- **THEN** the two copies match by roster, as before, since player ids are unique across servers

@@ -277,6 +277,24 @@ def seen(con, cid, ends=(1000,), server=None, roster=None):
     run(con, None, cid, units={"bestiary", "bestiary_mobs"})
 
 
+def keys(con) -> set:
+    return {r["fight_key"] for r in records(con, "SELECT fight_key FROM bestiary_fights")}
+
+
+def test_recorders_on_one_zone_server_share_a_fight_whatever_their_rosters(con):
+    """On the archive, 33,004 pairs of copies on one zone server had two keys: the roster came first, and a
+    recorder outside the claiming party has another."""
+    seen(con, "a", server="1.2.3.4:54288", roster=[7, 8])
+    seen(con, "b", server="1.2.3.4:54288", roster=[9])
+    assert len(keys(con)) == 1
+
+
+def test_a_party_with_no_zone_server_still_shares_a_fight_by_its_roster(con):
+    seen(con, "a", roster=[7, 8])
+    seen(con, "b", roster=[7, 8])
+    assert len(keys(con)) == 1
+
+
 # 2.2, 2.5, 2.6 On the fixtures: the bestiary agrees with the capture view's card
 
 

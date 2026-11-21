@@ -96,7 +96,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "clickhouse-connect", specifier = ">=1.12,<2" },
-    { name = "ffxi-packets", git = "https://github.com/ffxi-dev/packets?tag=v1.6.0" },
+    { name = "ffxi-packets", git = "https://github.com/ffxi-dev/packets?tag=v2.0.0" },
     { name = "numpy", specifier = ">=2.5,<3" },
     { name = "pyarrow", specifier = ">=26,<27" },
     { name = "xicap", git = "https://github.com/ffxi-dev/xicap?subdirectory=bindings%2Fpython&tag=v7.2.0" },
@@ -111,8 +111,8 @@ dev = [
 
 [[package]]
 name = "ffxi-packets"
-version = "1.6.0"
-source = { git = "https://github.com/ffxi-dev/packets?tag=v1.6.0#89b28f10ca75d53ebca6177d90555245bbda542a" }
+version = "2.0.0"
+source = { git = "https://github.com/ffxi-dev/packets?tag=v2.0.0#5210178e35153fccc33ee25e914a83a55be2caba" }
 dependencies = [
     { name = "numpy" },
 ]
