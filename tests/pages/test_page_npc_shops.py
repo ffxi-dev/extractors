@@ -21,11 +21,9 @@ def setup(con, cid, items, actions=(), release="r"):
         [{**seen, "entity_id": e, "name": n} for e, n in ((NPC, "Hortense"), (GUILD, "Smith"))],
     )
     names = (STEW, "Quadav Stew"), (ORE, "Iron Ore"), (INGOT, "Steel Ingot")
-    put(
-        con,
-        "names",
-        [{"release": release, "kind": "item", "log_id": 0, "id": i, "name": n} for i, n in names],
-    )
+    named = [{"release": release, "kind": "item", "log_id": 0, "id": i, "name": n} for i, n in names]
+    zone = {"release": release, "kind": "zone", "log_id": 0, "id": ZONE, "name": "Bastok Markets"}
+    put(con, "names", [*named, zone])
     base = {"capture_id": cid, "client_version": "v", "zone_id": ZONE}
     if items:
         put(con, "shop_items", [{**base, **r} for r in items])
@@ -65,3 +63,17 @@ def test_the_catalog_gives_prices_by_standing_and_a_guilds_latest_stock(con):
     ]
     ingot = got["Smith", "Steel Ingot"]
     assert [s[:3] for s in ingot["stock"]] == [[7000, 45, 80], [2000, 30, 80]], "the latest first"
+
+
+def test_the_shops_page_lists_every_item_by_zone_npc_and_list_with_its_prices(con):
+    setup(con, "a", [listed(1, 1000, "shop", NPC, STEW, 60, 8),
+                     listed(2, 2000, "guild_sells", GUILD, INGOT, 8000, 8, stock=30)])  # fmt: skip
+    setup(con, "b", [listed(1, 5000, "shop", NPC, STEW, 54, 10, conquest=1)])
+    setup(con, "e", [listed(1, 1000, "shop", NPC, STEW, 1, 8)])
+    store.trust(con, [("e", "flagged")])
+    keys = "item_name", "zone_name", "npc_name", "kind", "price_lo", "price_hi", "n", "captures"
+    got = [tuple(r[k] for k in keys) for r in ask(con, "shops")]
+    assert got == [
+        ("Quadav Stew", "Bastok Markets", "Hortense", "shop", 54, 60, 2, 2),
+        ("Steel Ingot", "Bastok Markets", "Smith", "guild_sells", 8000, 8000, 1, 1),
+    ]  # fmt: skip
