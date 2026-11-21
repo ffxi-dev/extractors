@@ -37,6 +37,13 @@ class World:
         self.pos_ms = 0  # when it came
         self.weather: int | None = None  # the zone's weather: the zone-in, 0x057
 
+    def name(self, uid: int | None) -> str | None:
+        """A mob's or NPC's name, when the entity at its index is still it."""
+        if uid is None or uid < 0x1000000:
+            return None
+        e = self.entities.get(uid & 0xFFF) or {}
+        return e.get("name") if e.get("id") == uid else None
+
     @property
     def here(self) -> tuple | None:
         """The character's position, when the packets gave all three coordinates."""

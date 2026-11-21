@@ -23,7 +23,7 @@ COPY clickhouse/config.xml /etc/clickhouse-server/config.d/ffxi.xml
 COPY clickhouse/users.xml /etc/clickhouse-server/users.d/ffxi.xml
 COPY . .
 RUN uv sync --frozen
-RUN ruff check . && ruff format --check . \
+RUN ruff check . && ruff format --check . && mypy \
     && (clickhouse server -C /etc/clickhouse-server/config.xml > /tmp/clickhouse.log 2>&1 &) \
     && for i in $(seq 60); do clickhouse client --user ffxi --password ffxi -q 'SELECT 1' >/dev/null 2>&1 && break; sleep 1; done \
     && pytest -q -p no:cacheprovider \

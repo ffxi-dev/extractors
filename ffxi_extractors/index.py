@@ -84,6 +84,8 @@ def run(
     walked = [u for u in ("decode", *(x.name for x in chosen)) if u in units]
     out: dict[str, int] = {}
     if walked:
+        if path is None:
+            raise ValueError("indexing extractors or the decoder reads the capture: give its path")
         cap = read(path, capture_id, ((record or {}).get("capture") or {}).get("retail"))
         capture_id = cap.capture_id
         store.begin(con, capture_id, {u: current[u] for u in walked}, DECODER_VERSION, started)
@@ -102,6 +104,8 @@ def run(
                 store.insert(con, t, data)
             out["decode"] = sum(t.num_rows for t in tables.values())
         store.done(con, capture_id, {u: (current[u], out[u]) for u in walked}, DECODER_VERSION, started)
+    elif capture_id is None:
+        raise ValueError("a run of derived units alone names its capture: give capture_id")
     # The captures sharing a fight with this one before its fights are written again: a fight it no longer
     # holds counts in theirs, so their mob rows are written again with those it shares after.
     before = partners(con, [capture_id]) if "bestiary_mobs" in units else []

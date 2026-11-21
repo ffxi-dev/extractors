@@ -67,6 +67,38 @@ def _plain(col) -> list:
     return out
 
 
+# The decode unit's tables, which CaptureStats fills: each is (columns, ORDER BY, engine).
+TABLES = {
+    "captures": (
+        "capture_id String, client_version String, release Nullable(String), character Nullable(String),"
+        " character_id Nullable(Int64), retail Bool, start_ms Nullable(Int64), end_ms Nullable(Int64),"
+        " packets Int64, world Nullable(String), uploader Nullable(String), format Nullable(String),"
+        " source Nullable(String)",
+        "capture_id",
+        "MergeTree",
+    ),
+    "sessions": (
+        "capture_id String, name Nullable(String), start_idx Nullable(Int64), end_idx Nullable(Int64),"
+        " start_ms Nullable(Int64), end_ms Nullable(Int64), cut_short Bool",
+        "capture_id",
+        "MergeTree",
+    ),
+    "sizes": (
+        "capture_id String, client_version String, direction LowCardinality(String), opcode Int32,"
+        " size Int32, packets Int64",
+        "direction, opcode, capture_id",
+        "MergeTree",
+    ),
+    "zone_visits": (
+        "capture_id String, idx Int64, start_ms Int64, end_idx Int64, end_ms Int64, zone_id Int32,"
+        " zoned_in Bool",
+        "zone_id, capture_id, start_ms",
+        "MergeTree",
+    ),
+    "activity": ("capture_id String, t Int64, n Int64", "capture_id, t", "MergeTree"),
+}
+
+
 class CaptureStats:
     """What the decoder keeps of every packet: sizes by opcode, packets per second, and zone visits."""
 
@@ -96,7 +128,7 @@ class CaptureStats:
         sessions = (record or {}).get("sessions") or []
         # An activity graph's buckets: about 400 over the capture, a second or more each.
         bucket = max(1000, (cap.end_ms - cap.start_ms) // 400 // 1000 * 1000)
-        activity = Counter()
+        activity: Counter[int] = Counter()
         for second, n in self.seconds.items():
             activity[second * 1000 // bucket * bucket] += n
         v = self.visits

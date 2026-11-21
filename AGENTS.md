@@ -7,7 +7,7 @@ These rules apply to every contributor, human or agent. `CLAUDE.md` imports this
 ```bash
 uv sync
 docker compose up -d --wait
-uv run ruff check . && uv run ruff format --check . && uv run pytest
+uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
 BLESS=1 uv run pytest tests/test_expected.py     # after a version bump
 uv run ffxi-extractors index <capture.xicap>...
 docker build .                                   # what CI runs

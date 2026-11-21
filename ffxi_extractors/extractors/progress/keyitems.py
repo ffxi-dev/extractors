@@ -68,7 +68,8 @@ class KeyItems(Extractor):
             # The server sends a lone list when a key item changes, and an event's "Obtained key item" message
             # names it first. ponytail: any message number that is a held key item counts; reading the zone's
             # dialog text would tell an "obtained" message from one that only names a key item.
-            changes = (("gained", now & self.told.get(event.get("idx"), set())),)
+            told = self.told.get(event["idx"], set()) if event else set()
+            changes: tuple[tuple[str, set[int]], ...] = (("gained", now & told),)
         else:
             changes = (("gained", now - before), ("lost", before - now))
         x, y, z = world.pos

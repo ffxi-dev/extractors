@@ -16,10 +16,12 @@ from urllib.parse import urlsplit, urlunsplit
 import clickhouse_connect
 import pyarrow as pa
 
+from ffxi_extractors.decode import TABLES
 from ffxi_extractors.extract import LENS
 from ffxi_extractors.extractors import ALL
 from ffxi_extractors.facts import DERIVED
-from ffxi_extractors.facts.bestiary_mobs import VIEWS, partners, reroll
+from ffxi_extractors.facts.bestiary_mobs import partners, reroll
+from ffxi_extractors.facts.views import VIEWS
 
 LOCAL = "http://ffxi:ffxi@127.0.0.1:8123/ffxi"  # compose.yaml's
 TYPES = {
@@ -31,33 +33,7 @@ COMMON = "capture_id String, idx Int64, ts_ms Int64, client_version LowCardinali
 
 # The decoder's tables and the run records; a caller may add its own. Each is (columns, ORDER BY, engine).
 BASE = {
-    "captures": (
-        "capture_id String, client_version String, release Nullable(String), character Nullable(String),"
-        " character_id Nullable(Int64), retail Bool, start_ms Nullable(Int64), end_ms Nullable(Int64),"
-        " packets Int64, world Nullable(String), uploader Nullable(String), format Nullable(String),"
-        " source Nullable(String)",
-        "capture_id",
-        "MergeTree",
-    ),
-    "sessions": (
-        "capture_id String, name Nullable(String), start_idx Nullable(Int64), end_idx Nullable(Int64),"
-        " start_ms Nullable(Int64), end_ms Nullable(Int64), cut_short Bool",
-        "capture_id",
-        "MergeTree",
-    ),
-    "sizes": (
-        "capture_id String, client_version String, direction LowCardinality(String), opcode Int32,"
-        " size Int32, packets Int64",
-        "direction, opcode, capture_id",
-        "MergeTree",
-    ),
-    "zone_visits": (
-        "capture_id String, idx Int64, start_ms Int64, end_idx Int64, end_ms Int64, zone_id Int32,"
-        " zoned_in Bool",
-        "zone_id, capture_id, start_ms",
-        "MergeTree",
-    ),
-    "activity": ("capture_id String, t Int64, n Int64", "capture_id, t", "MergeTree"),
+    **TABLES,
     "runs": (
         "capture_id String, unit String, version String, decoder_version String,"
         " state LowCardinality(String), error Nullable(String), started_ms Int64,"
@@ -77,7 +53,7 @@ BASE = {
         "MergeTree",
     ),
 }
-DECODE = ("captures", "sessions", "sizes", "zone_visits", "activity")
+DECODE = tuple(TABLES)
 # The tables of units that are not extractors or derived facts: the decoder, and any a caller adds.
 UNITS = {"decode": DECODE}
 SQL = Path(__file__).parent / "sql"
@@ -96,7 +72,8 @@ def connect(url: str | None = None, create: bool = False):
     con = clickhouse_connect.get_client(
         dsn=url, autogenerate_session_id=False, connect_timeout=30, send_receive_timeout=3600
     )
-    con.dsn = url  # for workers, which connect on their own
+    # The URL it connected to, for workers that connect on their own (Scholar's indexer passes it on).
+    con.dsn = url  # type: ignore[attr-defined]
     return con
 
 
@@ -143,8 +120,8 @@ def setup(con) -> None:
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
         raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
-    for name, (cols, order, engine) in BASE.items():
-        _create(con, name, cols, order, engine)
+    for name, (spec, order, engine) in BASE.items():
+        _create(con, name, spec, order, engine)
     have = set(rows(con, "SELECT table, name FROM system.columns WHERE database = currentDatabase()"))
     lens = f", lens_url String ALIAS concat('{LENS}', capture_id, '#packet=', toString(idx))"
     for x in ALL:

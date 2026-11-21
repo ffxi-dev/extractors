@@ -141,9 +141,9 @@ class Fishing(Extractor):
             if f("ActionID") == CAST:
                 self._cast(p, world, emit)
         elif key == (0, 0x115):
-            if self.row is None or self.row["hook_ms"] is not None:
-                self._cast(p, world, emit)
-            self.row.update({g: f(g) for g in GAME}, hook_ms=p.ts_ms)
+            waiting = self.row is not None and self.row["hook_ms"] is None  # cast, and not yet bitten
+            row = self.row if waiting and self.row is not None else self._cast(p, world, emit)
+            row.update({g: f(g) for g in GAME}, hook_ms=p.ts_ms)
         elif self.row is None or (p.direction == 0 and me and f("UniqueNo") != me):
             return
         elif key == (1, 0x110):
@@ -164,7 +164,7 @@ class Fishing(Extractor):
         elif key == (0, 0x027):
             self.seen[-1][1].setdefault("catch", (f("MesNum"), f("Num1[0]"), f("Num1[1]"), p.ts_ms))
 
-    def _cast(self, p, world, emit):
+    def _cast(self, p, world, emit) -> dict:
         # Index 0 empties a slot; (0, 0) is the gil.
         rod, bait = (world.items.get(e) if (e := self.equip.get(k)) and e[1] else None for k in (ROD, BAIT))
         self.row = emit(
@@ -174,6 +174,7 @@ class Fishing(Extractor):
         )  # fmt: skip
         self.seen.append((self.row, {}))
         self.casting = True
+        return self.row
 
     def finish(self, world: World, emit: Emit) -> None:
         """Name what each cast's messages say. A zone numbers its fishing messages from an offset of its own:

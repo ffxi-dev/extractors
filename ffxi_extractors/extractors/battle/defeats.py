@@ -35,6 +35,6 @@ class Defeats(Extractor):
         if msg not in (20, 97) or f("UniqueNoTar") != world.character_id or self.resends.is_resend(p):
             return
         killer = f("UniqueNoCas") if msg == 97 else None
-        e = world.entities.get(killer & 0xFFF, {}) if combat.is_mob(killer) else {}
-        emit("defeats", p, killer_id=killer, killer_name=e.get("name") if e.get("id") == killer else None,
+        name = world.name(killer) if combat.is_mob(killer) else None
+        emit("defeats", p, killer_id=killer, killer_name=name,
              message=msg, zone_id=world.zone)  # fmt: skip

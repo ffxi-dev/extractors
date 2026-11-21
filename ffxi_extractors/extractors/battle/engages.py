@@ -1,4 +1,5 @@
 import math
+from dataclasses import dataclass
 
 import pyarrow as pa
 
@@ -16,6 +17,23 @@ LINKED_MS = 30_000  # a fellow mob that engaged this long before can be the one 
 STRANGER_NEAR = 15.0  # yalms: a stranger's fight this near can be the one it linked to
 INVISIBLE, DEODORIZE, SNEAK = 69, 70, 71
 RESTING = 33  # 0x037 server_status while the character rests (LSB ANIMATION_HEALING)
+
+
+@dataclass(slots=True)
+class _Mob:
+    """What the packets said of one mob so far."""
+
+    seen: int  # when this life began: its first update, or its return after a defeat
+    status: int | None = None  # server_status, as its last general update sent it
+    bt: int | None = None  # whom its claim names (BtTargetID)
+    unclaimed: bool = False  # seen idle and unclaimed: its next claim is an engage
+    monster: bool | None = None  # Flags1.MonsterFlag
+    speed: int | None = None
+    engaged: int | None = None  # when it last engaged
+    me_act: tuple | None = None  # (ts, action) of the character's last action on it
+    party_act: tuple | None = None  # (ts, actor, category) of the party's last
+    other_act: int | None = None  # when a stranger last acted on it
+    mob_act: int | None = None  # when it last acted
 
 
 def friendly(uid, world) -> bool:
@@ -182,7 +200,7 @@ class Engages(Extractor):
     def __init__(self):
         self.places = Places()
         self.resends = combat.Resends()
-        self.mobs: dict[int, dict] = {}
+        self.mobs: dict[int, _Mob] = {}
         # (engage row, mob): those still waiting for the mob's first action or a claim
         self.pending: list[tuple[dict, int]] = []
         self.passes: dict[int, dict] = {}  # mob -> its open pass
@@ -194,11 +212,11 @@ class Engages(Extractor):
         """The STATE columns, the mob at pos since at, facing heading."""
         places, me = self.places, world.character_id
         here = world.here
-        b, m = self.buffs, self.mobs.get(uid, {})
+        b, m = self.buffs, self.mobs.get(uid)
         out = {"zone_id": world.zone, "mob_id": uid, "mob_dir": heading, "hpp": places.hpp.get(me),
                "resting": self.status == RESTING, "recorder_status": self.status,
                "vana_hour": vana(p.ts_ms)[1], "weather_id": world.weather,
-               "since_seen_ms": p.ts_ms - m["seen"] if m else None}  # fmt: skip
+               "since_seen_ms": p.ts_ms - m.seen if m else None}  # fmt: skip
         if b is not None:
             out.update(invisible=INVISIBLE in b, sneak=SNEAK in b, deodorize=DEODORIZE in b)
         if pos:
@@ -226,7 +244,7 @@ class Engages(Extractor):
             elif key == (1, 0x015) and p.ts_ms - self.scanned >= SCAN_MS:
                 self.scanned = p.ts_ms
                 near = self.passes.keys()
-                idle = [u for u, m in self.mobs.items() if (m["status"] == 0 and m["unclaimed"]) or u in near]
+                idle = [u for u, m in self.mobs.items() if (m.status == 0 and m.unclaimed) or u in near]
                 for uid in idle:
                     self._pass(p, uid, world, emit)
         elif key == (0, 0x037):
@@ -237,7 +255,7 @@ class Engages(Extractor):
         elif key == (1, 0x01A):
             m = self.mobs.get(f("UniqueNo"))
             if m is not None:
-                m["me_act"] = (p.ts_ms, f("ActionID"))
+                m.me_act = (p.ts_ms, f("ActionID"))
                 self._answered(p, f("UniqueNo"))
         elif key == (0, 0x028) and not self.resends.is_resend(p):
             self._action(p, f, world)
@@ -247,33 +265,32 @@ class Engages(Extractor):
             self._close(uid, emit)
             self.mobs.pop(uid, None)
             return
-        m = self.mobs.setdefault(uid, {"status": None, "bt": None, "unclaimed": False, "seen": p.ts_ms,
-                                       "monster": None, "speed": None, "engaged": None})  # fmt: skip
-        was, speed = m["status"], m["speed"]
+        m = self.mobs.setdefault(uid, _Mob(seen=p.ts_ms))
+        was, speed = m.status, m.speed
         if f("SendFlg.General"):
             if was == 3 and f("server_status") == 0:  # it died and came back: a new life
-                m["seen"] = p.ts_ms
-            m["status"], m["monster"] = f("server_status"), bool(f("Flags1.MonsterFlag"))
+                m.seen = p.ts_ms
+            m.status, m.monster = f("server_status"), bool(f("Flags1.MonsterFlag"))
         placed = bool(f("SendFlg.Position"))
         if placed:
-            m["speed"] = f("Speed")
+            m.speed = f("Speed")
         claimed = bool(f("SendFlg.ClaimStatus"))
-        bt = f("BtTargetID") if claimed else m["bt"]
+        bt = f("BtTargetID") if claimed else m.bt
         if bt:
             for row, mob in self.pending:
                 if mob == uid and row.get("claim_ms") is None:
                     row.update(
                         claim_ms=p.ts_ms - row["ts_ms"], claimer_id=bt, claimer_party=friendly(bt, world)
                     )
-        if claimed and not bt and m["status"] in (0, None):
-            m["unclaimed"] = True
-        fire = m["unclaimed"] and m["status"] != 3 and ((claimed and bt) or (was == 0 and m["status"] == 1))
+        if claimed and not bt and m.status in (0, None):
+            m.unclaimed = True
+        fire = m.unclaimed and m.status != 3 and ((claimed and bt) or (was == 0 and m.status == 1))
         if claimed:
-            m["bt"] = bt
+            m.bt = bt
         if not fire:
             self._pass(p, uid, world, emit)
             return
-        m["unclaimed"] = False
+        m.unclaimed = False
         self.passes.pop(uid, None)  # it engaged: no pass
         # Where it stood and faced before the update; seen first in it, where it stands now, heading unknown.
         pos, at, heading = before if before[0] else (self.places.pos.get(uid), self.places.at.get(uid), None)
@@ -283,19 +300,19 @@ class Engages(Extractor):
         def ago(t):
             return p.ts_ms - t if t is not None and p.ts_ms - t <= BEFORE_MS else None
 
-        me_t, me_id = m.get("me_act", (None, None))
-        party_t, party_by, party_cat = m.get("party_act", (None, None, None))
+        me_t, me_id = m.me_act or (None, None)
+        party_t, party_by, party_cat = m.party_act or (None, None, None)
         party = ago(party_t) is not None
-        row = emit("mob_engages", p, **state, status_before=was, status=m["status"], mob_speed=speed,
+        row = emit("mob_engages", p, **state, status_before=was, status=m.status, mob_speed=speed,
                    flip_dir=f("dir") if placed else None, flip_speed=f("Speed") if placed else None,
                    flip_facing=bearing((f("x"), f("y")), here, f("dir")) if placed and here else None,
                    me_action_id=me_id if ago(me_t) is not None else None, me_action_ms=ago(me_t),
                    party_actor_id=party_by if party else None, party_category=party_cat if party else None,
-                   party_ms=ago(party_t), other_ms=ago(m.get("other_act")),
-                   mob_acted_ms=ago(m.get("mob_act")), **self._link(p, uid, pos, world))  # fmt: skip
+                   party_ms=ago(party_t), other_ms=ago(m.other_act),
+                   mob_acted_ms=ago(m.mob_act), **self._link(p, uid, pos, world))  # fmt: skip
         if bt:
             row.update(claim_ms=0, claimer_id=bt, claimer_party=friendly(bt, world))
-        m["engaged"] = p.ts_ms
+        m.engaged = p.ts_ms
         self.pending.append((row, uid))
 
     def _link(self, p, uid, pos, world) -> dict:
@@ -304,13 +321,13 @@ class Engages(Extractor):
         best = None
         for other, o in self.mobs.items():
             there = self.places.pos.get(other)
-            if other == uid or o["status"] != 1 or not pos or not there:
+            if other == uid or o.status != 1 or not pos or not there:
                 continue
-            recent = o["engaged"] is not None and p.ts_ms - o["engaged"] <= LINKED_MS
+            recent = o.engaged is not None and p.ts_ms - o.engaged <= LINKED_MS
             d = math.dist(pos, there)
-            ours = friendly(o["bt"], world) or (not o["bt"] and recent)
-            if (ours or (o["bt"] and d < STRANGER_NEAR)) and (best is None or d < best[0]):
-                best = (d, other, p.ts_ms - o["engaged"] if recent else None)
+            ours = friendly(o.bt, world) or (not o.bt and recent)
+            if (ours or (o.bt and d < STRANGER_NEAR)) and (best is None or d < best[0]):
+                best = (d, other, p.ts_ms - o.engaged if recent else None)
         if best is None:
             return {}
         return {"link_mob_id": best[1], "link_distance": best[0], "link_ms": best[2]}
@@ -329,7 +346,7 @@ class Engages(Extractor):
             if not players:
                 return
             if actor in self.mobs:
-                self.mobs[actor]["mob_act"] = p.ts_ms
+                self.mobs[actor].mob_act = p.ts_ms
             for row, mob in self.pending:
                 if mob == actor and row.get("first_ms") is None:
                     t = players[0]
@@ -343,15 +360,15 @@ class Engages(Extractor):
             if m is None:
                 continue
             if mine:
-                m["party_act"] = (p.ts_ms, actor, a["cmd_no"])
+                m.party_act = (p.ts_ms, actor, a["cmd_no"])
                 self._answered(p, t)
             elif combat.is_player(actor):
-                m["other_act"] = p.ts_ms
+                m.other_act = p.ts_ms
 
     def _pass(self, p, uid, world, emit):
         """Open, follow, or close the character's pass by an idle, unclaimed monster."""
         m, there, me = self.mobs.get(uid), self.places.pos.get(uid), world.here
-        idle = m and m["monster"] and m["status"] == 0 and m["unclaimed"] and not m["bt"]
+        idle = m and m.monster and m.status == 0 and m.unclaimed and not m.bt
         if not idle or not there or not me:
             self._close(uid, emit)
             return

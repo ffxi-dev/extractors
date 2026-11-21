@@ -47,17 +47,20 @@ class Digs(Extractor):
             self.open = {"row": row, "end": p.ts_ms + WINDOW_MS, "named": [], "gained": set()}
         elif key == (0, 0x02A):
             me = world.character_id
-            if self._on(p) and (not me or f("UniqueNo") == me):
-                self.open["named"].append(f("num[0]"))
-                self._settle()
-        elif (item := self.held.gained(p, f)) is not None and self._on(p):
-            self.open["gained"].add(item)
-            self._settle()
+            if (dig := self._live(p)) and (not me or f("UniqueNo") == me):
+                dig["named"].append(f("num[0]"))
+                _settle(dig)
+        elif (item := self.held.gained(p, f)) is not None and (dig := self._live(p)):
+            dig["gained"].add(item)
+            _settle(dig)
 
-    def _on(self, p) -> bool:
-        return self.open is not None and p.ts_ms <= self.open["end"]
+    def _live(self, p) -> dict | None:
+        """The last dig, while p falls in its window."""
+        return self.open if self.open is not None and p.ts_ms <= self.open["end"] else None
 
-    def _settle(self):
-        found = [i for i in self.open["named"] if i in self.open["gained"]]
-        if found and self.open["row"]["item_id"] is None:
-            self.open["row"]["item_id"] = found[0]
+
+def _settle(dig: dict) -> None:
+    """The dig's item: the first one its messages named that the inventory gained."""
+    found = [i for i in dig["named"] if i in dig["gained"]]
+    if found and dig["row"]["item_id"] is None:
+        dig["row"]["item_id"] = found[0]
