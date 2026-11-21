@@ -159,6 +159,40 @@ def test_a_roll_or_an_art_a_player_used_on_the_character_comes_before_a_silent_m
     assert (row["action_id"], row["actor_id"]) == (212, PLAYER)
 
 
+def test_an_ability_that_names_nothing_gives_no_ailment():
+    """RnGk9tjNaUHH: the character's Dark Arts, a Quadav's Absorb-DEX 281 ms later, whose result (330) names
+    no status, then one listing with DEX Down and Dark Arts. Dark Arts' claim went to DEX Down, an ailment,
+    which left Absorb-DEX for Dark Arts."""
+    hit = T0 + 1000
+    steps = (BAT, action(6, 212, 100, 0, actor=PLAYER), action(4, 267, 330, 0),
+             icons((137, hit + 34_000), (359, hit + 7_200_000)))  # fmt: skip
+    dex, arts = effects(*steps, times=[T0, hit - 981, hit - 700, hit])
+    assert (dex["action_id"], dex["actor_name"]) == (267, "LocusDireBat")
+    assert (arts["action_id"], arts["actor_id"]) == (212, PLAYER)
+
+
+def test_a_paralyzed_mob_gives_nothing():
+    """1Vt2-ASBzIqO's first listing held songs sung before it began; a mob paralyzed mid-cast (84) a second
+    before took them, though its spell never went off."""
+    hit = T0 + 1000
+    (minuet,) = effects(BAT, action(4, 0, 84, 0), icons((198, hit + 264_000)), times=[T0, hit, hit + 1000])
+    assert minuet.get("source_idx") is None
+
+
+def test_icons_cleared_early_count_against_no_clock_offset():
+    """T4R4b6cqF101, a PacketViewer log with no zone-in, stamped an hour ahead of the server: 36 of its 51
+    ended icons ran out at their expiry an hour on, and the other 15 were cleared early. 71% fell short of the
+    80% the offset needed, and every duration read about -1 h."""
+    hour, lasts = 3_600_000, [7_000, 30_000, 60_000, 90_000, 120_000]
+    ends = [7_000, 30_000, 60_000, 10_000, 20_000]  # the last two cleared early
+    steps, times = [], []
+    for k, (last, end) in enumerate(zip(lasts, ends, strict=True)):
+        t = T0 + k * 200_000
+        steps += [icons((POISON, t - hour + last)), icons()]
+        times += [t, t + end]
+    assert [r["duration_ms"] for r in effects(*steps, times=times)] == lasts
+
+
 def test_a_renewal_a_zone_in_and_the_end():
     # Protect cast, cast again 600 s later, a zone-in that lists it 4 s later than before, and it wears off.
     first, again = T0, T0 + 600_000
