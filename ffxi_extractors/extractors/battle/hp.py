@@ -234,7 +234,7 @@ class Hp(Extractor):
                      hp_max=hi, start_hpp=m.start_hpp, contradictions=m.contradictions, regen=m.regen,
                      regen_rate=m.regen_rate(), zone_id=world.zone)  # fmt: skip
         elif op == 0x028 and not self.resends.is_resend(p):
-            self._action(combat.read(f), p.ts_ms)
+            self._action(combat.action(f), p.ts_ms)
 
     def _action(self, a, ts_ms: int) -> None:
         """An action's damage, healing, procs, and reactions on each mob it touched."""

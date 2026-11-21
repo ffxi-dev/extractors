@@ -56,7 +56,7 @@ class Immunity(Extractor):
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         if self.resends.is_resend(p):
             return
-        a = combat.read(f)
+        a = combat.action(f)
         if a["cmd_no"] != 4 or not a["cmd_arg"]:
             return
         for target_id, results in a["targets"]:

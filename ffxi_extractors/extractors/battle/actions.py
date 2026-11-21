@@ -28,7 +28,7 @@ class Actions(Extractor):
     # carries what it stopped
     doc = "Each action (0x028): who acted, what they did, and what it did to each target."
     # Places' positions and HP%, so a fallen bystander is not taken for one missed.
-    reads = frozenset({(0, 0x028)}) | Places.READS
+    reads = frozenset({(0, 0x028)}) | Places.reads
     tables = (
         Table(
             "actions",
@@ -97,6 +97,7 @@ class Actions(Extractor):
                     " The combat tables skip resends.",
                 ),
             ),
+            indexes=("action action_id TYPE bloom_filter GRANULARITY 1",),
         ),
         Table(
             "action_results",
@@ -179,7 +180,7 @@ class Actions(Extractor):
     )
 
     def __init__(self):
-        self.starts: dict[int, int] = {}
+        self.starts: dict[int, tuple[int, int | None, int]] = {}  # actor -> (category, action id, ts)
         self.resends = combat.Resends()
         self.places = Places()
 
@@ -188,7 +189,7 @@ class Actions(Extractor):
             if p.opcode == 0x00A:
                 self.starts.clear()
             return
-        a = combat.read(f)
+        a = combat.action(f)
         cat, actor = a["cmd_no"], a["actor_id"]
         first = a["targets"][0][1][0] if a["targets"] and a["targets"][0][1] else {}
         action_id = first.get("value") if cat in (7, 8, 9) and first else a["cmd_arg"]

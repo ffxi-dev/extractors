@@ -16,8 +16,8 @@ def gattr(f, prefix: str) -> int | None:
 
 
 def is_trust(member_id: int | None) -> bool:
-    """A Trust's id is an NPC id, 0x01ZZZIII, with a dynamic index (0x700 to 0x8FF, as LSB assigns them);
-    a player's id is under 0x1000000. An Adventuring Fellow would read as a Trust too."""
+    """Any NPC id, 0x01ZZZIII, in the party list: a Trust, whose index the zone hands out (0x700 on), or an
+    Adventuring Fellow, which reads as one. A player's id is under 0x1000000."""
     return member_id is not None and member_id >> 24 == 1
 
 

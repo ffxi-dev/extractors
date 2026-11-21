@@ -1,15 +1,18 @@
 [project]
 name = "ffxi-extractors"
-version = "2.0.0"
+version = "3.0.0"
 description = "Turns FFXI captures into ClickHouse tables and findings: Scholar's extractors and derived facts"
 license = "GPL-3.0-only"
+# Below 3.14: Sink.flush tells a finished row by its reference count, which 3.14's stack references may change.
 requires-python = ">=3.13,<3.14"
+# The decoder's release is part of every unit's version and of the pins, so it is exact; uv.lock holds the
+# rest exactly, and a project that installs this one may resolve them within these ranges.
 dependencies = [
-    "clickhouse-connect==1.12.0",
-    "ffxi-packets",
-    "numpy==2.5.4",
-    "pyarrow==26.0.0",
-    "xicap",
+    "clickhouse-connect>=1.12,<2",
+    "ffxi-packets==1.6.0",
+    "numpy>=2.5,<3",
+    "pyarrow>=26,<27",
+    "xicap>=7.2,<8",
 ]
 
 [project.scripts]

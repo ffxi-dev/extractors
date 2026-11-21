@@ -13,6 +13,16 @@ DEFEAT = frozenset({6, 20})  # LSB msg_basic: DefeatsTarget, FallsToGround; capt
 RESEND_MS = 500  # hptrack: a packet whose payload repeats within this window is a resend
 
 
+def is_player(entity_id: int | None) -> bool:
+    """A player: an id under 0x1000000."""
+    return entity_id is not None and entity_id < 0x1000000
+
+
+def is_dynamic(entity_id: int | None) -> bool:
+    """A trust or pet: an NPC id, 0x01ZZZIII, with an index the zone hands out, 0x700 on."""
+    return entity_id is not None and entity_id >> 24 == 1 and (entity_id & 0xFFF) >= 0x700
+
+
 def is_mob(entity_id: int | None) -> bool:
     """A zone's own NPC or mob: id 0x01ZZZIII with index III under 0x400, as actionview's isMob. Trusts,
     pets, and players fall outside it."""
@@ -20,7 +30,7 @@ def is_mob(entity_id: int | None) -> bool:
 
 
 @lru_cache(maxsize=1)  # the extractors share one packet's getter, so this decodes each packet once
-def read(f) -> dict:
+def action(f) -> dict:
     """{"actor_id", "cmd_no", "cmd_arg", "info", "targets": [(target_id, [result, ...]), ...]}. A result is
     a dict of RESULT, plus "proc" and "react": dicts of EXTRA, or None when the result has none."""
     a = {k: f(P + k) for k in ("actor_id", "cmd_no", "cmd_arg", "info")}

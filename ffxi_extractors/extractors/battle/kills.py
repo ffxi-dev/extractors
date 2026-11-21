@@ -69,7 +69,7 @@ class Kills(Extractor):
         if self.resends.is_resend(p):
             return
         if p.opcode == 0x028:
-            for target_id, results in combat.read(f)["targets"]:
+            for target_id, results in combat.action(f)["targets"]:
                 for r in results:
                     for x in (r, r["proc"]):
                         if x and x["message"] == TH_UP and combat.is_mob(target_id):

@@ -141,7 +141,7 @@ class Delay(Extractor):
             return
         if self.resends.is_resend(p):
             return
-        a = combat.read(f)
+        a = combat.action(f)
         actor, cat = a["actor_id"], a["cmd_no"]
         on_me = [rs for t, rs in a["targets"] if me and t == me]
         # A TP gain counts only when one mob swing that hit is all that touched the character since its

@@ -23,7 +23,7 @@ def friendly(uid, world) -> bool:
     if uid is None:
         return False
     # ponytail: any trust or pet counts, a stranger's too; the party list would tell them apart.
-    return uid == world.character_id or uid in world.party or (uid >> 24 == 1 and (uid & 0xFFF) >= 0x700)
+    return uid == world.character_id or uid in world.party or combat.is_dynamic(uid)
 
 
 # The character's state and the world's at a moment: both tables carry it.
@@ -84,7 +84,7 @@ class Engages(Extractor):
     name = "engages"
     version = 2  # 2: a stranger's claimed mob can be the one it linked to
     doc = "Each idle, unclaimed mob that engaged, and each pass the character made by one that did not."
-    reads = Places.READS | frozenset({(0, 0x028), (0, 0x037), (0, 0x057), (1, 0x01A)})
+    reads = Places.reads | frozenset({(0, 0x028), (0, 0x037), (0, 0x057), (1, 0x01A)})
     tables = (
         Table(
             "mob_engages",
@@ -325,7 +325,7 @@ class Engages(Extractor):
                 row["answered_ms"] = p.ts_ms - row["ts_ms"]
 
     def _action(self, p, f, world):
-        a = combat.read(f)
+        a = combat.action(f)
         actor, targets = a["actor_id"], [t for t, _ in a["targets"]]
         self.pending = [(r, m) for r, m in self.pending if p.ts_ms - r["ts_ms"] <= AFTER_MS]
         if combat.is_mob(actor):
@@ -349,7 +349,7 @@ class Engages(Extractor):
             if mine:
                 m["party_act"] = (p.ts_ms, actor, a["cmd_no"])
                 self._answered(p, t)
-            elif actor is not None and actor < 0x1000000:
+            elif combat.is_player(actor):
                 m["other_act"] = p.ts_ms
 
     def _pass(self, p, uid, world, emit):

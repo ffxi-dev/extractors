@@ -35,6 +35,7 @@ class EntityChanges(Extractor):
                 Column("y", pa.float32(), "Position, when sent."),
                 Column("z", pa.float32(), "Height, when sent."),
             ),
+            order="entity_id, capture_id, idx",
         ),
     )
 

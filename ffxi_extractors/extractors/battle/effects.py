@@ -164,7 +164,7 @@ class Effects(Extractor):
             self._icons(p, f, world, emit)
 
     def _results(self, p, f, world):
-        a = combat.read(f)
+        a = combat.action(f)
         cat, me = a["cmd_no"], world.character_id
         if not me or self.resends.is_resend(p):
             return
@@ -199,10 +199,11 @@ class Effects(Extractor):
         for row in self.waiting:
             self._claim(row, world, settle=True)
         off = clock_offset(self.rows)
-        for row in self.rows if off else ():
-            if row["expires_ms"] is not None:
-                row["expires_ms"] -= off
-                row["duration_ms"] -= off
+        if off:
+            for row in self.rows:
+                if row["expires_ms"] is not None:
+                    row["expires_ms"] -= off
+                    row["duration_ms"] -= off
 
     def _claim(self, row, world, settle: bool) -> bool:
         """Fill row's source from the results from BEFORE_MS before its icon to AFTER_MS after: the latest

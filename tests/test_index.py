@@ -114,6 +114,24 @@ def test_a_rerun_after_a_stop_counts_every_row_once(con, monkeypatch, after):
     assert counts(con, "c") == want
 
 
+def test_a_failed_unit_keeps_no_rows_of_the_run_it_failed_in(con, monkeypatch):
+    """store.fail after a stop mid-write: the unit's partial rows go, and its run says failed."""
+    insert = store.insert
+
+    def stop(c, table, data):
+        if table == "action_results":
+            raise Lost
+        insert(c, table, data)
+
+    monkeypatch.setattr(store, "insert", stop)
+    started = 1
+    with pytest.raises(Lost):
+        run(con, CAPTAIN, "c")
+    store.fail(con, "c", {"actions": "5"}, "d", "Lost", started)
+    assert counts(con, "c").get("actions", 0) == 0
+    assert store.runs(con, "c")[("c", "actions")][2] == "failed"
+
+
 def test_one_unit_only(con):
     run(con, MEMORIA, "m")
     before = dict(rows(con, "SELECT unit, finished_ms FROM runs FINAL"))

@@ -28,10 +28,6 @@ def _get(url: str, timeout: int):
     return urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS), timeout=timeout)
 
 
-FILES = (
-    "zones", "entities", "items", "keyitems", "spells", "abilities", "statuses", "mob_skills", "quests",
-    "missions", "battle_messages",
-)  # fmt: skip
 # Each release file as rows of ClickHouse's names: its kind, its id column, and its text column. A name is
 # text, or a struct whose english field is the name. A spell's id in packets is its index.
 KINDS = {
@@ -99,9 +95,9 @@ def sync(folder: str | Path, changed: list[str] | None = None, base: str = BASE)
     for v in listed:
         if (folder / v).is_dir():
             files = _manifest(base, v)
-            had = {n: _digest(folder / v / f"{n}.parquet") for n in FILES}
-            want = {n: files.get(f"{n}.parquet", {}).get("sha256") for n in FILES}
-            stale = [n for n in FILES if had[n] is None or want[n] not in (None, had[n])]
+            had = {n: _digest(folder / v / f"{n}.parquet") for n in KINDS}
+            want = {n: files.get(f"{n}.parquet", {}).get("sha256") for n in KINDS}
+            stale = [n for n in KINDS if had[n] is None or want[n] not in (None, had[n])]
             for name in stale:
                 _fetch(base, v, name, folder / v)
             if any(_digest(folder / v / f"{n}.parquet") != had[n] for n in stale):
@@ -110,7 +106,7 @@ def sync(folder: str | Path, changed: list[str] | None = None, base: str = BASE)
         part = folder / f"{v}.part"
         shutil.rmtree(part, ignore_errors=True)
         part.mkdir()
-        for name in FILES:
+        for name in KINDS:
             _fetch(base, v, name, part)
         part.rename(folder / v)
         changed.append(v)
@@ -137,7 +133,8 @@ def release_for(client_version: str | None, start_ms: int | None, known: list[st
     if client_version in known:
         return client_version
     day = client_day(client_version, start_ms)
-    before = [r for r in known if day and client_day(r, None) <= day]
+    # A folder whose name is no client version is no release.
+    before = [r for r in known if day and (d := client_day(r, None)) and d <= day]
     return max(before) if before else min(known)
 
 

@@ -16,6 +16,11 @@ def test_client_days():
     assert client_day("", 1_528_940_034_000) == date(2018, 6, 14)  # a PacketViewer import: its start
 
 
+def test_a_folder_that_is_no_release_is_passed_over():
+    """A folder in the mirror whose name is no client version raised TypeError for every capture."""
+    assert release_for("30261006_0", None, ["30260901_0", "notes"]) == "30260901_0"
+
+
 def test_a_capture_takes_its_own_release_else_the_nearest_before_else_the_first():
     assert release_for("30261006_0", None, KNOWN) == "30261006_0"
     assert release_for("30260601_0", None, KNOWN) == "30260429_1"
