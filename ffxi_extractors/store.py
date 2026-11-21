@@ -147,7 +147,8 @@ SETTINGS = {
 def setup(con) -> None:
     """Make every table, view, function, and dictionary the units need, and add the columns a new extractor
     version brings. Derived tables come from their SQL."""
-    from .extractors import ALL, DERIVED
+    from ffxi_extractors.extractors import ALL
+    from ffxi_extractors.facts import DERIVED
 
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
@@ -174,7 +175,7 @@ def setup(con) -> None:
 
 def views(con) -> None:
     """The bestiary's views, made again from this code, so a changed definition or table takes effect."""
-    from .extractors.bestiary_mobs import VIEWS
+    from ffxi_extractors.facts.bestiary_mobs import VIEWS
 
     for view in ("bestiary_list", "bestiary"):
         con.command(f"DROP VIEW IF EXISTS {view} SYNC")
@@ -224,7 +225,8 @@ def create_derived(con, d, name: str) -> None:
 
 
 def tables_of(unit: str) -> tuple[str, ...]:
-    from .extractors import ALL, DERIVED
+    from ffxi_extractors.extractors import ALL
+    from ffxi_extractors.facts import DERIVED
 
     if unit in UNITS:
         return UNITS[unit]
@@ -314,7 +316,7 @@ def fail(con, capture_id: str, versions: dict[str, str], decoder: str, error: st
 def drop(con, capture_id: str) -> None:
     """Remove every row of a capture: its runs, trust, and share of the mob pages with it. A fight it
     held a copy of counts in another capture's copy."""
-    from .extractors.bestiary_mobs import partners, reroll
+    from ffxi_extractors.facts.bestiary_mobs import partners, reroll
 
     others = partners(con, [capture_id])
     for (t,) in rows(
@@ -331,7 +333,7 @@ def trust(con, levels: list[tuple[str, str | None]]) -> None:
     """Mogsafe's trust level for each (capture, level), in one insert: gold, silver, bronze, plain or flagged;
     None forgets it. A mob page leaves out Flagged captures at once. A capture flagged or no longer
     flagged writes again its mob roll-up and its partners', whose copies it stops or starts counting."""
-    from .extractors.bestiary_mobs import partners, reroll
+    from ffxi_extractors.facts.bestiary_mobs import partners, reroll
 
     if levels:
         sql = "SELECT capture_id, trust FROM capture_trust FINAL WHERE capture_id IN {c:Array(String)}"

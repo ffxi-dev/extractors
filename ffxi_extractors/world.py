@@ -3,7 +3,7 @@ the zone, the recording character, its party, its inventory, and the entities ar
 
 from __future__ import annotations
 
-from .capture import Capture, Fields, Packet
+from ffxi_extractors.capture import Capture, Fields, Packet
 
 S2C = 0
 # The packets update() reads. Every run decodes them, beside its extractors' own; WORLD_VERSION changes

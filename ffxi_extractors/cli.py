@@ -6,9 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import resources, store
-from .capture import Skipped
-from .index import run
+from ffxi_extractors import resources, store
+from ffxi_extractors.capture import Skipped
+from ffxi_extractors.index import run
 
 
 def main(argv: list[str] | None = None) -> int:

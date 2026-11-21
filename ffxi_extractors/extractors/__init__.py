@@ -1,50 +1,39 @@
-"""Every extractor. Each is a class; a run makes a fresh one per capture."""
+"""Every packet extractor, by domain: battle, items, world, and progress. Each is a class; a run makes a
+fresh one per capture. Derived facts are in ffxi_extractors.facts."""
 
-from .actions import Actions
-from .aggro import Aggro, AggroPasses
-from .battlefields import Battlefields
-from .bestiary import Bestiary
-from .bestiary_looks import BestiaryLooks
-from .bestiary_mobs import BestiaryMobs
-from .character import Character
-from .conquest import Conquest
-from .defeats import Defeats
-from .delay import Delay
-from .digs import Digs
-from .drops import Drops
-from .effects import Effects
-from .engages import Engages
-from .entity_changes import EntityChanges
-from .evasion import EvasionSkill
-from .events import Events
-from .exp_kills import ExpKills
-from .experience import Experience
-from .fights import Fights
-from .fishing import Fishing
-from .holdings import Holdings
-from .hp import Hp
-from .immunity import Immunity
-from .influence import Influence
-from .keyitems import KeyItems
-from .kills import Kills
-from .levels import Levels
-from .looks import Looks
-from .melee import Melee
-from .mob_events import MobEvents
-from .mob_messages import MobMessages
-from .npc_events import NpcEvents
-from .npc_shops import NpcShops
-from .npc_trades import NpcTrades
-from .obtained import Obtained
-from .party import Party
-from .shops import Shops
-from .spawns import Spawns
-from .steals import Steals
-from .synths import Synths
-from .tp_uses import TpUses
-from .trades import Trades
-from .weather import Weather
-from .zones import Zones
+from ffxi_extractors.extractors.battle.actions import Actions
+from ffxi_extractors.extractors.battle.defeats import Defeats
+from ffxi_extractors.extractors.battle.delay import Delay
+from ffxi_extractors.extractors.battle.effects import Effects
+from ffxi_extractors.extractors.battle.engages import Engages
+from ffxi_extractors.extractors.battle.evasion import EvasionSkill
+from ffxi_extractors.extractors.battle.fights import Fights
+from ffxi_extractors.extractors.battle.hp import Hp
+from ffxi_extractors.extractors.battle.immunity import Immunity
+from ffxi_extractors.extractors.battle.kills import Kills
+from ffxi_extractors.extractors.battle.mob_messages import MobMessages
+from ffxi_extractors.extractors.items.digs import Digs
+from ffxi_extractors.extractors.items.drops import Drops
+from ffxi_extractors.extractors.items.fishing import Fishing
+from ffxi_extractors.extractors.items.holdings import Holdings
+from ffxi_extractors.extractors.items.obtained import Obtained
+from ffxi_extractors.extractors.items.shops import Shops
+from ffxi_extractors.extractors.items.synths import Synths
+from ffxi_extractors.extractors.items.trades import Trades
+from ffxi_extractors.extractors.progress.battlefields import Battlefields
+from ffxi_extractors.extractors.progress.events import Events
+from ffxi_extractors.extractors.progress.experience import Experience
+from ffxi_extractors.extractors.progress.keyitems import KeyItems
+from ffxi_extractors.extractors.world.character import Character
+from ffxi_extractors.extractors.world.conquest import Conquest
+from ffxi_extractors.extractors.world.entity_changes import EntityChanges
+from ffxi_extractors.extractors.world.influence import Influence
+from ffxi_extractors.extractors.world.levels import Levels
+from ffxi_extractors.extractors.world.looks import Looks
+from ffxi_extractors.extractors.world.party import Party
+from ffxi_extractors.extractors.world.spawns import Spawns
+from ffxi_extractors.extractors.world.weather import Weather
+from ffxi_extractors.extractors.world.zones import Zones
 
 ALL = (
     Zones,
@@ -81,20 +70,3 @@ ALL = (
     Trades,
     Shops,
 )
-
-# Facts over other units' rows, in ClickHouse SQL: run after them in the same job, or by a rebuild.
-DERIVED = (
-    Bestiary,
-    BestiaryMobs,
-    Melee,
-    TpUses,
-    Steals,
-    MobEvents,
-    ExpKills,
-    BestiaryLooks,
-    Aggro,
-    AggroPasses,
-    NpcEvents,
-    NpcTrades,
-    NpcShops,
-)  # each after the units it reads

@@ -10,8 +10,8 @@ from dataclasses import dataclass
 
 import pyarrow as pa
 
-from .capture import Fields, Packet
-from .world import World
+from ffxi_extractors.capture import Fields, Packet
+from ffxi_extractors.world import World
 
 
 @dataclass(frozen=True)
@@ -101,6 +101,18 @@ class Sink:
 
 # One capture's rows of a table, or every capture's when {capture:String} is ''.
 ONE = "(capture_id = {capture:String} OR {capture:String} = '')"
+
+# Each entity's name and model as the packets up to each one left them, for an ASOF join on idx.
+NAMES = (
+    "(SELECT capture_id, entity_id, idx, entity_name, model_id"
+    " FROM capture_entities(capture = {capture:String}) WHERE entity_name IS NOT NULL)"
+)
+# Each NPC's name in a capture, one per entity.
+NPC_NAMES = (
+    "(SELECT capture_id, entity_id, any(entity_name) AS name"
+    " FROM capture_entities(capture = {capture:String}) WHERE entity_name IS NOT NULL"
+    " GROUP BY capture_id, entity_id)"
+)
 
 # Each capture's coarse flag: whether every action packet came on a whole second, as in a PacketViewer log or
 # a captain log before 1.7. A capture with millisecond times puts about 1 in 1000 there.

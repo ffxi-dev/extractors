@@ -12,13 +12,14 @@ from pathlib import Path
 import pyarrow as pa
 from ffxi_packets import Decoder
 
-from . import resources, store
-from .capture import Capture, Packet, read
-from .decode import DECODER_VERSION, Decoded
-from .extract import Extractor, Sink
-from .extractors import ALL, DERIVED
-from .extractors.bestiary_mobs import partners, reroll
-from .world import WORLD, World
+from ffxi_extractors import resources, store
+from ffxi_extractors.capture import Capture, Packet, read
+from ffxi_extractors.decode import DECODER_VERSION, Decoded
+from ffxi_extractors.extract import Extractor, Sink
+from ffxi_extractors.extractors import ALL
+from ffxi_extractors.facts import DERIVED
+from ffxi_extractors.facts.bestiary_mobs import partners, reroll
+from ffxi_extractors.world import WORLD, World
 
 
 def versions(extractors=ALL, derived=DERIVED) -> dict[str, str]:
