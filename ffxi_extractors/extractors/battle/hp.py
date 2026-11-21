@@ -34,7 +34,8 @@ class _Mob:
         self.damage = self.hits = self.healing = 0
         self.last = self.extra = 0  # the last ordinary hit, and the proc and reaction damage since it
         self.start_hpp, self.hpp = start_hpp, hpp
-        self.hp_min, self.hp_max = 1, None
+        self.hp_min = 1
+        self.hp_max: int | None = None
         self.contradictions = 0
         self.base = 0  # net damage when the HP% window last restarted, after a rise no heal explains
         self.healed = False  # a heal seen since the last HP% update

@@ -4,7 +4,7 @@ Set up as the README's quick start says. Then:
 
 1. Make the change, with a test. A bug fix needs a test that fails without it.
 2. If any unit's output changes, bump its `version`, then write its new pin: `BLESS=1 uv run pytest tests/test_expected.py`. Commit the new `tests/expected/<unit>-v<version>.json` and delete the old one.
-3. `uv run ruff check . && uv run ruff format --check . && uv run pytest` passes.
+3. `uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest` passes. mypy checks every annotated function, `packet()` and `finish()` among them.
 4. Open a pull request saying what retail does and how a capture shows it: a capture id and packet index (Lens opens `https://lens.sruon.dev/c/<id>#packet=<index>`).
 
 A version is how Scholar knows to re-run a unit over the archive. Change a unit's output without bumping it and CI fails, naming the unit.

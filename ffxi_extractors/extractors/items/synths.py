@@ -90,7 +90,7 @@ class Synths(Extractor):
         failed = f("Grade") == -1
         lost = _ids(f, "BreakNo", 8) if failed else []
         if own:
-            lost = [i for i in lost if i in ingredients]
+            lost = [i for i in lost if i in (ingredients or [])]
         emit(
             "synths",
             p,

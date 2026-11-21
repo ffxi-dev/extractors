@@ -196,9 +196,9 @@ class Actions(Extractor):
         resend = self.resends.is_resend(p)
         ready = None
         if not resend and cat in (7, 8, 12) and (a["cmd_arg"] or 0) & 0xFFFF == INTERRUPT:
-            c, i, t = self.starts.pop(actor, (None, None, None))
-            if c == cat and p.ts_ms - t <= STALE_MS:
-                action_id, ready = i, p.ts_ms - t
+            start = self.starts.pop(actor, None)
+            if start and start[0] == cat and p.ts_ms - start[2] <= STALE_MS:
+                action_id, ready = start[1], p.ts_ms - start[2]
         elif not resend and cat in (7, 8, 12):
             self.starts[actor] = (cat, action_id, p.ts_ms)
         elif not resend and cat in FINISH and actor in self.starts:

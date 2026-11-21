@@ -242,8 +242,7 @@ class Effects(Extractor):
         if row["expires_ms"] is not None:
             row["duration_ms"] = row["expires_ms"] - src["source_ms"]
         actor = src["actor_id"]
-        e = world.entities.get(actor & 0xFFF, {}) if combat.is_mob(actor) else {}
-        row["actor_name"] = e.get("name") if e.get("id") == actor else None
+        row["actor_name"] = world.name(actor) if combat.is_mob(actor) else None
         # The result is spent, and so is an item's claim to any icon; a silent move may give several.
         self.landed = [x for x in self.landed if not (
             (x is best and x[1] != MOVE) or (x[1] is None and x[3]["source_idx"] == src["source_idx"])
@@ -294,7 +293,7 @@ def _take(
     for r in rows:
         was = listed[id(r)]
         if r["status_id"] == status and (was == expires or (
-            None not in (expires, was) and -SAME_MS <= expires - was <= pause
+            expires is not None and was is not None and -SAME_MS <= expires - was <= pause
         )):  # fmt: skip
             rows.remove(r)
             return r
