@@ -385,7 +385,8 @@ ch AS (
     CAST([], 'Array(Array(Int64))') AS rows, '' AS log, uniqExact(dropper, slot, entered) AS n,
     uniqExact(cid) AS captures, argMax(cid, ts) AS capture_id, max(ts) AS ts_ms
   FROM (SELECT p.capture_id AS cid, p.ts_ms AS ts, p.item_id AS item_id, p.zone_id AS zone_id,
-      p.dropper AS dropper, p.slot AS slot, coalesce(p.start_time, intDiv(p.ts_ms, 1000)) AS entered,
+      p.dropper AS dropper, coalesce(p.slot, -1) AS slot,
+      coalesce(p.start_time, intDiv(p.ts_ms, 1000)) AS entered,
       p.dropper = 0 AS unk, if(p.dropper = 0, '', coalesce(cn.name, 'a chest')) AS who,
       (p.zone_id, who) IN (SELECT zone_id, mob_name FROM bestiary_looks) AS mob
     FROM pl p LEFT JOIN (SELECT release, id, any(name) AS name FROM entity_names GROUP BY release, id) cn

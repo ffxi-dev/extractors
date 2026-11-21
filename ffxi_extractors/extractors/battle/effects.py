@@ -148,6 +148,7 @@ class Effects(Extractor):
 
     def __init__(self):
         self.held: list[dict] = []  # rows whose icons the list holds
+        self.listed: dict[int, int | None] = {}  # id(row) -> the expiry the list gives it now
         self.gone: list[dict] = []  # rows whose icons left before their expiry: a zone-in lists them again
         self.landed: list[tuple] = []  # (ts, status or None for any, sure, source) of recent results on me
         self.waiting: list[dict] = []  # rows no action has claimed yet
@@ -258,7 +259,9 @@ class Effects(Extractor):
         held, self.held = self.held, []
         pause = PAUSE_MS if self.zoned_at is not None and p.ts_ms - self.zoned_at <= ZONED_MS else SAME_MS
         for status, expires in listed:
-            row = _take(held, status, expires, pause) or _take(self.gone, status, expires, pause)
+            row = _take(held, self.listed, status, expires, pause) or _take(
+                self.gone, self.listed, status, expires, pause
+            )
             if row is None:
                 old = next((r for r in held if r["status_id"] == status), None)
                 if old is not None:
@@ -270,24 +273,28 @@ class Effects(Extractor):
                 self.rows.append(row)
                 if not self._claim(row, world, settle=False):
                     self.waiting.append(row)
-            row["ended_ms"], row["listed"] = None, expires  # listed: the expiry the list gives now
+            row["ended_ms"], self.listed[id(row)] = None, expires
             self.held.append(row)
         for row in held:
             row["ended_ms"] = p.ts_ms
         off = self.off or 0  # expiries count by the server's clock, packet times by the capture's
 
         def until(r: dict) -> int:
-            return r["listed"] - off if r["listed"] else r["ended_ms"] + RELIST_MS
+            listed = self.listed[id(r)]
+            return listed - off if listed else r["ended_ms"] + RELIST_MS
 
         self.gone = [r for r in self.gone + held if until(r) > p.ts_ms]
 
 
-def _take(rows: list[dict], status: int, expires: int | None, pause: int) -> dict | None:
+def _take(
+    rows: list[dict], listed: dict[int, int | None], status: int, expires: int | None, pause: int
+) -> dict | None:
     """The row in rows for this icon and expiry, removed from them: listed last with the same expiry to within
     SAME_MS, or up to pause earlier."""
     for r in rows:
-        if r["status_id"] == status and (r["listed"] == expires or (
-            None not in (expires, r["listed"]) and -SAME_MS <= expires - r["listed"] <= pause
+        was = listed[id(r)]
+        if r["status_id"] == status and (was == expires or (
+            None not in (expires, was) and -SAME_MS <= expires - was <= pause
         )):  # fmt: skip
             rows.remove(r)
             return r

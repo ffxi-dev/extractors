@@ -80,6 +80,7 @@ class Battlefields(Extractor):
 
     def __init__(self):
         self.open: dict | None = None
+        self.open_end = 0  # when the open countdown runs out, server seconds
         self.last: dict | None = None  # the timer that cleared most recently, for a late result event
 
     def _end(self, p, why):
@@ -96,12 +97,12 @@ class Battlefields(Extractor):
                 return
             start, limit = f("Timestamp"), f("Duration")
             end = start + limit
-            if self.open and abs(self.open["_end"] - end) <= SAME_END_S:
+            if self.open and abs(self.open_end - end) <= SAME_END_S:
                 return
             self._end(p, "replaced")
             self.open = emit("battlefields", p, mode=f("Mode"), start_ms=(start + EPOCH_S) * 1000,
                              time_limit_s=limit, warning_s=f("DurationWarn"), zone_id=world.zone)  # fmt: skip
-            self.open["_end"] = end
+            self.open_end = end
         elif op == 0x00A:
             if self.open and f("ZoneNo") != self.open["zone_id"]:
                 self._end(p, "zoned")

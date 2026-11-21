@@ -17,8 +17,9 @@ def test_a_pool_entry_two_party_members_saw_counts_once(con):
     )
     entry = {"idx": 5, "item_id": ITEM, "quantity": 1, "mob_id": 0, "slot": 3, "start_time": 1000}
     put(con, "drops", [{**entry, "capture_id": c, "ts_ms": 9000 + i} for i, c in enumerate("ab")])
+    put(con, "drops", [{**entry, "capture_id": "a", "idx": 9, "ts_ms": 20000, "slot": None}])  # no slot sent
     (drop,) = sources(con, "drop")
-    assert (drop["n"], drop["captures"]) == (1, 2)
+    assert (drop["n"], drop["captures"]) == (2, 2)
 
 
 def test_only_the_characters_own_synthesis_gives_a_recipe(con):

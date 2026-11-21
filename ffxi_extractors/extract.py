@@ -89,6 +89,8 @@ class Sink:
 
     def _arrow(self, name: str, rows: list[dict]) -> pa.Table:
         cols = COMMON + self.tables[name].columns
+        if extra := set().union(*rows) - {c.name for c in cols}:  # a typo would drop a column unseen
+            raise KeyError(f"{name} has no column {sorted(extra)}")
         return pa.table({c.name: pa.array([r.get(c.name) for r in rows], c.type) for c in cols})
 
     def arrow(self) -> dict[str, pa.Table]:
