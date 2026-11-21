@@ -10,6 +10,7 @@ docker compose up -d --wait
 uv run ruff check . && uv run ruff format --check . && uv run pytest
 BLESS=1 uv run pytest tests/test_expected.py     # after a version bump
 uv run ffxi-extractors index <capture.xicap>...
+docker build .                                   # what CI runs
 ```
 
 The tests use the compose file's ClickHouse; `FFXI_TEST_CLICKHOUSE` names another (`http://user:password@host:8123`). A session sets up its database once and empties it before each test.
