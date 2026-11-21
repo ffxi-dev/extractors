@@ -46,8 +46,9 @@ def test_the_catalog_gives_each_fish_its_minigame_by_rod_and_where_and_when_it_b
                        {**name, "kind": "item", "id": ROD, "name": "Lu Shang's Fishing Rod"},
                        {**name, "kind": "zone", "id": ZONE, "name": "Beaucedine Glacier"}])  # fmt: skip
     put(con, "fishing", [
-        catch("a", 1, ICEFISH, stamina=4200), catch("b", 2, ICEFISH, stamina=4400),
-        catch("b", 3, ICEFISH, stamina=5200, count=3),  # a multiple catch: not in the skill estimate
+        catch("a", 1, ICEFISH, stamina=4200, x=-98.6, y=-392.2, z=1.0),
+        catch("b", 2, ICEFISH, stamina=4400, x=-98.9, y=-391.8, z=1.2),
+        catch("b", 3, ICEFISH, stamina=5200, count=3, x=-120.0, y=-380.0, z=0.0),  # not in the skill estimate
         catch("x", 4, ICEFISH, stamina=9999),  # flagged
         {**catch("a", 5, None), "outcome": "gave up"},  # no catch: not in the catalog
     ])  # fmt: skip
@@ -70,7 +71,9 @@ def test_the_catalog_gives_each_fish_its_minigame_by_rod_and_where_and_when_it_b
         4400,
     )
     assert (many[1], many[n], many[s_lo], single[d_lo], single[d_hi]) == (3, 1, 5200, 5, 5)
-    assert fish["zones"] == [{"key": ZONE, "name": "Beaucedine Glacier", "n": 3}]
+    # Where it bit, to the yalm: one spot twice, another once.
+    spots = [[-99, -392, 1, 2], [-120, -380, 0, 1]]
+    assert fish["zones"] == [{"key": ZONE, "name": "Beaucedine Glacier", "n": 3, "spots": spots}]
     assert fish["rods"] == [{"key": ROD, "name": "Lu Shang's Fishing Rod", "n": 3}]
     assert fish["weathers"] == [{"key": 12, "name": "Snow", "n": 3}]
     assert [fish["hours"], fish["moons"]] == [[[6], [3]], [[50], [3]]]
