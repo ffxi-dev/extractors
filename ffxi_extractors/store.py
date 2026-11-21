@@ -105,6 +105,14 @@ DECODE = tuple(t.name for t in TABLES)
 # The tables of units that are not extractors or derived facts: the decoder, and any a caller adds.
 UNITS = {"decode": DECODE}
 SQL = Path(__file__).parent / "sql"
+# The figures across captures that pages show: one query a file, its {name:Type} blanks ClickHouse
+# parameters. A caller runs them as they are, as Scholar's mob, NPC, weather, and item pages do.
+PAGES = SQL / "pages"
+
+
+def pages() -> dict[str, str]:
+    """Each page query by its file's name."""
+    return {p.stem: p.read_text(encoding="utf-8") for p in sorted(PAGES.glob("*.sql"))}
 
 
 def connect(url: str | None = None, create: bool = False):
@@ -200,7 +208,8 @@ def setup(con) -> None:
 
 
 def views(con) -> None:
-    """The bestiary's views, made again from this code, so a changed definition or table takes effect."""
+    """The views over the derived tables, made again from this code, so a changed definition or table takes
+    effect."""
     for view in ("bestiary_list", "bestiary"):
         con.command(f"DROP VIEW IF EXISTS {view} SYNC")
     for statement in VIEWS:
