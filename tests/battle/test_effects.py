@@ -179,6 +179,18 @@ def test_a_paralyzed_mob_gives_nothing():
     assert minuet.get("source_idx") is None
 
 
+def test_a_silent_move_gives_only_an_ailment():
+    """ZOXxO9vccb-v's first status list held Bio, a Minuet, and Chaos and Samurai Rolls, all up before the
+    capture began, beside a Berserkr's spell that hit the character (message 2, damage) in the same second:
+    the spell took every one. A mob's move gives an ailment, never a song, a roll, or Signet."""
+    hit = T0 + 1000
+    listed = icons((135, hit + 117_000), (198, hit + 257_000), (317, hit + 201_000), (321, hit + 145_000))
+    steps = (BAT, action(4, 172, 2, 120), listed)
+    rows = effects(*steps, times=[T0, hit, hit])
+    got = [(r["status_id"], r.get("action_id")) for r in rows]
+    assert got == [(135, 172), (198, None), (317, None), (321, None)]
+
+
 def test_icons_cleared_early_count_against_no_clock_offset():
     """T4R4b6cqF101, a PacketViewer log with no zone-in, stamped an hour ahead of the server: 36 of its 51
     ended icons ran out at their expiry an hour on, and the other 15 were cleared early. 71% fell short of the

@@ -26,26 +26,15 @@ LANDED = frozenset({82, 127, 141, 186, 194, 230, 236, 237, 242, 243, 266, 267, 2
 PROC = (160, 164)  # "Additional effect: <status>" on the target
 # A mob's TP move or spell often gives its effect silently: its result says only the damage. With no result
 # naming the status by AFTER_MS after it, a new icon takes the latest such that landed on the character
-# under SILENT_MS before it, unless the status is a buff, or a player, trust, or pet gave the character that
-# status by name in the capture.
+# under SILENT_MS before it, if the status is an ailment: a mob's move gives nothing else.
 MOVE = -1
 KO = 0
 SILENT_MS = 1500
-# The statuses the client lets a player click off (flag 128 in its status table, retail-resources 30261006_0):
-# buffs, which a mob's move never gives the character silently.
-BUFFS = frozenset(i for a, b in (
-    (32, 118), (126, 127), (150, 150), (152, 152), (163, 166), (169, 173), (176, 176), (178, 185),
-    (190, 191), (227, 231), (258, 258), (274, 275), (277, 282), (284, 284), (286, 286), (288, 291),
-    (293, 297), (340, 357), (360, 371), (376, 377), (403, 403), (405, 421), (431, 433), (435, 447),
-    (453, 462), (467, 470), (472, 472), (477, 478), (480, 480), (482, 488), (490, 495), (497, 505),
-    (507, 508), (510, 510), (513, 513), (517, 517), (519, 519), (522, 522), (531, 535), (537, 538),
-    (568, 570), (573, 575), (581, 582), (584, 584), (586, 587), (589, 596), (598, 599), (601, 601),
-    (604, 611), (615, 615), (617, 617), (619, 619), (621, 623), (626, 628),
-) for i in range(a, b + 1))  # fmt: skip
 # The client's ailments: statuses a player cannot click off whose passive name has the character afflicted
 # ("afflicted with Bio", "bound"), retail-resources 30261006_0, less medicine and Overload, which the
 # character's own item and maneuvers give. An item or a player's job ability whose result names nothing gives
-# none of them.
+# none of them, and a mob's silent move nothing else: a capture's first list holds songs, rolls, and Signet
+# the character had before it began, which a move landing beside it did not give.
 AILMENTS = frozenset(i for a, b in (
     (1, 23), (28, 31), (128, 142), (144, 149), (156, 156), (167, 168), (174, 175), (177, 177), (189, 189),
     (404, 404), (473, 473), (572, 572), (576, 576), (597, 597), (630, 631),
@@ -85,13 +74,14 @@ class Effects(Extractor):
     icons only, and nothing lists a mob's, so theirs have no row."""
 
     name = "effects"
-    version = 8  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
+    version = 9  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
     # status; 3: a renewal no result names has no source; 4: a silent move waits for a naming result and
     # takes no buff a player gave; 5: a silent move lands and gives no buff; the capture's clock offset;
     # 6: the offset from a zone-in's server time, so a capture whose clock runs ahead keeps its sources;
     # 7: each row by the offset in force at it, for a capture across a clock change; a job ability a player,
     # trust, or pet used on the character comes before a silent move; 8: such an ability gives no ailment,
-    # a paralyzed mob gives nothing, and an icon cleared early counts against no clock offset
+    # a paralyzed mob gives nothing, and an icon cleared early counts against no clock offset; 9: a silent
+    # move gives only an ailment
     doc = (
         "Each status effect applied to the character: how long the zone said it would last, and what gave it."
     )
@@ -170,7 +160,6 @@ class Effects(Extractor):
         self.zoned_at = None  # the last zone-in
         self.off: int | None = None  # how far the server's clock runs ahead, from a zone-in's server time
         self.resends = combat.Resends()
-        self.given: set[int] = set()  # statuses a player, trust, or pet gave the character by name
         # every row and the offset in force when it was listed, kept to the end for the capture's offset
         self.rows: list[tuple[dict, int | None]] = []
 
@@ -236,8 +225,7 @@ class Effects(Extractor):
         """Fill row's source from the results from BEFORE_MS before its icon to AFTER_MS after: the latest
         naming its status by a message that lands an effect, else the latest naming it. Once settled, a new
         icon takes the latest item or job ability a player, trust, or pet used on the character, unless it is
-        an ailment; else the latest mob's move or spell from SILENT_MS before, unless a player, trust, or pet
-        gave the character that status by name: those are buffs, which a move hit just before did not give.
+        an ailment; else, if it is an ailment, the latest mob's move or spell from SILENT_MS before.
         Some icons renew themselves every few seconds, so a renewal no result names has no source; nor has an
         icon whose expiry came before the action."""
         status, at = row["status_id"], row["ts_ms"]
@@ -249,7 +237,7 @@ class Effects(Extractor):
             best = max(named, key=lambda x: (x[2], x[0]))
         elif settle and not row["renewed"]:
             other = [x for x in near if (x[1] is None and status not in AILMENTS) or (
-                x[1] == MOVE and x[0] >= at - SILENT_MS and status not in self.given and status not in BUFFS
+                x[1] == MOVE and x[0] >= at - SILENT_MS and status in AILMENTS
             )]  # fmt: skip
             if not other:
                 return False
@@ -259,8 +247,6 @@ class Effects(Extractor):
         src = best[3]
         if row["expires_ms"] is not None and row["expires_ms"] - (self.off or 0) <= src["source_ms"]:
             return False
-        if named and not combat.is_mob(src["actor_id"]):
-            self.given.add(status)
         row.update(src, named=bool(named))
         if row["expires_ms"] is not None:
             row["duration_ms"] = row["expires_ms"] - src["source_ms"]
