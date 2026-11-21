@@ -1,7 +1,7 @@
 import pyarrow as pa
 
 from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.extractors.items.gathering import PLACE, WINDOW_MS, Held, Place
+from ffxi_extractors.extractors.items.gathering import PLACE, WINDOW_MS, Held, place
 
 CAST = 14  # c2s 0x01A's ActionID for a cast
 ROD, BAIT = 2, 3  # 0x050's EquipKind: the range and ammo slots
@@ -24,10 +24,10 @@ class Fishing(Extractor):
 
     name = "fishing"
     # 2: the zone's offset is the one that explains the most casts, not a refusal's; 3: an emptied slot holds
-    # no rod or bait
-    version = 3
+    # no rod or bait; 4: a cast keeps only the messages before its animation ends
+    version = 4
     doc = "Each cast the character made: where, with what rod and bait, what bit, its minigame, its outcome."
-    reads = Place.reads | Held.reads | {
+    reads = Held.reads | {(0, 0x00A),
         (1, 0x01A), (1, 0x110), (0, 0x115), (0, 0x027), (0, 0x02A), (0, 0x036), (0, 0x037), (0, 0x050)
     }  # fmt: skip
     tables = (
@@ -119,18 +119,17 @@ class Fishing(Extractor):
     )
 
     def __init__(self):
-        self.place = Place()
         self.held = Held()
         self.equip: dict[int, tuple[int, int]] = {}  # EquipKind -> (container, slot)
         self.row: dict | None = None  # the cast now
         self.seen: list[tuple[dict, dict]] = []  # each row, with the messages finish() names it by
+        self.casting = False  # whether the cast's animation still runs: its messages are its own
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if self.place.see(p, f):
-            if p.opcode == 0x00A:
-                self.row = None
-            return
         key = (p.direction, p.opcode)
+        if key == (0, 0x00A):
+            self.row = None
+            return
         me = world.character_id
         if key in Held.reads:
             item = self.held.gained(p, f)
@@ -151,12 +150,15 @@ class Fishing(Extractor):
             if f("mode") == 3:
                 self.row["reel"] = f("para")
         elif key == (0, 0x036):
-            self.row["messages"].append(f("MesNum"))
+            if self.casting:
+                self.row["messages"].append(f("MesNum"))
+        elif key == (0, 0x037) and (status := OUTCOME.get(f("server_status"))):
+            # The animation ends the cast: a later message, such as a dig's, is not this cast's.
+            self.casting = False
+            if self.row["hook_ms"] is not None and not self.row["outcome"]:
+                self.row.update(outcome=status, end_ms=p.ts_ms)
         elif self.row["hook_ms"] is None:
             return
-        elif key == (0, 0x037):
-            if (status := OUTCOME.get(f("server_status"))) and not self.row["outcome"]:
-                self.row.update(outcome=status, end_ms=p.ts_ms)
         elif key == (0, 0x02A):
             self.seen[-1][1].setdefault("sense", (f("MesNum"), f("num[0]")))
         elif key == (0, 0x027):
@@ -166,11 +168,12 @@ class Fishing(Extractor):
         # Index 0 empties a slot; (0, 0) is the gil.
         rod, bait = (world.items.get(e) if (e := self.equip.get(k)) and e[1] else None for k in (ROD, BAIT))
         self.row = emit(
-            "fishing", p, **self.place.row(p, world), rod_id=rod, bait_id=bait, hook_ms=None, end_ms=None,
+            "fishing", p, **place(p, world), rod_id=rod, bait_id=bait, hook_ms=None, end_ms=None,
             **dict.fromkeys(GAME), hook=None, feeling=None, sensed_id=None, reel=None, outcome=None,
             item_id=None, count=None, messages=[],
         )  # fmt: skip
         self.seen.append((self.row, {}))
+        self.casting = True
 
     def finish(self, world: World, emit: Emit) -> None:
         """Name what each cast's messages say. A zone numbers its fishing messages from an offset of its own:

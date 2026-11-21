@@ -119,6 +119,16 @@ def test_a_capture_an_hour_behind_the_server():
     assert rows[0]["expires_ms"] == T0 + ahead
 
 
+def test_a_capture_hours_ahead_of_the_server_keeps_its_sources():
+    """A capture stamped 9 hours ahead read every expiry as before its action and dropped each source; its
+    zone-in sends the server's own time (ntTimeSec), which gives the offset at once."""
+    hit, behind = T0 + 1000, 9 * 3_600_000
+    zone_in = (0x00A, {"ntTimeSec": (T0 - behind) // 1000})
+    steps = (zone_in, BAT, action(11, 392, 242, POISON), icons((POISON, hit - behind + 180_000)))
+    (row,) = effects(*steps, times=[T0, T0, hit, hit + 600])
+    assert (row["source_idx"], row["duration_ms"], row["expires_ms"]) == (2, 180_000, hit + 180_000)
+
+
 def test_a_renewal_a_zone_in_and_the_end():
     # Protect cast, cast again 600 s later, a zone-in that lists it 4 s later than before, and it wears off.
     first, again = T0, T0 + 600_000

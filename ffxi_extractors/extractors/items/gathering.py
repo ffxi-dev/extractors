@@ -1,4 +1,4 @@
-"""What digs and fishing share: where the character was, and what it held."""
+"""What digs and fishing share: the place they happened, and what the character held."""
 
 import pyarrow as pa
 
@@ -8,36 +8,13 @@ from ffxi_extractors.vana import vana
 WINDOW_MS = 3000  # a dig's result: the messages and inventory updates under this long after it
 
 
-class Place:
-    """Where the character stands and the zone's weather, from the packets that say: c2s 0x015, the zone-in
-    (0x00A), and weather changes (0x057)."""
-
-    reads = frozenset({(1, 0x015), (0, 0x00A), (0, 0x057)})
-
-    def __init__(self):
-        self.pos: tuple = (None, None, None)
-        self.weather: int | None = None
-
-    def see(self, p, f) -> bool:
-        """Read p if it is one of these; whether it was."""
-        key = (p.direction, p.opcode)
-        if key == (1, 0x015):
-            self.pos = (f("x"), f("y"), f("z"))
-        elif key == (0, 0x00A):
-            self.pos = (f("PosHead.x"), f("PosHead.y"), f("PosHead.z"))
-            self.weather = f("WeatherNumber")
-        elif key == (0, 0x057):
-            self.weather = f("WeatherNumber")
-        else:
-            return False
-        return True
-
-    def row(self, p, world) -> dict:
-        """The columns digs and fishing share: zone, position, weather, Vana'diel time."""
-        day, hour, moon = vana(p.ts_ms)
-        x, y, z = self.pos
-        return {"zone_id": world.zone, "x": x, "y": y, "z": z, "weather_id": self.weather,
-                "vana_weekday": day, "vana_hour": hour, "moon_phase": moon}  # fmt: skip
+def place(p, world) -> dict:
+    """The columns digs and fishing share: the zone, the character's position, the weather, and Vana'diel
+    time."""
+    day, hour, moon = vana(p.ts_ms)
+    x, y, z = world.pos
+    return {"zone_id": world.zone, "x": x, "y": y, "z": z, "weather_id": world.weather,
+            "vana_weekday": day, "vana_hour": hour, "moon_phase": moon}  # fmt: skip
 
 
 class Held:

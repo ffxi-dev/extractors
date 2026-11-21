@@ -4,14 +4,15 @@ from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Tab
 from ffxi_extractors.link import KINDS, LINK_MS, Link
 
 GIL = 0xFFFF
-RECYCLE = 17  # what the character drops waits here a while: neither a gain nor a loss
 SETTLE_MS = 1000  # a change this soon after the last is part of the same move, trade or synthesis
 POOL_MS = 10_000  # an item the character won from the pool lands this soon after
 
 
 class Obtained(Extractor):
     name = "obtained"
-    version = 2  # 2: a zone-in that plays a cutscene starts the event its reward follows
+    # 2: a zone-in that plays a cutscene starts the event its reward follows; 3: taking an item back out of
+    # the recycle bin is no gain
+    version = 3
     doc = "Items the character received, whatever gave them: a quest, a trade, a shop, a synthesis, the pool."
     reads = frozenset(KINDS) | {(0, op) for op in (0x00A, 0x01D, 0x01E, 0x01F, 0x020, 0x0D2, 0x0D3)}
     tables = (
@@ -21,7 +22,8 @@ class Obtained(Extractor):
             " every container went up over a run of changes, each under 1 s after the last, so a move between"
             " slots or containers nets out. After a zone-in the server sends each container whole, and"
             " 0x01D's Flags marks it done; a slot first seen before then is what the character held and gives"
-            " no row, so a capture's rows start at its first zone-in. Gil and the recycle bin are left out.",
+            " no row, so a capture's rows start at its first zone-in. Gil is left out. The recycle bin counts"
+            " as a container, so a drop into it and a take back out of it each net out.",
             (
                 Column("item_id", pa.int32(), "The item; its name is in item_names."),
                 Column("quantity", pa.int32(), "How many more."),
@@ -74,8 +76,6 @@ class Obtained(Extractor):
                 self.won[item] = p.ts_ms
         else:
             slot = (f("Category"), f("ItemIndex"))
-            if slot[0] == RECYCLE:
-                return
             old = self.slots.get(slot)
             if op == 0x01E:  # the quantity alone
                 if old is None:

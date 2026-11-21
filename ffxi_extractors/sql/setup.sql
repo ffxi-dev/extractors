@@ -35,7 +35,7 @@ CREATE OR REPLACE FUNCTION mission_addon AS (old, new) -> multiIf(bitAnd(bitXor(
 
 CREATE OR REPLACE FUNCTION mission_log AS (log, port, area, field, old, new, id) -> multiIf(
   log = 'missions_done', multiIf(port = 208, intDiv(id, 64), port = 216, if(area = 'ToAU', 4, 5), 8),
-  log = 'progress', [7, 4, 5, 8][field - 3],
+  log = 'progress', if(field BETWEEN 4 AND 7, [7, 4, 5, 8][field - 3], NULL),  -- an index past the array read 0
   log = 'main', multiIf(field = 2, 3, field = 3, 6, field = 5, 9 + mission_addon(old, new), field = 6, 12,
     field = 7, 13, NULL),
   log = 'tvr' AND field = 0, 14, NULL);

@@ -45,6 +45,15 @@ def capture(con, cid="h"):
     put(con, "captures", [{"capture_id": cid, "client_version": "", "retail": True, "packets": 0}])
 
 
+def test_a_progress_field_past_the_four_logs_names_none(con):
+    """An array index past its end reads 0, so field 3 named log 0, San d'Oria's quests."""
+    got = rows(
+        con,
+        "SELECT mission_log('progress', 128, '', 3, 0, 0, 0), mission_log('progress', 128, '', 4, 0, 0, 0)",
+    )
+    assert got == [(None, 7)]
+
+
 def test_wilson_known_values(con):
     (got,) = records(
         con,

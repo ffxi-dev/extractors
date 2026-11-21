@@ -74,9 +74,10 @@ class Effects(Extractor):
     icons only, and nothing lists a mob's, so theirs have no row."""
 
     name = "effects"
-    version = 5  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
+    version = 6  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
     # status; 3: a renewal no result names has no source; 4: a silent move waits for a naming result and
-    # takes no buff a player gave; 5: a silent move lands and gives no buff; the capture's clock offset
+    # takes no buff a player gave; 5: a silent move lands and gives no buff; the capture's clock offset;
+    # 6: the offset from a zone-in's server time, so a capture whose clock runs ahead keeps its sources
     doc = (
         "Each status effect applied to the character: how long the zone said it would last, and what gave it."
     )
@@ -151,6 +152,7 @@ class Effects(Extractor):
         self.landed: list[tuple] = []  # (ts, status or None for any, sure, source) of recent results on me
         self.waiting: list[dict] = []  # rows no action has claimed yet
         self.zoned_at = None  # the last zone-in
+        self.off: int | None = None  # how far the server's clock runs ahead, from a zone-in's server time
         self.resends = combat.Resends()
         self.given: set[int] = set()  # statuses a player, trust, or pet gave the character by name
         self.rows: list[dict] = []  # every row, kept to the end for the capture's clock offset
@@ -158,6 +160,8 @@ class Effects(Extractor):
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         if p.opcode == 0x00A:
             self.zoned_at = p.ts_ms
+            if now := f("ntTimeSec"):  # the server's Unix seconds: the offset in whole hours, at once
+                self.off = round((now * 1000 - p.ts_ms) / HOUR_MS) * HOUR_MS
         elif p.opcode == 0x028:
             self._results(p, f, world)
         elif f("type") == 9:
@@ -198,7 +202,7 @@ class Effects(Extractor):
     def finish(self, world: World, emit: Emit) -> None:
         for row in self.waiting:
             self._claim(row, world, settle=True)
-        off = clock_offset(self.rows)
+        off = self.off if self.off is not None else clock_offset(self.rows)
         if off:
             for row in self.rows:
                 if row["expires_ms"] is not None:
@@ -229,7 +233,7 @@ class Effects(Extractor):
         else:
             return False
         src = best[3]
-        if row["expires_ms"] is not None and row["expires_ms"] <= src["source_ms"]:
+        if row["expires_ms"] is not None and row["expires_ms"] - (self.off or 0) <= src["source_ms"]:
             return False
         if named and not combat.is_mob(src["actor_id"]):
             self.given.add(status)
@@ -270,8 +274,12 @@ class Effects(Extractor):
             self.held.append(row)
         for row in held:
             row["ended_ms"] = p.ts_ms
-        self.gone = [r for r in self.gone + held
-                     if (r["listed"] or r["ended_ms"] + RELIST_MS) > p.ts_ms]  # fmt: skip
+        off = self.off or 0  # expiries count by the server's clock, packet times by the capture's
+
+        def until(r: dict) -> int:
+            return r["listed"] - off if r["listed"] else r["ended_ms"] + RELIST_MS
+
+        self.gone = [r for r in self.gone + held if until(r) > p.ts_ms]
 
 
 def _take(rows: list[dict], status: int, expires: int | None, pause: int) -> dict | None:

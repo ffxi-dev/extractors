@@ -1,15 +1,21 @@
 """What a capture's packets say about the world so far, as captain's backend reads it from the client:
-the zone, the recording character, its party, its inventory, and the entities around it."""
+the zone and its weather, the recording character and where it stands, its party, its inventory, and the
+entities around it."""
 
 from __future__ import annotations
 
 from ffxi_extractors.capture import Capture, Fields, Packet
 
-S2C = 0
+S2C, C2S = 0, 1
 # The packets update() reads. Every run decodes them, beside its extractors' own; WORLD_VERSION changes
 # whenever what update() keeps does, and re-runs every unit.
-WORLD = frozenset((S2C, op) for op in (0x00A, 0x00E, 0x037, 0x0DD, 0x0E2, 0x0C8, 0x01E, 0x01F, 0x020))
-WORLD_VERSION = 1
+WORLD = frozenset(
+    {
+        *((S2C, op) for op in (0x00A, 0x00E, 0x037, 0x0DD, 0x0E2, 0x0C8, 0x01E, 0x01F, 0x020, 0x057)),
+        (C2S, 0x015),
+    }
+)
+WORLD_VERSION = 2  # 2: the character's position and the zone's weather
 
 
 def zone_of(entity_id: int | None) -> int | None:
@@ -27,16 +33,32 @@ class World:
         self.party: set[int] = set()  # party and alliance member ids
         self.entities: dict[int, dict] = {}  # act index -> {"id", "name"}
         self.items: dict[tuple[int, int], int] = {}  # (container, index) -> item id
+        self.pos: tuple = (None, None, None)  # the character's last position: c2s 0x015, the zone-in
+        self.pos_ms = 0  # when it came
+        self.weather: int | None = None  # the zone's weather: the zone-in, 0x057
+
+    @property
+    def here(self) -> tuple | None:
+        """The character's position, when the packets gave all three coordinates."""
+        return self.pos if None not in self.pos else None
 
     def update(self, p: Packet, f: Fields) -> None:
-        if p.direction != S2C or p.channel != 0:
+        if p.channel != 0:
             return
         op = p.opcode
+        if p.direction == C2S:
+            if op == 0x015:  # the character's own position
+                self.pos, self.pos_ms = (f("x"), f("y"), f("z")), p.ts_ms
+            return
         if op == 0x00A:  # zone-in
             self.zone = f("ZoneNo")
             self.entities.clear()
             self.character_id = f("PosHead.UniqueNo") or self.character_id
             self.character = f("name") or self.character
+            self.pos, self.pos_ms = (f("PosHead.x"), f("PosHead.y"), f("PosHead.z")), p.ts_ms
+            self.weather = f("WeatherNumber")
+        elif op == 0x057:  # the zone's weather changed
+            self.weather = f("WeatherNumber")
         elif op == 0x037:  # the character's own status: a captain log has no zone-in to name it
             self.character_id = f("UniqueNo") or self.character_id
         elif op == 0x00E:  # NPC or mob update

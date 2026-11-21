@@ -210,8 +210,8 @@ class Actions(Extractor):
         if cat == 11 and not resend:
             me = world.character_id
             places = self.places
-            if me and places.me and None not in places.me:
-                places.pos[me], places.at[me] = places.me, places.me_at
+            if me and world.here:
+                places.pos[me], places.at[me] = world.here, world.pos_ms
             reach, spread = self._measure(actor, [t for t, _ in a["targets"] if t != actor])
             d, at = places.dir.get(actor, (None, None))
             heading = d if at is not None and p.ts_ms - at <= FRESH_MS else None

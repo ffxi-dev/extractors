@@ -373,7 +373,7 @@ dr AS (
 ),
 pl AS (
   SELECT d.capture_id AS capture_id, d.ts_ms AS ts_ms, toInt64(d.item_id) AS item_id, d.zone_id AS zone_id,
-    coalesce(d.mob_id, 0) AS dropper, c.release AS release
+    coalesce(d.mob_id, 0) AS dropper, c.release AS release, d.slot AS slot, d.start_time AS start_time
   FROM drops d JOIN captures c ON c.capture_id = d.capture_id
   WHERE {item:Int64} IN (0, d.item_id) AND d.capture_id NOT IN fl
     AND (d.capture_id, coalesce(d.mob_id, 0)) NOT IN (SELECT capture_id, mob_id FROM fights
@@ -382,9 +382,10 @@ pl AS (
 ch AS (
   SELECT if(unk OR mob, 'drop', 'chest') AS kind, item_id, zone_id, who AS place, toInt64(-1) AS model,
     CAST([], 'Array(Int64)') AS ids,
-    CAST([], 'Array(Array(Int64))') AS rows, '' AS log, count() AS n, uniqExact(cid) AS captures,
-    argMax(cid, ts) AS capture_id, max(ts) AS ts_ms
+    CAST([], 'Array(Array(Int64))') AS rows, '' AS log, uniqExact(dropper, slot, entered) AS n,
+    uniqExact(cid) AS captures, argMax(cid, ts) AS capture_id, max(ts) AS ts_ms
   FROM (SELECT p.capture_id AS cid, p.ts_ms AS ts, p.item_id AS item_id, p.zone_id AS zone_id,
+      p.dropper AS dropper, p.slot AS slot, coalesce(p.start_time, intDiv(p.ts_ms, 1000)) AS entered,
       p.dropper = 0 AS unk, if(p.dropper = 0, '', coalesce(cn.name, 'a chest')) AS who,
       (p.zone_id, who) IN (SELECT zone_id, mob_name FROM bestiary_looks) AS mob
     FROM pl p LEFT JOIN (SELECT release, id, any(name) AS name FROM entity_names GROUP BY release, id) cn
@@ -393,7 +394,8 @@ ch AS (
 ),
 st AS (
   SELECT 'steal' AS kind, toInt64(item_id) AS item_id, zone_id, mob_name AS place, toInt64(-1) AS model,
-    CAST([], 'Array(Int64)') AS ids, CAST([], 'Array(Array(Int64))') AS rows, ability AS log, count() AS n,
+    CAST([], 'Array(Int64)') AS ids, CAST([], 'Array(Array(Int64))') AS rows, ability AS log,
+    uniqExact(actor_id, target_id, intDiv(ts_ms, 1000)) AS n,
     uniqExact(capture_id) AS captures, argMax(capture_id, ts_ms) AS capture_id, max(ts_ms) AS ts_ms
   FROM steals WHERE success AND item_id IS NOT NULL AND {item:Int64} IN (0, item_id) AND capture_id NOT
     IN fl
@@ -414,7 +416,7 @@ sy AS (
     argMax(capture_id, ts_ms) AS cap, max(ts_ms) AS last
   FROM (SELECT *, arrayConcat([toInt64(coalesce(crystal_id, 0))], arrayMap(x -> toInt64(x),
     arraySort(ingredients))) AS recipe
-    FROM synths WHERE grade >= 0 AND item_id IS NOT NULL AND {item:Int64} IN (0, item_id)
+    FROM synths WHERE own AND grade >= 0 AND item_id IS NOT NULL AND {item:Int64} IN (0, item_id)
       AND capture_id NOT IN fl)
   GROUP BY item_id, recipe, grade
 ),
@@ -438,7 +440,7 @@ sh AS (
 ),
 near AS (
   SELECT DISTINCT capture_id, item_id, b FROM (
-    SELECT capture_id, item_id, ts_ms FROM synths WHERE {item:Int64} IN (0, item_id)
+    SELECT capture_id, item_id, ts_ms FROM synths WHERE own AND {item:Int64} IN (0, item_id)
     UNION ALL SELECT capture_id, item_id, ts_ms FROM digs WHERE {item:Int64} IN (0, item_id)
     UNION ALL SELECT capture_id, item_id, ts_ms FROM fishing WHERE outcome = 'caught' AND {item:Int64}
       IN (0, item_id)
