@@ -72,7 +72,7 @@ def test_the_shops_page_lists_every_item_by_zone_npc_and_list_with_its_prices(co
     setup(con, "e", [listed(1, 1000, "shop", NPC, STEW, 1, 8)])
     store.trust(con, [("e", "flagged")])
     keys = "item_name", "zone_name", "npc_name", "kind", "price_lo", "price_hi", "n", "captures"
-    got = [tuple(r[k] for k in keys) for r in ask(con, "shops")]
+    got = [tuple(r[k] for k in keys) for r in ask(con, "shop_catalog")]
     assert got == [
         ("Quadav Stew", "Bastok Markets", "Hortense", "shop", 54, 60, 2, 2),
         ("Steel Ingot", "Bastok Markets", "Smith", "guild_sells", 8000, 8000, 1, 1),
