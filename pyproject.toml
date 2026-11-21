@@ -22,7 +22,6 @@ ffxi-extractors = "ffxi_extractors.cli:main"
 dev = ["mypy==1.18.2", "pytest==9.2.0", "ruff==0.17.3"]
 
 [tool.uv.sources]
-# packets is private until both repositories are public: CI fetches it with a read-only deploy key.
 xicap = { git = "https://github.com/ffxi-dev/xicap", tag = "v7.2.0", subdirectory = "bindings/python" }
 ffxi-packets = { git = "https://github.com/ffxi-dev/packets", tag = "v1.6.0" }
 

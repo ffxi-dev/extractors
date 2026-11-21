@@ -1,4 +1,4 @@
-# What the Dockerfile checks: ruff, the tests with every pin, and indexing the fixtures.
+# What the Dockerfile checks: ruff, mypy, the tests with every pin, and indexing the fixtures.
 name: ci
 
 on:
@@ -12,11 +12,6 @@ jobs:
     runs-on: ${{ github.event.repository.private && fromJSON('["self-hosted","lsb"]') || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v7
-      # PACKETS_DEPLOY_KEY goes once packets is public, and the secret with it.
-      - env:
-          PACKETS_KEY: ${{ secrets.PACKETS_DEPLOY_KEY }}
-        run: >-
-          docker build --progress plain --secret id=packets_key,env=PACKETS_KEY
-          -t extractors-test:${{ github.sha }} .
+      - run: docker build --progress plain -t extractors-test:${{ github.sha }} .
       - if: always()
         run: docker image rm extractors-test:${{ github.sha }} || true

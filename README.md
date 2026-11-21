@@ -6,7 +6,7 @@ Turns FFXI captures into ClickHouse tables and findings. **Extractors** read one
 
 ## Quick start
 
-You need [uv](https://docs.astral.sh/uv/), Docker, and a C++20 compiler with CMake and zstd, which xicap's reader builds with. Until [packets](https://github.com/ffxi-dev/packets) is public, `uv sync` needs read access to it.
+You need [uv](https://docs.astral.sh/uv/), Docker, and a C++20 compiler with CMake and zstd, which xicap's reader builds with.
 
 ```bash
 uv sync
