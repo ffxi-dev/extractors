@@ -311,7 +311,7 @@ def fights(con):
 @pytest.mark.parametrize("a, b", [
     ({"server": "1.2.3.4:54288"}, {"server": "1.2.3.4:54288", "ends": (1001,)}),  # the same zone server
     ({"roster": [7, 8]}, {"roster": [8, 7]}),  # no server: the same alliance
-    ({"roster": [7, 8]}, {"roster": [7, 8], "server": "1.2.3.4:54288"}),  # one started inside the zone
+    ({"roster": [7], "server": "1.2.3.4:54288"}, {"roster": [9], "server": "1.2.3.4:54288"}),  # a bystander
 ])  # fmt: skip
 def test_party_members_copies_of_a_fight_count_once(con, a, b):
     seen(con, "a", **a)
@@ -324,6 +324,9 @@ def test_party_members_copies_of_a_fight_count_once(con, a, b):
     ({"server": "1.2.3.4:54288"}, {"server": "1.2.3.4:54289"}),  # parallel instances of the zone
     ({"roster": [7, 8]}, {"roster": [9]}),  # no server: two parties
     ({}, {}),  # neither: each capture counts its own
+    # One started inside the zone, so has no server: the server comes first, so they split. 18 pairs on the
+    # archive, against 33,004 a roster-first key split.
+    ({"roster": [7, 8]}, {"roster": [7, 8], "server": "1.2.3.4:54288"}),
 ])  # fmt: skip
 def test_fights_on_other_instances_or_with_nothing_to_match_count_apart(con, a, b):
     seen(con, "a", **a)
