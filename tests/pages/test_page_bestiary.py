@@ -511,6 +511,25 @@ def test_every_figure_leads_to_fights(both):
     assert all(e["capture_id"] == "c" and e["lens_url"] for e in ev)
 
 
+def test_a_double_attack_counts_rounds_whose_first_swing_hit_and_zanshin_those_that_missed(con):
+    """Yagudo Parivir's card read a 31.7% double attack: of its 3,230 rounds whose first swing hit, none had a
+    second, and of the 363 whose first missed, 40.8% did. That is Zanshin, which swings again only after a
+    single swing that missed. The card takes the double attack from rounds whose first swing hit."""
+    hit = [{"main_hand": 1, "first_missed": False}] * 6
+    missed = [{"main_hand": 2, "first_missed": True}] * 2 + [{"main_hand": 1, "first_missed": True}] * 2
+    swings = hit + missed
+    rounds = [
+        {"swings": x["main_hand"], "main_hand": x["main_hand"], "off_hand": 0, "kicks": 0} for x in swings
+    ]
+    facts(con, [defeat("a", 1000, rounds=rounds, first_swings=swings)])
+    (mob,) = page(con, "bestiary_mob", ZONE, "Goblin")
+    multi = mob["multi"]
+    assert (multi["rounds"], [x["n"] for x in multi["main_hand"]][:2]) == (10, [8, 2])
+    after_hit, after_miss = multi["after_hit"], multi["after_miss"]
+    assert (after_hit["hit_rounds"], after_hit["hit_doubles"]) == (6, 0)
+    assert (after_miss["miss_rounds"], after_miss["miss_doubles"]) == (4, 2)
+
+
 def test_setup_brings_an_older_bestiary_to_this_schema(con):
     """A store from before fight_key: bestiary_fights gains the column, and bestiary_mobs, a MergeTree then,
     is made again as a ReplacingMergeTree, so the reruns its new version brings can write them."""

@@ -124,3 +124,28 @@ def test_the_bestiary_keeps_no_tp_gain_from_a_sam_recorder(con):
     run(con, None, "h", units={"bestiary"})
     (fight,) = records(con, "SELECT tp_gains FROM bestiary_fights")
     assert fight["tp_gains"] == [21]
+
+
+def test_a_fight_keeps_whether_each_rounds_first_swing_missed(con):
+    """Zanshin swings again only after a single swing that missed: a fight keeps each round's main-hand swings
+    and whether its first swing missed, from the round's first result."""
+    from ffxi_extractors.index import run
+
+    mob = 0x01000000 | (ZONE << 12) | 31
+    capture(con)
+    put(con, "entity_changes", [{"capture_id": "h", "entity_id": mob, "idx": 1, "name": "Parivir",
+                                 "model_id": 1}])  # fmt: skip
+    put(con, "fights", [{"capture_id": "h", "idx": 100, "mob_id": mob, "end_idx": 200, "zone_id": ZONE,
+                         "outcome": "defeated", "actions": 10}])  # fmt: skip
+    # Six rounds whose first swing hit, all single; four whose first missed, two of them with a second swing.
+    played = rounds(mob, 110, 6, 4)
+    for r in played[6:8]:
+        r.update(swings=2, main_hand=2)
+    put(con, "attack_rounds", played)
+    put(con, "action_results", [{"capture_id": "h", "idx": r["idx"], "actor_id": mob, "category": 1,
+                                 "target_index": 0, "result_index": 0, "miss": int(r["misses"] > 0)}
+                                for r in played])  # fmt: skip
+    run(con, None, "h", units={"bestiary", "bestiary_mobs"})
+    (fight,) = records(con, "SELECT first_swings FROM bestiary_fights")
+    assert [(x["main_hand"], x["first_missed"]) for x in fight["first_swings"]] == [(1, False)] * 6 + [
+        (2, True), (2, True), (1, True), (1, True)]  # fmt: skip
