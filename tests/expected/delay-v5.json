@@ -1,0 +1,10 @@
+{
+  "c/attack_rounds": {
+    "rows": 1154,
+    "sha256": "5ee3c0c14e51790106a0888cfe73155d63f9eb39cdcb5df297ccb8e77efb8e15"
+  },
+  "m/attack_rounds": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

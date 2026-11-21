@@ -1,0 +1,10 @@
+{
+  "c/party": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/party": {
+    "rows": 1,
+    "sha256": "e2d51a535fe6088a80ef780d00733cc6baad63ac6992a18468e2b89779a295c0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "c/holdings": {
+    "rows": 18,
+    "sha256": "200e0891e144baa3870f849bad07319ad9467e2207eba4dd9d604a922fc43008"
+  },
+  "m/holdings": {
+    "rows": 709,
+    "sha256": "828a8290510fb722545dd3ca38b7b4e391c0cb78c41a809c455f9c31340d2a60"
+  }
+}

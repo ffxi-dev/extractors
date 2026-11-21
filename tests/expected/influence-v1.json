@@ -1,0 +1,26 @@
+{
+  "c/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "c/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "c/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/campaign": {
+    "rows": 1,
+    "sha256": "cff54f856f5e8bea3683a88c2fa3f6b4f2eb17016b7628b75cd4e1e1b66d5e14"
+  },
+  "m/campaign_areas": {
+    "rows": 26,
+    "sha256": "f5bce26fd54ef57819e79cf7306b0aaaa75f19a69577319b217dc71843cdc192"
+  },
+  "m/colonization": {
+    "rows": 8,
+    "sha256": "8e4a4ba8c33b75f7d7a0a9ff434db6a85dd2da288d77c367ff57671a17f8ba67"
+  }
+}

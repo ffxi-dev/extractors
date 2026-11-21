@@ -1,0 +1,10 @@
+{
+  "c/levels": {
+    "rows": 181,
+    "sha256": "fba74b05a276ce083337988ce497a449013d8d7f524681c115a9198c949a6053"
+  },
+  "m/levels": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "c/mob_hp": {
+    "rows": 13,
+    "sha256": "23f2f30472a2df17f82595077d7ad9973393bfdfc4871cffb260d57a5d12a99c"
+  },
+  "m/mob_hp": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

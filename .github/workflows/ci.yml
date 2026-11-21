@@ -1,0 +1,17 @@
+# What the Dockerfile checks: ruff, mypy, the tests with every pin, and indexing the fixtures.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # lsb's runners while the repository is private; they refuse public repositories, which GitHub's run free.
+    runs-on: ${{ github.event.repository.private && fromJSON('["self-hosted","lsb"]') || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --progress plain -t extractors-test:${{ github.sha }} .
+      - if: always()
+        run: docker image rm extractors-test:${{ github.sha }} || true

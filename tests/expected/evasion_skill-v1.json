@@ -1,0 +1,10 @@
+{
+  "c/evasion_skill": {
+    "rows": 11,
+    "sha256": "4cea4e5072ce6893d16331b6111bacb383318e3fefcfcbab2ccd63e3df8757b1"
+  },
+  "m/evasion_skill": {
+    "rows": 3,
+    "sha256": "9eed0b24024bb1d2221cbdfb596a3b9503689eee1d11dd8e6610e59ca460f896"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "c/exp_gains": {
+    "rows": 14,
+    "sha256": "fe0d55cfec20f4a8c409ee5cdf75871d24d68545f6dbc6d57801ba46d9de81c3"
+  },
+  "c/level_changes": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/exp_gains": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/level_changes": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}

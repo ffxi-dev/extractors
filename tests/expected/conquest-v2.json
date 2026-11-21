@@ -1,0 +1,26 @@
+{
+  "c/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "c/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "c/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "m/besieged": {
+    "rows": 3,
+    "sha256": "4deddb91bb10f0bd81fa7ab36e80fd46a76f8c8263e2d910b66077aa5181cae0"
+  },
+  "m/conquest": {
+    "rows": 1,
+    "sha256": "f6545a9c094ce829593e4bf950eded5e7f2fa9db735fecf1b9db9b772d644632"
+  },
+  "m/conquest_regions": {
+    "rows": 19,
+    "sha256": "6087c781eb575fa3facfa96373aa5c38063e6c22602f463ede5f8aa37c8c20cd"
+  }
+}

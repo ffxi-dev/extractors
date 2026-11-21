@@ -1,0 +1,10 @@
+{
+  "c/fights": {
+    "rows": 15,
+    "sha256": "03400a67b28d5d53b8c63f84717aa304b22bc70afb6195ff18930cf6c8c0659b"
+  },
+  "m/fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  }
+}
