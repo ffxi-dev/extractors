@@ -1,0 +1,1 @@
+SELECT tick, weather_id AS weather, weathers, minutes, lengths, cycles, seen, first_capture AS capture_id, first_ms, (SELECT any(name) FROM (SELECT id, name FROM zone_names WHERE release = (SELECT max(release) FROM captures)) WHERE id = {zone:Int64}) AS zone_name FROM weather_timeline WHERE zone_id = {zone:Int64} ORDER BY tick

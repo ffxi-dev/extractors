@@ -13,9 +13,14 @@ def put(con, table: str, rows: list[dict]) -> None:
     store.insert(con, table, pa.table({k: [r.get(k) for r in rows] for k in keys}))
 
 
-def records(con, sql: str) -> list[dict]:
+def records(con, sql: str, params: dict | None = None) -> list[dict]:
     """A query's rows in ClickHouse's own JSON, as Scholar's API answers them."""
-    with con.raw_stream(sql, fmt="JSONCompact", settings={"wait_end_of_query": 1}) as body:
+    with con.raw_stream(sql, parameters=params, fmt="JSONCompact", settings={"wait_end_of_query": 1}) as body:
         got = json.loads(body.read())
     names = [m["name"] for m in got["meta"]]
     return [dict(zip(names, row, strict=True)) for row in got["data"]]
+
+
+def ask(con, query_name: str, **values) -> list[dict]:
+    """A page query's rows, its {blank:Type}s given by values, as a page reads them."""
+    return records(con, store.pages()[query_name], values)
