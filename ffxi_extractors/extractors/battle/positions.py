@@ -4,9 +4,10 @@ import math
 
 
 class Places:
-    """The last position, heading, size, and HP% the packets sent of each entity, and the character's own
-    position: NPCs, mobs, and trusts (0x00E), other players (0x00D), the character (0x015, zone-in), HP% from
-    those and the party's (0x0DD, 0x0DF)."""
+    """The last position, heading, size, and HP% the packets sent of each entity: NPCs, mobs, and trusts
+    (0x00E), other players (0x00D), HP% from those and the party's (0x0DD, 0x0DF). The character's own
+    position is the world's. A zone-in forgets them all; the character's position packet (0x015) reads as
+    one of these, for the extractors that act on it."""
 
     reads = frozenset({(0, 0x00A), (0, 0x00E), (0, 0x00D), (0, 0x0DD), (0, 0x0DF), (1, 0x015)})
 
@@ -16,8 +17,6 @@ class Places:
         self.dir: dict[int, tuple[int, int]] = {}  # entity id -> (heading, when)
         self.size: dict[int, float] = {}  # entity id -> yalms
         self.hpp: dict[int, int] = {}  # entity id -> last HP%
-        self.me: tuple | None = None  # the character's last position
-        self.me_at = 0
 
     def update(self, p, f) -> bool:
         """Keep what p says; True when p is one of reads."""
@@ -25,9 +24,8 @@ class Places:
         if key == (0, 0x00A):
             for d in (self.pos, self.at, self.dir, self.size, self.hpp):
                 d.clear()
-            self.me, self.me_at = (f("PosHead.x"), f("PosHead.y"), f("PosHead.z")), p.ts_ms
         elif key == (1, 0x015):
-            self.me, self.me_at = (f("x"), f("y"), f("z")), p.ts_ms
+            pass
         elif key in ((0, 0x0DD), (0, 0x0DF)):
             if f("UniqueNo") is not None and f("Hpp") is not None:
                 self.hpp[f("UniqueNo")] = f("Hpp")

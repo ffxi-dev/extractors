@@ -76,3 +76,9 @@ def test_output_matches_its_version(x, both, walked):
         path.write_text(json.dumps(got, indent=2, sort_keys=True) + "\n")
     assert path.exists(), f"no expected output for {x.name} v{x.version}: run with BLESS=1"
     assert json.loads(path.read_text()) == got, f"{x.name}'s output changed: bump its version"
+
+
+def test_every_pin_is_of_a_unit_at_its_version():
+    """A pin left behind by a bump would still pass, and say nothing: each file names a unit as it is now."""
+    want = {f"{x.name}-v{x.version}.json" for x in (*ALL, *DERIVED)}
+    assert {p.name for p in EXPECTED.glob("*.json")} == want

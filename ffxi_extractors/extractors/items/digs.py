@@ -1,7 +1,7 @@
 import pyarrow as pa
 
 from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.extractors.items.gathering import PLACE, WINDOW_MS, Held, Place
+from ffxi_extractors.extractors.items.gathering import PLACE, WINDOW_MS, Held, place
 
 
 class Digs(Extractor):
@@ -15,7 +15,7 @@ class Digs(Extractor):
     name = "digs"
     version = 1
     doc = "Each chocobo dig the character made: where, in what weather and Vana'diel time, and what it found."
-    reads = Place.reads | Held.reads | {(1, 0x063), (0, 0x02A)}
+    reads = Held.reads | {(0, 0x00A), (1, 0x063), (0, 0x02A)}
     tables = (
         Table(
             "digs",
@@ -35,17 +35,15 @@ class Digs(Extractor):
     )
 
     def __init__(self):
-        self.place = Place()
         self.held = Held()
         self.open: dict | None = None  # the last dig: its row, its window's end, items named and gained
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         key = (p.direction, p.opcode)
-        if self.place.see(p, f):
-            if key == (0, 0x00A):
-                self.open = None
+        if key == (0, 0x00A):
+            self.open = None
         elif key == (1, 0x063):
-            row = emit("digs", p, **self.place.row(p, world), item_id=None)
+            row = emit("digs", p, **place(p, world), item_id=None)
             self.open = {"row": row, "end": p.ts_ms + WINDOW_MS, "named": [], "gained": set()}
         elif key == (0, 0x02A):
             me = world.character_id

@@ -109,6 +109,15 @@ def test_a_reward_after_a_zone_in_cutscene_follows_it():
     assert got == [(10, 13014, 1, None, 8)]
 
 
+def test_an_item_taken_back_out_of_the_recycle_bin_is_not_obtained():
+    """The bin was left out, so a drop was no loss but taking the item back was a gain."""
+    got = obtained(
+        (5000, put_slot(INV, 1, 0, 0)), (5000, put_slot(BIN, 1, 4098, 5)),  # dropped
+        (9000, put_slot(BIN, 1, 0, 0)), (9000, put_slot(INV, 1, 4098, 5)),  # taken back
+    )  # fmt: skip
+    assert got == []
+
+
 def test_a_pool_win_and_a_quest_reward():
     """A pool win is its drop's row already; a reward follows the NPC's event."""
     win = (0x0D3, {"TrophyItemIndex": 0, "JudgeFlg": 1, "LootUniqueNo": PLAYER})

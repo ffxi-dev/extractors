@@ -52,6 +52,14 @@ def test_a_cast_with_the_bait_taken_off_has_no_bait():
     assert (row["rod_id"], row["bait_id"]) == (ROD, None)
 
 
+def test_a_message_after_the_cast_ended_is_not_its_own():
+    """A cast kept every 0x036 until the next one: a later line left a cast that caught nothing with two
+    messages, which no longer read as the zone's 'nothing'."""
+    first, later = fish(cast(), said(4), status(62), said(0x2C), cast(), said(8), (0x115, GAME), said(0x29))
+    assert first["messages"] == [BASE + 4]
+    assert (later["hook"], later["feeling"]) == ("small fish", "good")
+
+
 def test_a_cast_its_minigame_and_its_catch():
     rows = fish(
         cast(), said(4), status(62),  # nothing bit: the zone's offset

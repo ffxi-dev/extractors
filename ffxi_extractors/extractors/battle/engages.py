@@ -84,7 +84,7 @@ class Engages(Extractor):
     name = "engages"
     version = 2  # 2: a stranger's claimed mob can be the one it linked to
     doc = "Each idle, unclaimed mob that engaged, and each pass the character made by one that did not."
-    reads = Places.reads | frozenset({(0, 0x028), (0, 0x037), (0, 0x057), (1, 0x01A)})
+    reads = Places.reads | frozenset({(0, 0x028), (0, 0x037), (1, 0x01A)})
     tables = (
         Table(
             "mob_engages",
@@ -188,24 +188,23 @@ class Engages(Extractor):
         self.passes: dict[int, dict] = {}  # mob -> its open pass
         self.buffs: set[int] | None = None
         self.status: int | None = None
-        self.weather: int | None = None
         self.scanned = 0
 
     def _state(self, p, uid, world, pos, at, heading) -> dict:
         """The STATE columns, the mob at pos since at, facing heading."""
         places, me = self.places, world.character_id
-        here = places.me if places.me and None not in places.me else None
+        here = world.here
         b, m = self.buffs, self.mobs.get(uid, {})
         out = {"zone_id": world.zone, "mob_id": uid, "mob_dir": heading, "hpp": places.hpp.get(me),
                "resting": self.status == RESTING, "recorder_status": self.status,
-               "vana_hour": vana(p.ts_ms)[1], "weather_id": self.weather,
+               "vana_hour": vana(p.ts_ms)[1], "weather_id": world.weather,
                "since_seen_ms": p.ts_ms - m["seen"] if m else None}  # fmt: skip
         if b is not None:
             out.update(invisible=INVISIBLE in b, sneak=SNEAK in b, deodorize=DEODORIZE in b)
         if pos:
             out.update(mob_x=pos[0], mob_y=pos[1], mob_z=pos[2], mob_age_ms=p.ts_ms - at)
         if here:
-            out["me_age_ms"] = p.ts_ms - places.me_at
+            out["me_age_ms"] = p.ts_ms - world.pos_ms
         if pos and here:
             out.update(distance=math.dist(pos, here), dz=here[2] - pos[2], facing=bearing(pos, here, heading))
         return out
@@ -224,7 +223,6 @@ class Engages(Extractor):
                 for uid in list(self.passes):
                     self._close(uid, emit)
                 self.mobs.clear()
-                self.weather = f("WeatherNumber")
             elif key == (1, 0x015) and p.ts_ms - self.scanned >= SCAN_MS:
                 self.scanned = p.ts_ms
                 near = self.passes.keys()
@@ -236,8 +234,6 @@ class Engages(Extractor):
             self.status = f("server_status")
             if world.character_id and f("Flags0.hpp") is not None:
                 self.places.hpp[world.character_id] = f("Flags0.hpp")
-        elif key == (0, 0x057):
-            self.weather = f("WeatherNumber")
         elif key == (1, 0x01A):
             m = self.mobs.get(f("UniqueNo"))
             if m is not None:
@@ -282,7 +278,7 @@ class Engages(Extractor):
         # Where it stood and faced before the update; seen first in it, where it stands now, heading unknown.
         pos, at, heading = before if before[0] else (self.places.pos.get(uid), self.places.at.get(uid), None)
         state = self._state(p, uid, world, pos, at, heading)
-        here = self.places.me if self.places.me and None not in self.places.me else None
+        here = world.here
 
         def ago(t):
             return p.ts_ms - t if t is not None and p.ts_ms - t <= BEFORE_MS else None
@@ -354,9 +350,9 @@ class Engages(Extractor):
 
     def _pass(self, p, uid, world, emit):
         """Open, follow, or close the character's pass by an idle, unclaimed monster."""
-        m, there, me = self.mobs.get(uid), self.places.pos.get(uid), self.places.me
+        m, there, me = self.mobs.get(uid), self.places.pos.get(uid), world.here
         idle = m and m["monster"] and m["status"] == 0 and m["unclaimed"] and not m["bt"]
-        if not idle or not there or not me or None in me:
+        if not idle or not there or not me:
             self._close(uid, emit)
             return
         d = math.dist(there, me)

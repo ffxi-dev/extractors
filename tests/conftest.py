@@ -125,6 +125,7 @@ def drive(x, *steps, capture="c", t0=0, times=None, directions=None, me=PLAYER):
         if (p.direction, op) in x.reads:  # as index.walk
             x.packet(p, d.get, w, sink.emit)
     x.finish(w, sink.emit)
+    sink.arrow()  # every row converts as a run writes it: no column it lacks
     return sink.rows
 
 

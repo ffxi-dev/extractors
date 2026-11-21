@@ -18,9 +18,8 @@ class KeyItems(Extractor):
     name = "keyitems"
     version = 3
     doc = "Key items the character gained or lost, where, and the event that gave or took each."
-    # The character's position comes from its own position packets (0x015) and its zone-ins; the event from
-    # the event packets events reads.
-    reads = frozenset(KINDS) | {(0, 0x055), (0, 0x00A), (1, 0x015)}
+    # The character's position is the world's; the event comes from the event packets events reads.
+    reads = frozenset(KINDS) | {(0, 0x055), (0, 0x00A)}
     tables = (
         Table(
             "keyitems",
@@ -47,17 +46,12 @@ class KeyItems(Extractor):
 
     def __init__(self):
         self.held: dict[int, set[int]] = {}  # table index -> key items held
-        self.pos: tuple = (None, None, None)
         self.link = Link()
         self.told: dict[int, set[int]] = {}  # event start idx -> its 0x02A messages' first numbers
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         key = (p.direction, p.opcode)
-        if key == (1, 0x015):
-            self.pos = (f("x"), f("y"), f("z"))
-            return
         if key == (0, 0x00A):
-            self.pos = (f("PosHead.x"), f("PosHead.y"), f("PosHead.z"))
             self.told = {}
             self.link.follow(key, p, f)
             return
@@ -77,7 +71,7 @@ class KeyItems(Extractor):
             changes = (("gained", now & self.told.get(event.get("idx"), set())),)
         else:
             changes = (("gained", now - before), ("lost", before - now))
-        x, y, z = self.pos
+        x, y, z = world.pos
         for change, ids in changes:
             for ki in sorted(ids):
                 emit("keyitems", p, key_item_id=ki, change=change, x=x, y=y, z=z, zone_id=world.zone,
