@@ -43,22 +43,20 @@ zs AS (SELECT capture_id, idx, server FROM zones WHERE {ONE}),
 -- 0x0C8 lists the whole party and alliance alike to each member: one roster for every copy of a fight.
 al AS (SELECT capture_id, idx, arraySort(groupArray(member_id)) AS roster FROM party
   WHERE {ONE} AND list = 'alliance' GROUP BY capture_id, idx),
-cw AS (SELECT capture_id, world FROM captures WHERE {ONE}),
 fx AS (
   SELECT f.capture_id AS capture_id, f.mob_id AS mob_id, f.idx AS fidx, n.packet_name AS name,
     r.entity_name AS mob_name, m.model_id AS model_id,
     if(l.end_idx IS NULL OR f.end_idx <= l.end_idx, l.level, NULL) AS level,
-    -- One fight seen by several recorders: the same world, zone, mob, and minute it ended, on the same
-    -- instance of the zone. The instance is the zone server, else the alliance roster, else the capture
-    -- (never merged). The server comes first: recorders outside the claiming party share it. A capture that
-    -- starts inside the zone has no zone change to name the server; the roster's player ids are unique
-    -- across servers, so a party's copies still match.
-    cityHash64(coalesce(w.world, ''), f.zone_id, f.mob_id, intDiv(f.end_ms, 60000), multiIf(
+    -- One fight seen by several recorders: the same zone, mob, and minute it ended, on the same instance of
+    -- the zone. The instance is the zone server, else the alliance roster, else the capture (never merged).
+    -- The server comes first: recorders outside the claiming party share it. A capture that starts inside
+    -- the zone has no zone change to name the server, and keeps the roster. Neither needs the world, which
+    -- most captures do not record: a zone server's address and a player's id each belong to one world.
+    cityHash64(f.zone_id, f.mob_id, intDiv(f.end_ms, 60000), multiIf(
       z.server IS NOT NULL, concat('server ', z.server),
       notEmpty(a.roster), concat('roster ', toString(cityHash64(a.roster))),
       concat('capture ', f.capture_id))) AS fight_key
   FROM fs f
-  LEFT JOIN cw w ON w.capture_id = f.capture_id
   ASOF LEFT JOIN zs z ON z.capture_id = f.capture_id AND z.idx <= f.end_idx
   ASOF LEFT JOIN al a ON a.capture_id = f.capture_id AND a.idx <= f.end_idx
   ASOF LEFT JOIN ent n ON n.capture_id = f.capture_id AND n.entity_id = f.mob_id AND n.idx <= f.end_idx
@@ -417,8 +415,9 @@ class Bestiary(Derived):
     # 7: hp v4; 8: hp v5; 9: idle_spells; 10: party bystanders under 5 s, rules_out; 11: targets at any age;
     # 12: skillchains; 13: tp ready, coarse; 14: cast_times; 15: th; 16: held, held_known; 17: skill_delays;
     # 18: tp shadows; 19: skillchains apart by capture; 20: skillchains exposed to the day or weather;
-    # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first
-    version = 22
+    # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first;
+    # 23: no world in fight_key
+    version = 23
     doc = (
         "One row of facts per fight, from the combat, mob, and loot tables, for the mob pages: HP, delay, TP"
         " moves, spells, drops, and elemental resistance (EEM) from skillchains."
@@ -453,9 +452,9 @@ class Bestiary(Derived):
                 Column(
                     "fight_key",
                     None,
-                    "The fight, whoever recorded it: party members' copies share it. A hash of the world,"
-                    " zone, mob, minute it ended, and the zone's instance: the zone server, else the alliance"
-                    " roster (0x0C8), else the capture, so a copy with neither is never merged.",
+                    "The fight, whoever recorded it: party members' copies share it. A hash of the zone, mob,"
+                    " minute it ended, and the zone's instance: the zone server, else the alliance roster"
+                    " (0x0C8), else the capture, so a copy with neither is never merged.",
                 ),
                 Column("actions", None, "As fights: action packets it gave or took."),
                 Column(

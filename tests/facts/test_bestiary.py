@@ -259,11 +259,11 @@ def defeat(cid, at_s, **more):
 # fight_key on the extractors' rows: party members' copies of a fight share it
 
 
-def seen(con, cid, ends=(1000,), server=None, roster=None):
+def seen(con, cid, ends=(1000,), server=None, roster=None, world="Asura"):
     """Defeats of the mob in capture cid, ending at these seconds, in world Asura: after a zone-in on this
     zone server, and with this 0x0C8 roster, when given. Then the capture's bestiary and roll-up."""
     put(con, "captures", [{"capture_id": cid, "client_version": "v", "retail": True, "packets": 0,
-                           "character": cid, "start_ms": 0, "world": "Asura"}])  # fmt: skip
+                           "character": cid, "start_ms": 0, "world": world}])  # fmt: skip
     if server:
         put(con, "zones", [{"capture_id": cid, "idx": 1, "ts_ms": 0, "zone_id": ZONE, "server": server}])
     if roster:
@@ -292,6 +292,14 @@ def test_recorders_on_one_zone_server_share_a_fight_whatever_their_rosters(con):
 def test_a_party_with_no_zone_server_still_shares_a_fight_by_its_roster(con):
     seen(con, "a", roster=[7, 8])
     seen(con, "b", roster=[7, 8])
+    assert len(keys(con)) == 1
+
+
+def test_a_copy_whose_capture_names_no_world_still_shares_the_fight(con):
+    """On the archive, 2,610 pairs of copies on one zone server had two keys: one capture named its world
+    and the other none, and the world was in the key."""
+    seen(con, "a", server="1.2.3.4:54288")
+    seen(con, "b", server="1.2.3.4:54288", world=None)
     assert len(keys(con)) == 1
 
 
