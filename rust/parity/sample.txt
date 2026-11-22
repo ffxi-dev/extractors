@@ -1,0 +1,63 @@
+# The sample: 58 captures from Scholar's mirror, 17.1M packets. For each extractor table, the smallest capture
+# with 3 rows or more ("small"), and, unless a capture already picked has a quarter as many, the one of at most
+# 700k packets with the most rows ("most"); a median and the largest of at most 700k of PacketViewer and
+# Memoria (xicap) captures; one per client version not yet in; and the spike's two large captures.
+# Chosen from Scholar's tables on 2026-11-22. Format, then why.
+YV3fh5aIRaz3  # xicap entity_changes:small entity_looks:small
+qH_0WM3fjZ24  # captain events:small
+A-ip_ijvEQHK  # captain shop_items:small
+0AXfwnQ16Ens  # captain character_gear:small holdings:small levels:small
+vqD1IGCt36hk  # captain action_results:small actions:small attack_rounds:small
+HB4CbY9-eXxo  # captain character_params:small
+P27ErWjODO5X  # xicap fights:small
+oH9ekqwoW99P  # captain party:small
+j38mzMy2jIuc  # captain mob_passes:small
+YT68r1fwjaxr  # captain character:small evasion_skill:small
+k8NFtuhORJWF  # captain besieged:small campaign_areas:small colonization:small conquest_regions:small
+6ryBN0JivKzv  # captain effects:small
+m7QCS-TGJbqO  # captain tp_nearby:small
+Z2C-AeiO4Y1L  # captain exp_gains:small kills:small mob_hp:small spawns:small
+AwJ1rXuKhzWB  # captain drops:small mob_engages:small
+Nsp88lsZdVxU  # captain spell_results:small
+EcuDKaFrZtd4  # captain shop_actions:small
+KgGVyAnpIZMd  # captain trades:small
+aUyTwJlfs-nf  # captain log_changes:small
+eoR-y6xho_RE  # captain weather:small zones:small
+O4cDrvCNB7Cg  # captain fishing:small
+XXxX5D1xral9  # captain obtained:small
+-ffbTE6SvXu7  # captain synths:small
+sWtLkM3LWSM_  # captain campaign:small conquest:small
+AD6YvJ3ygDVC  # captain keyitems:small
+eGG42OK3iyWM  # captain client:Version 10:22:22 Dec 4 2025
+Xr_dfPeSxjDz  # packetviewer mob_messages:small
+oGjZqUnPCS-z  # captain level_changes:small
+DFzDDjb4V4OZ  # xicap xicap:median
+yPoREAFZbcj_  # packetviewer packetviewer:median
+jWOLPlOg2WTy  # packetviewer registrations:small
+D9SzDswMOByX  # captain battlefields:small
+WOj-FJW4sAaN  # captain client:Version 19:02:55 Feb 2 2026
+sah-dbp_ixEc  # captain tp_nearby:most
+-1oC7QPr5P39  # captain defeats:small
+PNuVnIq2bf-L  # captain effects:most
+pYjkZOYjFbKr  # xicap client:30261102_1
+4W8j5g8DOgq3  # captain besieged:most
+Z-iti9suHQK6  # packetviewer packetviewer:largest
+Pj1re_pPEC8R  # captain character_params:most
+p_Jp_ere3mu5  # captain fishing:most
+UizFISgPcL2B  # captain shop_actions:most
+RK22Ipwnj6EZ  # captain level_changes:most
+nSDOQTuFtuhw  # captain entity_changes:most
+mP5_1XlMwvxE  # captain holdings:most
+CiplvAzmIrP2  # captain shop_items:most
+wYufiQhm970R  # xicap drops:most
+eG81evD6VpXS  # captain digs:small
+Eh_23WMxFfz_  # captain action_results:most
+PcsRptRvBiUR  # xicap xicap:largest
+Tw9q91br-Kx7  # captain keyitems:most
+QZeg-pG18XpG  # captain mob_passes:most
+8mTmtwM4S4t2  # captain events:most
+62M9rOorZv3d  # captain synths:most
+zEh_PnVTu5u-  # captain character:most
+KDRkBynUt6A_  # captain spike
+yPWKhpkvPd6i  # captain client:Version 18:41:18 Dec 26 2025
+DZ6Cp6Zs3kEK  # xicap large combat (spike)

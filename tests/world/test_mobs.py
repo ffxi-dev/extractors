@@ -3,7 +3,9 @@
 from conftest import MOB, drive
 
 from ffxi_extractors.extractors.world.levels import Levels
-from ffxi_extractors.extractors.world.spawns import KESU, Spawns
+from ffxi_extractors.extractors.world.spawns import Spawns
+
+KESU = int.from_bytes(b"kesu", "little")  # the despawn animation's name in 0x038
 
 S = 1000  # drive() puts packet i at i seconds; these tests give times themselves
 

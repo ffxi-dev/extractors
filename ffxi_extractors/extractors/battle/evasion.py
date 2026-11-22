@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class EvasionSkill(Extractor):
@@ -16,7 +16,3 @@ class EvasionSkill(Extractor):
             (Column("skill", pa.int32(), "Evasion skill, the rank bit masked off."),),
         ),
     )
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if (skill := f("skill_base[29]")) is not None:
-            emit("evasion_skill", p, skill=skill & 0x7FFF)

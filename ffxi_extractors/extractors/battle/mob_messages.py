@@ -1,9 +1,6 @@
-import math
-
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 DRAWN_IN = 232  # "<target> is drawn in!": actor and target are both the player drawn in
 LEARNED = 419  # "<target> learns <spell>!": blue magic, sent to the learner once a mob it saw is defeated
@@ -41,47 +38,3 @@ class MobMessages(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.resends = combat.Resends()
-        self.monsters: set[int] = set()
-        self.pos: dict[int, tuple[float, float, float]] = {}  # monster id -> its last position
-        self.drawn: dict[int, dict] = {}  # player id -> its draw-in's row, until the player's next position
-
-    def _landed(self, uid, at, p):
-        row = self.drawn.pop(uid, None)
-        if row is None or p.ts_ms - row["ts_ms"] > WAIT_MS or None in at:
-            return
-        near = min(((math.dist(at, xyz), m) for m, xyz in self.pos.items()), default=None)
-        if near and near[0] <= NEAR:
-            row["distance"], row["mob_id"] = near
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        op = p.opcode
-        if op == 0x00A:
-            self.monsters.clear()
-            self.pos.clear()
-            self.drawn.clear()
-        elif p.direction == 1:
-            self._landed(world.character_id, (f("x"), f("y"), f("z")), p)
-        elif op == 0x00D:
-            if f("SendFlg.Position"):
-                self._landed(f("UniqueNo"), (f("x"), f("y"), f("z")), p)
-        elif op == 0x00E:
-            uid = f("UniqueNo")
-            if f("SendFlg.Despawn"):
-                self.pos.pop(uid, None)
-                return
-            if f("SendFlg.General"):
-                (self.monsters.add if f("Flags1.MonsterFlag") else self.monsters.discard)(uid)
-            xyz = (f("x"), f("y"), f("z"))
-            if f("SendFlg.Position") and None not in xyz:
-                if uid in self.monsters and combat.is_mob(uid):
-                    self.pos[uid] = xyz
-                self._landed(uid, xyz, p)
-        elif f("MessageNum") in (DRAWN_IN, LEARNED) and not self.resends.is_resend(p):
-            who = f("UniqueNoTar")
-            if f("MessageNum") == LEARNED:
-                emit("mob_messages", p, kind="learned", player_id=who, spell_id=f("Data"), zone_id=world.zone)
-            else:
-                self.drawn[who] = emit("mob_messages", p, kind="drawn_in", player_id=who, zone_id=world.zone)

@@ -2,10 +2,9 @@
 Packets are given as decoded fields."""
 
 import pytest
-from conftest import MEMBER, PLAYER, STRANGER, drive
+from conftest import MEMBER, PLAYER, STRANGER, P, drive
 from fill import put, records
 
-from ffxi_extractors.combat import P
 from ffxi_extractors.extractors.battle.engages import Engages
 from ffxi_extractors.index import run
 

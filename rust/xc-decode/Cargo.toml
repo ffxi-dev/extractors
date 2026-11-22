@@ -1,0 +1,13 @@
+[package]
+name = "xc-decode"
+version = "0.1.0"
+edition = "2024"
+description = "FFXI packets decoded as ffxi_packets does, from packets' schemas"
+license = "GPL-3.0-only"
+publish = false
+
+[build-dependencies]
+serde_json = "1"
+
+[dev-dependencies]
+serde_json = { version = "1", features = ["float_roundtrip"] }

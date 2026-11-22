@@ -1,9 +1,8 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 ANSWER_MS = 5000  # the NPC's event or message this soon after a trade answers it
-GIL_SLOT = 0  # the inventory's slot 0 holds the gil
 
 
 class Trades(Extractor):
@@ -47,35 +46,3 @@ class Trades(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.open: dict | None = None  # the last trade, while the NPC may still answer it
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if self.open and p.ts_ms - self.open["ts_ms"] > ANSWER_MS:
-            self.open = None
-        if p.direction == 1:
-            self._trade(p, f, world, emit)
-            return
-        if not self.open or f("UniqueNo") != self.open["npc_id"]:
-            return
-        if p.opcode in (0x032, 0x033, 0x034):
-            if self.open["event_id"] is None:
-                self.open.update(event_id=f("EventPara"), event_idx=p.idx)
-            self.open = None  # the event answers it: a message after is the event's
-        elif self.open["message"] is None:
-            self.open["message"] = (f("MesNum") or 0) & 0x7FFF
-
-    def _trade(self, p, f, world, emit):
-        items, quantities, slots, gil = [], [], [], None
-        for i in range(min(f("ItemNum") or 0, 10)):
-            slot, n = f(f"PropertyItemIndexTbl[{i}]"), f(f"ItemNumTbl[{i}]")
-            if slot == GIL_SLOT:
-                gil = (gil or 0) + (n or 0)
-                continue
-            items.append(world.items.get((0, slot)))
-            quantities.append(n)
-            slots.append(slot)
-        self.open = emit("trades", p, npc_id=f("UniqueNo"), npc_index=f("ActIndex"), item_ids=items,
-                         quantities=quantities, slots=slots, gil=gil, event_id=None, event_idx=None,
-                         message=None, zone_id=world.zone)  # fmt: skip

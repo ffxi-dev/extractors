@@ -1,0 +1,15 @@
+[package]
+name = "xc-core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Reads xicap captures, keeps the World, and runs extractors over them"
+publish = false
+
+[dependencies]
+indexmap = "2"
+rustc-hash = "2"
+xc-decode = { path = "../xc-decode" }
+
+[build-dependencies]
+cc = "1"

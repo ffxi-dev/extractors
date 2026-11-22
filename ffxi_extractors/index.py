@@ -1,23 +1,19 @@
-"""Indexes one capture: read its packets a batch at a time, decode only the opcodes the run needs, walk them
-in order with the world and the extractors, and write each unit's rows as they come; then the derived
-facts."""
+"""Indexes one capture: one pass over its packets in Rust (extractors_rs) with the world, the decoder, and the
+extractors the run needs; then each unit's rows into ClickHouse, then the derived facts."""
 
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable
 from pathlib import Path
 
-from ffxi_packets import Decoder
+import extractors_rs
 
-from ffxi_extractors import combat, resources, store
-from ffxi_extractors.capture import Capture, read
-from ffxi_extractors.decode import DECODER_VERSION, CaptureStats, Decoded
-from ffxi_extractors.extract import Extractor, Sink
+from ffxi_extractors import decode, resources, store
+from ffxi_extractors.capture import read
+from ffxi_extractors.decode import DECODER_VERSION
 from ffxi_extractors.extractors import ALL
 from ffxi_extractors.facts import DERIVED
 from ffxi_extractors.facts.bestiary_mobs import partners, reroll
-from ffxi_extractors.world import WORLD, World
 
 
 def versions(extractors=ALL, derived=DERIVED) -> dict[str, str]:
@@ -29,43 +25,6 @@ def versions(extractors=ALL, derived=DERIVED) -> dict[str, str]:
     return out
 
 
-def walk(
-    cap: Capture, extractors: Iterable[Extractor], write=None, count: bool = True
-) -> tuple[CaptureStats, World, list[Sink]]:
-    """One pass over the packets, decoding the world's opcodes and those the extractors read: the decoder's
-    facts (counted only with count, which the decode unit needs), the world at the end, and every extractor's
-    sink. With write(table, arrow), sinks write their rows as they fill."""
-    world = World(cap)
-    stats = CaptureStats(cap)
-    sinks = [(x, Sink(x, cap.capture_id, cap.client_version, write)) for x in extractors]
-    by_key: dict[tuple[int, int], list[tuple[Extractor, Sink]]] = {}
-    for x, s in sinks:
-        for key in x.reads:
-            by_key.setdefault(key, []).append((x, s))
-    keys = WORLD | set(by_key)
-    decoder = Decoder()
-    for batch in cap.batches():
-        decoded = Decoded(decoder, cap.client_version, batch, keys)
-        for i, p in enumerate(batch):
-            key = (p.direction, p.opcode)
-            xs = by_key.get(key) if p.channel == 0 else None
-            if xs or key in WORLD:  # most packets concern neither: no fields for them
-                f = decoded.fields(i, p)
-                if key in WORLD:
-                    world.update(p, f)
-                for x, s in xs or ():
-                    x.packet(p, f, world, s.emit)
-            if count:
-                stats.see(p, world.zone)
-        if write:
-            for _, s in sinks:
-                s.flush()
-    for x, s in sinks:
-        x.finish(world, s.emit)
-    combat.action.cache_clear()  # let go of the last batch's columns
-    return stats, world, [s for _, s in sinks]
-
-
 def run(
     con,
     path: str | Path | None,
@@ -75,12 +34,12 @@ def run(
     names: str | Path | None = None,
 ) -> dict[str, int]:
     """Index a capture's units (all when None) into ClickHouse, each an idempotent replace (store.py): the
-    decoder and the extractors in one pass over the packets, then the derived units. A run of derived units
-    alone reads no file. Units this code does not know are left to the caller. Returns rows by unit. Raises
-    Skipped for a capture not from retail or too large. names is the folder of retail-resources' releases,
-    whose nearest the capture keeps as its release. A run that raises leaves its units attempting, with the
-    rows they wrote: the caller drops a skipped capture (store.drop), records a failure (store.fail), or
-    runs it again, which replaces them."""
+    decoder and the extractors in one pass over the packets (extractors_rs.run), then the derived units. A
+    run of derived units alone reads no file. Units this code does not know are left to the caller. Returns
+    rows by unit. Raises Skipped for a capture not from retail or too large. names is the folder of
+    retail-resources' releases, whose nearest the capture keeps as its release. A run that raises leaves its
+    units attempting, with the rows they wrote: the caller drops a skipped capture (store.drop), records a
+    failure (store.fail), or runs it again, which replaces them."""
     started = int(time.time() * 1000)
     current = versions()
     units = set(current) if units is None else set(units)
@@ -93,20 +52,21 @@ def run(
         cap = read(path, capture_id, ((record or {}).get("capture") or {}).get("retail"))
         capture_id = cap.capture_id
         store.begin(con, capture_id, {u: current[u] for u in walked}, DECODER_VERSION, started)
-        stats, world, sinks = walk(cap, chosen, lambda t, a: store.insert(con, t, a), "decode" in units)
-        for x, s in zip(chosen, sinks, strict=True):
-            s.flush(everything=True)
-            out[x.name] = s.written
+        tables = extractors_rs.run(str(path), capture_id, walked)
+        for x in chosen:
+            for t in x.tables:
+                store.insert(con, t.name, tables[t.name])
+            out[x.name] = sum(tables[t.name].num_rows for t in x.tables)
         if "decode" in units:
             release = (
                 resources.release_for(cap.client_version, cap.start_ms, resources.releases(names))
                 if names
                 else None
             )
-            tables = stats.tables(record, release, cap.character_id or world.character_id)
-            for t, data in tables.items():
-                store.insert(con, t, data)
-            out["decode"] = sum(t.num_rows for t in tables.values())
+            mine = decode.tables(tables, record, release)
+            for name, data in mine.items():
+                store.insert(con, name, data)
+            out["decode"] = sum(t.num_rows for t in mine.values())
         store.done(con, capture_id, {u: (current[u], out[u]) for u in walked}, DECODER_VERSION, started)
     elif capture_id is None:
         raise ValueError("a run of derived units alone names its capture: give capture_id")

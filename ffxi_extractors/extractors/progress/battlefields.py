@@ -1,17 +1,10 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.vana import EPOCH_S
+from ffxi_extractors.extract import Column, Extractor, Table
 
-COUNTDOWN = 1  # 0x075 Flags bit 0: the packet holds a countdown (LSB OBJECTIVEUTILITY_COUNTDOWN)
 # 0x075's Timestamp counts Earth seconds from the Vana'diel epoch.
 SAME_END_S = 5  # a countdown ending within this of the open one's end is that timer sent again
-# LSB's battlefield events (scripts/globals/battlefield.lua): 32001 starts on a win, 32002 on a loss.
-OUTCOME = {32001: "won", 32002: "lost"}
 LATE_MS = 10_000  # a result event this soon after the timer cleared is still its result
-# 0x0BF Result, as LSB's instance entry sends it (scripts/globals/instance.lua and zone NPCs): 1 refused,
-# 3 reservation failed, 4 entering. 0 and 2 are unnamed.
-REGISTRATION = {1: "refused", 3: "reservation failed", 4: "entering"}
 
 
 class Battlefields(Extractor):
@@ -77,45 +70,3 @@ class Battlefields(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.open: dict | None = None
-        self.open_end = 0  # when the open countdown runs out, server seconds
-        self.last: dict | None = None  # the timer that cleared most recently, for a late result event
-
-    def _end(self, p, why):
-        if self.open:
-            self.open.update(end_idx=p.idx, end_ms=p.ts_ms, ended_by=why)
-            self.last = self.open
-        self.open = None
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        op = p.opcode
-        if op == 0x075:
-            if not (f("Flags") or 0) & COUNTDOWN:
-                self._end(p, "cleared")
-                return
-            start, limit = f("Timestamp"), f("Duration")
-            end = start + limit
-            if self.open and abs(self.open_end - end) <= SAME_END_S:
-                return
-            self._end(p, "replaced")
-            self.open = emit("battlefields", p, mode=f("Mode"), start_ms=(start + EPOCH_S) * 1000,
-                             time_limit_s=limit, warning_s=f("DurationWarn"), zone_id=world.zone)  # fmt: skip
-            self.open_end = end
-        elif op == 0x00A:
-            if self.open and f("ZoneNo") != self.open["zone_id"]:
-                self._end(p, "zoned")
-        elif op == 0x0BF:
-            index = f("ActIndex")
-            e = world.entities.get(index) or {}
-            result = f("Result")
-            emit("registrations", p, result=result, outcome=REGISTRATION.get(result), npc_index=index,
-                 npc_id=e.get("id"), zone_id=world.zone)  # fmt: skip
-        elif (outcome := OUTCOME.get(f("EventPara"))) is not None:
-            t = self.open or (self.last if self.last and p.ts_ms - self.last["end_ms"] <= LATE_MS else None)
-            if t is None or t.get("outcome") is not None:
-                return
-            t.update(outcome=outcome, result_idx=p.idx)
-            if outcome == "won" and op == 0x034:
-                t.update(record_s=f("num[1]"), time_inside_s=f("num[3]"), battlefield_index=f("num[5]"))

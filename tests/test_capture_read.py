@@ -1,3 +1,6 @@
+"""The header checks a run makes before reading packets. Past MAX_PACKETS with no count, and a cut-off
+capture's end time, are extractors_rs's (rust/xc-core's run.rs and stats.rs)."""
+
 from types import SimpleNamespace
 
 import pytest
@@ -5,40 +8,28 @@ import pytest
 from ffxi_extractors import capture
 
 
-def reader(monkeypatch, packets, count=0):
-    """xicap's Reader over these packets: no trailer, so no end time, and the trailer's count."""
+def reader(monkeypatch, count, server_kind=1):
+    """xicap's Reader with this trailer count."""
     character = SimpleNamespace(name="", character_id=0)
-
-    class Reader(list):
-        metadata = SimpleNamespace(
-            client_version="", character=character, server_kind=1, start_timestamp=1000
-        )
-        end_timestamp, packet_count = 0, count
-
-    monkeypatch.setattr(capture.xicap, "Reader", lambda path: Reader(packets))
+    meta = SimpleNamespace(
+        client_version="", character=character, server_kind=server_kind, start_timestamp=1000
+    )
+    r = SimpleNamespace(metadata=meta, end_timestamp=0, packet_count=count)
+    monkeypatch.setattr(capture.xicap, "Reader", lambda path: r)
 
 
-def packet(ts):
-    return SimpleNamespace(timestamp=ts, channel=0, opcode=0x00D, flags=0, data=b"")
-
-
-def test_a_cut_off_capture_ends_at_its_last_packet(monkeypatch):
-    reader(monkeypatch, [packet(1000), packet(2500)])
-    cap = capture.read("cut.xicap")
-    assert sum(len(b) for b in cap.batches()) == 2 and cap.end_ms == 2500
-
-
-@pytest.mark.parametrize(
-    ("count", "packets", "skipped"), [(3, 2, True), (0, 3, True), (0, 2, False), (2, 2, False)]
-)
-def test_a_capture_past_max_packets_is_skipped(monkeypatch, count, packets, skipped):
-    """Over MAX_PACKETS by its trailer's count, or, cut off with no count, by the packets read."""
+@pytest.mark.parametrize(("count", "skipped"), [(3, True), (2, False), (0, False)])
+def test_a_capture_past_max_packets_by_its_count_is_skipped(monkeypatch, count, skipped):
     monkeypatch.setattr(capture, "MAX_PACKETS", 2)
-    reader(monkeypatch, [packet(1000) for _ in range(packets)], count)
+    reader(monkeypatch, count)
     if skipped:
         with pytest.raises(capture.Skipped, match="Not analysed: over 60,000,000 packets"):
-            for _ in capture.read("big.xicap").batches():
-                pass
+            capture.read("big.xicap")
     else:
-        cap = capture.read("big.xicap")
-        assert sum(len(b) for b in cap.batches()) == packets == cap.packets
+        assert capture.read("big.xicap").start_ms == 1000
+
+
+def test_a_private_server_capture_is_not_read(monkeypatch):
+    reader(monkeypatch, 0, server_kind=2)
+    with pytest.raises(capture.NotRetail):
+        capture.read("lsb.xicap")

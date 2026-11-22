@@ -1,10 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-
-ENEMY = 2  # widescan's entry type for a mob
-CHECK = range(170, 178 + 1)  # /check replies that carry the level (LSB msg_basic around CheckDefault 174)
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Levels(Extractor):
@@ -39,43 +35,3 @@ class Levels(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.last: dict[tuple[int, str], int] = {}  # (mob, source) -> its last level reported in this life
-        self.life: dict[int, list[dict]] = {}  # mob -> its rows in this life
-
-    def _end(self, uid, p):
-        for row in self.life.pop(uid, ()):
-            row["end_idx"] = p.idx
-            self.last.pop((uid, row["source"]), None)
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if p.opcode == 0x00A:
-            for uid in list(self.life):
-                self._end(uid, p)
-            return
-        if p.opcode == 0x00E:
-            if f("SendFlg.Despawn"):
-                self._end(f("UniqueNo"), p)
-            return
-        if p.opcode == 0x0F4:
-            t = "TrackingListTbl."
-            level, index = f(t + "Level"), f(t + "ActIndex")
-            if f(t + "Type") != ENEMY or level is None or level < 0 or index is None or world.zone is None:
-                return
-            uid, source, name = 0x1000000 + (world.zone << 12) + index, "widescan", f(t + "sName")
-        elif (msg := f("MessageNum")) in combat.DEFEAT:
-            self._end(f("UniqueNoTar"), p)
-            return
-        elif msg in CHECK:
-            uid, level, source, name = f("UniqueNoTar"), f("Data"), "check", None
-            # A mob /check cannot gauge (level ???) answers 0xFFFFFFFF: no level, and no row.
-            if level is None or not 0 < level < 256:
-                return
-        else:
-            return
-        if self.last.get((uid, source)) != level:
-            self.last[(uid, source)] = level
-            row = emit("levels", p, entity_id=uid, level=level, source=source, name=name, zone_id=world.zone,
-                       end_idx=None)  # fmt: skip
-            self.life.setdefault(uid, []).append(row)

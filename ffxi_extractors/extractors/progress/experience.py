@@ -1,28 +1,8 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.extractors.progress.keyitems import key_items
+from ffxi_extractors.extract import Column, Extractor, Table
 
 INTS = pa.list_(pa.int32())
-# 0x02D messages that give points (LSB msg_basic): (kind, whether Data2 holds the chain number).
-GAINS = {8: ("exp", False), 253: ("exp", True), 371: ("limit", False), 372: ("limit", True),
-         718: ("capacity", False), 735: ("capacity", True), 809: ("exemplar", False),
-         810: ("exemplar", True)}  # fmt: skip
-LEVEL = {9: "up", 11: "down"}  # LSB msg_basic LevelUp, LevelDown
-STATUS_ICONS = 9  # 0x063's type for the character's status list
-# Status effects that change the points a kill gives. LSB scripts/globals/experience_points.lua applies
-# Dedication, Sanction, Signet (a party's share), and Corsair's Roll (by EXP_BONUS); bg-wiki "Experience
-# Points" (unverified) adds Commitment for capacity points and Ionis. Level Sync
-# and Level Restriction change the level the points are graded on.
-EFFECTS = {249: "Dedication", 579: "Commitment", 326: "Corsair's Roll", 256: "Sanction", 512: "Ionis",
-           269: "Level Sync", 143: "Level Restriction"}  # fmt: skip
-SIGNET = 253  # bg-wiki: a bonus in a party of 2 to 5 only; LSB's share table is 1.0 alone with it or not
-# Key items that raise the points. The Rhapsodies: LSB experienceBonusKeyItems, +30% each. bg-wiki
-# "Experience Points": Moghancement: Bounty, Moglification: Experience Boost, Capacity Boost, and the Monster
-# Rearing cheers with an EXP bonus.
-KEY_ITEMS = frozenset({2884, 2885, 2886, 2887, 2888, 2889, 542, 562, 563,
-                       2716, 2745, 2746, 2754, 2762, 2765, 2771, 2775, 2787, 2788})  # fmt: skip
 
 
 class Experience(Extractor):
@@ -86,35 +66,3 @@ class Experience(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.statuses: set[int] = set()
-        self.held: dict[int, set[int]] = {}  # key item table -> bonus key items held
-        self.resends = combat.Resends()
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if p.opcode == 0x063:
-            if f("type") == STATUS_ICONS:
-                self.statuses = {s for i in range(32) if (s := f(f"data.icon[{i}]")) not in (None, 0, 255)}
-            return
-        if p.opcode == 0x055:
-            table, ids = key_items(f)
-            self.held[table] = ids & KEY_ITEMS
-            return
-        msg = f("MessageNum")
-        if (msg not in GAINS and msg not in LEVEL) or self.resends.is_resend(p):
-            return
-        who, target = f("UniqueNoCas"), f("UniqueNoTar")
-        mob = target if combat.is_mob(target) else None
-        own = who == world.character_id
-        if msg in LEVEL:
-            emit("level_changes", p, member_id=who, own=own, change=LEVEL[msg], level=f("Data"), mob_id=mob,
-                 zone_id=world.zone)  # fmt: skip
-            return
-        kind, chained = GAINS[msg]
-        size = len(world.party - {world.character_id}) + 1
-        effects = sorted(self.statuses & (EFFECTS.keys() | ({SIGNET} if 2 <= size <= 5 else set())))
-        held = sorted(set().union(*self.held.values())) if own else []
-        emit("exp_gains", p, recipient_id=who, own=own, kind=kind, points=f("Data"),
-             chain=(f("Data2") or 0) if chained else 0, message=msg, mob_id=mob, party_size=size,
-             effects=effects if own else [], key_items=held, zone_id=world.zone)  # fmt: skip

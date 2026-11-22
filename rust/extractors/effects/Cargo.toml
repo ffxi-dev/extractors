@@ -1,0 +1,10 @@
+[package]
+name = "xc-effects"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "battle/effects.py: the character's status effects (0x063 type 9) and the action that applied each"
+publish = false
+
+[dependencies]
+xc-core = { path = "../../xc-core" }

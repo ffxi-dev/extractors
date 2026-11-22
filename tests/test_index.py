@@ -1,15 +1,11 @@
 import pytest
 import xicap
 from conftest import CAPTAIN, MEMORIA, rows, value
-from ffxi_packets import Decoder
 
-from ffxi_extractors import extract, store
-from ffxi_extractors.capture import Packet
+from ffxi_extractors import store
 from ffxi_extractors.extractors import ALL
-from ffxi_extractors.extractors.battle.kills import Kills
 from ffxi_extractors.facts import DERIVED
 from ffxi_extractors.index import run
-from ffxi_extractors.world import WORLD
 
 UNITS = {"decode", *(x.name for x in (*ALL, *DERIVED))}
 
@@ -147,38 +143,11 @@ def test_a_derived_unit_alone_reads_no_file(con):
     assert value(con, "SELECT count() FROM bestiary_fights") == want
 
 
-def test_kills_alone_equal_a_full_run(con, monkeypatch):
-    """A rerun decodes its extractor's opcodes and the world's, and nothing else."""
+def test_kills_alone_equal_a_full_run(con):
     run(con, CAPTAIN, "c")
     full = rows(con, "SELECT * EXCEPT lens_url FROM kills ORDER BY idx, mob_id")
-    decoded = set()
-    decode = Decoder.decode
-
-    def spy(self, version, direction, opcode, raws):
-        decoded.add((direction, opcode))
-        return decode(self, version, direction, opcode, raws)
-
-    monkeypatch.setattr(Decoder, "decode", spy)
     run(con, CAPTAIN, "c", units={"kills"})
-
-    assert decoded <= WORLD | Kills.reads and decoded & Kills.reads
     assert rows(con, "SELECT * EXCEPT lens_url FROM kills ORDER BY idx, mob_id") == full
-
-
-def test_a_sink_writes_finished_rows_and_keeps_those_still_filled(monkeypatch):
-    """Past FLUSH rows a sink writes all but the rows its extractor still holds."""
-    from ffxi_extractors.extractors.world.zones import Zones
-
-    monkeypatch.setattr(extract, "FLUSH", 3)
-    written = []
-    sink = extract.Sink(Zones(), "c", "v", lambda t, a: written.extend(a.column("zone_id").to_pylist()))
-    held = [sink.emit("zones", Packet(i, i, 0, 0, 0x00A, 0, b""), zone_id=i) for i in range(4)][1]
-    sink.flush()
-    assert written == [0, 2, 3] and [r["zone_id"] for r in sink.rows["zones"]] == [1]
-    held["zone_id"] = 10
-    del held
-    sink.flush(everything=True)
-    assert written == [0, 2, 3, 10] and sink.written == 4
 
 
 def test_a_table_made_under_another_order_is_sorted_again_with_its_rows(con):

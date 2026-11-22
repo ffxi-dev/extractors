@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Weather(Extractor):
@@ -44,26 +44,3 @@ class Weather(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.now: int | None = None
-        self.start: int | None = None
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        zone_in = p.opcode == 0x00A
-        weather = f("WeatherNumber")
-        if weather is None:
-            return
-        start = f("WeatherTime") if zone_in else f("StartTime")
-        emit(
-            "weather",
-            p,
-            zone_id=world.zone,
-            weather_id=weather,
-            start_time=start,
-            offset_time=f("WeatherOffsetTime"),
-            previous_id=f("WeatherNumber2") if zone_in else self.now,
-            previous_start=f("WeatherTime2") if zone_in else self.start,
-            zone_in=zone_in,
-        )
-        self.now, self.start = weather, start

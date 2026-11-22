@@ -1,7 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Defeats(Extractor):
@@ -26,15 +25,3 @@ class Defeats(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.resends = combat.Resends()
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        msg = f("MessageNum")
-        if msg not in (20, 97) or f("UniqueNoTar") != world.character_id or self.resends.is_resend(p):
-            return
-        killer = f("UniqueNoCas") if msg == 97 else None
-        name = world.name(killer) if combat.is_mob(killer) else None
-        emit("defeats", p, killer_id=killer, killer_name=name,
-             message=msg, zone_id=world.zone)  # fmt: skip

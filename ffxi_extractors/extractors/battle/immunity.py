@@ -1,21 +1,8 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 IMMUNE, RESIST, RESIST_TARGET, NO_EFFECT = 655, 85, 284, 75  # LSB msg_basic
-
-
-def outcome(message: int | None, bit: int | None) -> str:
-    if message == IMMUNE:
-        return "immune"
-    if message == RESIST:
-        return "trait_resist" if (bit or 0) & 0x02 else "resist"
-    if message == RESIST_TARGET:
-        return "resist"
-    if message == NO_EFFECT:
-        return "no_effect"
-    return "landed"
 
 
 class Immunity(Extractor):
@@ -49,28 +36,3 @@ class Immunity(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.resends = combat.Resends()
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if self.resends.is_resend(p):
-            return
-        a = combat.action(f)
-        if a["cmd_no"] != 4 or not a["cmd_arg"]:
-            return
-        for target_id, results in a["targets"]:
-            if not combat.is_mob(target_id):
-                continue
-            for r in results:
-                emit(
-                    "spell_results",
-                    p,
-                    caster_id=a["actor_id"],
-                    target_id=target_id,
-                    spell_id=a["cmd_arg"],
-                    message=r["message"],
-                    outcome=outcome(r["message"], r["bit"]),
-                    value=r["value"],
-                    zone_id=world.zone,
-                )

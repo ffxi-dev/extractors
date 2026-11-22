@@ -1,0 +1,14 @@
+# The Rust extractors. rust/xc-decode: packets' layouts. rust/xc-core: the capture reader, the World, the
+# extractor contract, and the runner. rust/extractors/*: one crate an extractor. rust/xc-all: the registry.
+# rust/xc-py: the Python module extractors_rs.
+[workspace]
+resolver = "2"
+members = ["rust/xc-*", "rust/extractors/*"]
+
+[workspace.package]
+edition = "2024"
+license = "GPL-3.0-only"
+
+[profile.release]
+lto = true
+codegen-units = 1

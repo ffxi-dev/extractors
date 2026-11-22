@@ -4,7 +4,6 @@ import struct
 
 from conftest import walked
 
-from ffxi_extractors.capture import Packet
 from ffxi_extractors.extractors.progress.events import Events
 from ffxi_extractors.extractors.progress.keyitems import KeyItems
 
@@ -61,10 +60,7 @@ def position(x, y, z):  # c2s 0x015, XiPackets' order x, z, y
 
 def run(x, *packets):
     """packets: (ts_ms, (direction, (opcode, data))). The extractor's rows by table."""
-    _, _, (sink,) = walked(
-        [x()], [Packet(i, ts, 0, d, op, 0, data) for i, (ts, (d, (op, data))) in enumerate(packets)], PLAYER
-    )
-    return sink.rows
+    return walked(x, [(ts, d, op, data) for ts, (d, (op, data)) in packets], PLAYER)
 
 
 def test_a_home_point():

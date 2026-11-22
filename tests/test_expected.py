@@ -7,14 +7,13 @@ import json
 import os
 from pathlib import Path
 
+import extractors_rs
 import pytest
 from conftest import CAPTAIN, MEMORIA
 from fill import records
 
-from ffxi_extractors.capture import read
 from ffxi_extractors.extractors import ALL
 from ffxi_extractors.facts import DERIVED
-from ffxi_extractors.index import walk
 
 EXPECTED = Path(__file__).parent / "expected"
 CAPTURES = ((MEMORIA, "m"), (CAPTAIN, "c"))
@@ -44,9 +43,9 @@ def walked():
     """Each extractor's tables by capture, from one walk of each capture with every extractor."""
     out = {}
     for path, cid in CAPTURES:
-        _, _, sinks = walk(read(path, cid), [x() for x in ALL])
-        for x, sink in zip(ALL, sinks, strict=True):
-            out[cid, x.name] = {name: t.to_pylist() for name, t in sink.arrow().items()}
+        tables = extractors_rs.run(str(path), cid, [x.name for x in ALL])
+        for x in ALL:
+            out[cid, x.name] = {t.name: tables[t.name].to_pylist() for t in x.tables}
     return out
 
 

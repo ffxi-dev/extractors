@@ -1,8 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-
-OUTCOME = {1: "won", 2: "error", 3: "lost"}  # 0x0D3 JudgeFlg; 0 is a lot or pass with the slot still open
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Drops(Extractor):
@@ -41,29 +39,3 @@ class Drops(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.seen: dict[tuple, dict] = {}  # entry -> its row
-        self.open: dict[int, dict] = {}  # pool slot -> the row its lot result fills in
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if p.opcode == 0x0D3:
-            outcome = OUTCOME.get(f("JudgeFlg"))
-            row = self.open.pop(f("TrophyItemIndex"), None) if outcome else None
-            if row:
-                row.update(outcome=outcome, winner_id=f("LootUniqueNo") or None,
-                           winner_name=f("sLootName"), winning_lot=f("LootPoint"), settled_ms=p.ts_ms,
-                           settled_idx=p.idx)  # fmt: skip
-            return
-        item = f("TrophyItemNo")
-        if not item:
-            return
-        key = (f("TargetUniqueNo"), item, f("TrophyItemIndex"), f("StartTime"))
-        if key in self.seen:
-            if self.seen[key]["outcome"] is None:
-                self.open[key[2]] = self.seen[key]
-            return
-        row = emit("drops", p, item_id=item, quantity=f("TrophyItemNum"), mob_id=key[0],
-                   mob_index=f("TargetActIndex"), slot=key[2], start_time=key[3], gold=f("Gold"),
-                   outcome=None, zone_id=world.zone)  # fmt: skip
-        self.seen[key] = self.open[key[2]] = row

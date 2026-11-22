@@ -2,7 +2,7 @@
 
 from conftest import drive
 
-from ffxi_extractors.extractors.items.shops import Shops, hours
+from ffxi_extractors.extractors.items.shops import Shops
 
 ZONE = 235  # Bastok Markets
 NPC = 0x0100_0000 | (ZONE << 12) | 0x10C
@@ -29,13 +29,6 @@ def guild_list(stat, *items):
         fields |= {f"List[{i}].ItemNo": item, f"List[{i}].Count": count, f"List[{i}].Max": most,
                    f"List[{i}].Price": price}  # fmt: skip
     return 0x083, fields
-
-
-def test_guild_hours_come_only_with_a_closed_guild():
-    assert hours(1, 0x807FFF00) == (8, 23)  # Bastok's smiths: 8:00 to 23:00, the client not told
-    assert hours(1, 0x000FFFE0) == (5, 20)
-    assert hours(0, 261379) == (None, None)  # open: Time is whatever the buffer held
-    assert hours(1, 0b1011 << 8) == (None, None)  # no run of hours
 
 
 def test_a_shop_and_a_guild_with_the_characters_standing_and_purchases():

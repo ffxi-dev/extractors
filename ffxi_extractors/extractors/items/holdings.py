@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Holdings(Extractor):
@@ -27,21 +27,3 @@ class Holdings(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.slots: dict[tuple, int | None] = {}  # (bag, slot) -> the item last written
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        key = (f("Category"), f("ItemIndex"))
-        if None in key:
-            return
-        if not f("ItemNum"):
-            item = None
-        elif p.opcode == 0x01E:  # a quantity alone: the slot keeps its item
-            return
-        else:
-            item = f("ItemNo")
-        if key in self.slots and self.slots[key] == item:
-            return
-        self.slots[key] = item
-        emit("holdings", p, container=key[0], item_index=key[1], item_id=item)

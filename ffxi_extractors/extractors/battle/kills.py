@@ -1,7 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 TH_UP = (
     603  # LSB msg_basic TreasureHunterUp: "Treasure Hunter effectiveness against <target> increases to <n>"
@@ -58,53 +57,3 @@ class Kills(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.th: dict[int, int] = {}  # mob id -> highest Treasure Hunter level seen
-        self.claims: dict[int, int] = {}  # mob id -> last claimer; an update may clear it before the defeat
-        self.resends = combat.Resends()
-        self.ours: dict[int, dict] = {}  # mob id -> its last defeat by the character, its party, their claim
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if p.opcode == 0x00A:
-            self.th.clear()
-            self.claims.clear()
-            return
-        if p.opcode == 0x00E:
-            uid = f("UniqueNo")
-            if f("SendFlg.Despawn"):  # it may die and respawn out of view, unclaimed
-                self.claims.pop(uid, None)
-                self.th.pop(uid, None)
-            elif f("SendFlg.ClaimStatus") and (claim := f("BtTargetID")):
-                self.claims[uid] = claim
-            return
-        # One entry of a defeat's pool carries the gold; one seen again at a zone-in is old (Entry 1).
-        if p.opcode == 0x0D2:
-            row = self.ours.get(f("TargetUniqueNo"))
-            if (gold := f("Gold")) and not f("Entry") and row and p.ts_ms - row["ts_ms"] <= GIL_MS:
-                row["gil"] = gold
-            return
-        if self.resends.is_resend(p):
-            return
-        if p.opcode == 0x028:
-            for target_id, results in combat.action(f)["targets"]:
-                for r in results:
-                    for x in (r, r["proc"]):
-                        if x and x["message"] == TH_UP and combat.is_mob(target_id):
-                            self.th[target_id] = max(self.th.get(target_id, 0), x["value"] or 0)
-            return
-        mob_id, msg = f("UniqueNoTar"), f("MessageNum")
-        if not combat.is_mob(mob_id):
-            return
-        if msg == TH_UP:
-            self.th[mob_id] = max(self.th.get(mob_id, 0), f("Data") or 0)
-        elif msg in combat.DEFEAT:
-            killer = f("UniqueNoCas")
-            claim = self.claims.pop(mob_id, None)
-            killer = killer if msg == 6 and killer != mob_id else None
-            row = emit("kills", p, mob_id=mob_id, killer_id=killer, claim_id=claim,
-                       claimed_by_party=world.claimed_by_party(claim) if claim else None,
-                       th_level=self.th.pop(mob_id, None), gil=None, message=msg,
-                       zone_id=world.zone)  # fmt: skip
-            if world.claimed_by_party(killer) or world.claimed_by_party(claim):
-                self.ours[mob_id] = row

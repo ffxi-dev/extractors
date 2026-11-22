@@ -1,0 +1,51 @@
+[package]
+name = "xc-all"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Every Rust extractor, by name: extractors/__init__.py's ALL"
+publish = false
+
+[dependencies]
+xc-core = { path = "../xc-core" }
+# A line a crate, under its batch's comment, so batches merge without conflicts.
+# B1 positions: engages, actions
+xc-actions = { path = "../extractors/actions" }
+xc-engages = { path = "../extractors/engages" }
+# B2 hp and effects
+xc-hp = { path = "../extractors/hp" }
+xc-effects = { path = "../extractors/effects" }
+# B3 combat rounds: delay, fights, kills, mob_messages, immunity, defeats, evasion_skill
+xc-delay = { path = "../extractors/delay" }
+xc-fights = { path = "../extractors/fights" }
+xc-kills = { path = "../extractors/kills" }
+xc-mob-messages = { path = "../extractors/mob_messages" }
+xc-immunity = { path = "../extractors/immunity" }
+xc-defeats = { path = "../extractors/defeats" }
+xc-evasion = { path = "../extractors/evasion" }
+# B4 events: events, obtained, keyitems, experience, battlefields
+xc-events = { path = "../extractors/events" }
+xc-obtained = { path = "../extractors/obtained" }
+xc-keyitems = { path = "../extractors/keyitems" }
+xc-experience = { path = "../extractors/experience" }
+xc-battlefields = { path = "../extractors/battlefields" }
+# B5 items: fishing, digs, synths, drops, trades, holdings
+xc-fishing = { path = "../extractors/fishing" }
+xc-digs = { path = "../extractors/digs" }
+xc-synths = { path = "../extractors/synths" }
+xc-drops = { path = "../extractors/drops" }
+xc-trades = { path = "../extractors/trades" }
+xc-holdings = { path = "../extractors/holdings" }
+# B6 entities: looks, entity_changes, levels, spawns, weather, zones
+xc-looks = { path = "../extractors/looks" }
+xc-entity-changes = { path = "../extractors/entity_changes" }
+xc-levels = { path = "../extractors/levels" }
+xc-spawns = { path = "../extractors/spawns" }
+xc-weather = { path = "../extractors/weather" }
+xc-zones = { path = "../extractors/zones" }
+# B7 character and maps: character, party, conquest, influence, shops
+xc-character = { path = "../extractors/character" }
+xc-party = { path = "../extractors/party" }
+xc-conquest = { path = "../extractors/conquest" }
+xc-influence = { path = "../extractors/influence" }
+xc-shops = { path = "../extractors/shops" }

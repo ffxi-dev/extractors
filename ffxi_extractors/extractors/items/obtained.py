@@ -1,11 +1,7 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.link import KINDS, LINK_MS, Link
-
-GIL = 0xFFFF
-SETTLE_MS = 1000  # a change this soon after the last is part of the same move, trade or synthesis
-POOL_MS = 10_000  # an item the character won from the pool lands this soon after
+from ffxi_extractors.extract import Column, Extractor, Table
+from ffxi_extractors.link import KINDS, LINK_MS
 
 
 class Obtained(Extractor):
@@ -44,77 +40,3 @@ class Obtained(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.slots: dict[tuple[int, int], tuple[int, int]] = {}  # (container, index) -> (item, quantity)
-        self.synced: int | None = None  # containers sent whole since the last zone-in, a bit each
-        self.net: dict[int, list] = {}  # item -> [count, first rise's packet, container, event, zone]
-        self.last = 0  # the last change's time
-        self.pool: dict[int, int] = {}  # pool slot -> item
-        self.won: dict[int, int] = {}  # item -> when the character won it
-        self.link = Link()
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if self.net and p.ts_ms - self.last > SETTLE_MS:
-            self.settle(emit)
-        key = (p.direction, p.opcode)
-        if key in KINDS:
-            self.link.follow(key, p, f)
-            return
-        op = p.opcode
-        if op == 0x00A:  # the server sends every container again, one by one
-            self.synced = 0
-            self.link.follow(key, p, f)
-        elif op == 0x01D:
-            if self.synced is not None:
-                self.synced |= f("Flags") or 0
-        elif op == 0x0D2:
-            self.pool[f("TrophyItemIndex")] = f("TrophyItemNo")
-        elif op == 0x0D3:
-            mine = f("JudgeFlg") == 1 and f("LootUniqueNo") == world.character_id
-            if mine and (item := self.pool.get(f("TrophyItemIndex"))):
-                self.won[item] = p.ts_ms
-        else:
-            slot = (f("Category"), f("ItemIndex"))
-            old = self.slots.get(slot)
-            if op == 0x01E:  # the quantity alone
-                if old is None:
-                    return
-                new = (old[0], f("ItemNum") or 0)
-            else:
-                new = (f("ItemNo") or 0, f("ItemNum") or 0)
-            if new == old:
-                return
-            if new[0] and new[1]:
-                self.slots[slot] = new
-            else:
-                self.slots.pop(slot, None)
-            # A slot first seen before its container was sent whole is what the character held.
-            if old is None and not (self.synced or 0) >> slot[0] & 1:
-                return
-            if old:
-                self.add(old[0], -old[1], p, slot[0], world.zone)
-            if new[0] and new[1]:
-                self.add(new[0], new[1], p, slot[0], world.zone)
-
-    def add(self, item, n, p, container, zone):
-        if item == GIL or not n:
-            return
-        self.last = p.ts_ms
-        e = self.net.setdefault(item, [0, None, None, None, None])
-        e[0] += n
-        if n > 0 and e[1] is None:
-            e[1:] = [p, container, (self.link.at(p.ts_ms) or {}).get("idx"), zone]
-
-    def settle(self, emit):
-        for item, (n, p, container, event, zone) in self.net.items():
-            if n <= 0:
-                continue
-            won = self.won.pop(item, None)
-            pool = won is not None and won >= p.ts_ms - POOL_MS
-            emit("obtained", p, item_id=item, quantity=n, container=container,
-                 source="pool" if pool else None, zone_id=zone, event_idx=event)  # fmt: skip
-        self.net = {}
-
-    def finish(self, world: World, emit: Emit) -> None:
-        self.settle(emit)

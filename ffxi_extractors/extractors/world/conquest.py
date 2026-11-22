@@ -1,9 +1,7 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
-STRONGHOLDS = ("Mamook", "Halvung", "Arrapago")  # LSB's besieged_stronghold: 1, 2, 3
-CANDESCENCE = ("Al Zahbi", *STRONGHOLDS)  # who holds it, by AstralCandescence
 NATIONS = ("Sandoria", "Bastok", "Windurst")
 OWNER = "0 none, 1 San d'Oria, 2 Bastok, 3 Windurst, 4 beastmen"
 ORDERS = "0 train, 1 advance, 2 attack, 3 retreat, 4 defend, 5 prepare"
@@ -114,48 +112,3 @@ class Conquest(Extractor):
             ),
         ),
     )
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        balance = f("Conquest.Balance")
-        if balance is None:  # an older layout, or a stubbed packet
-            return
-        emit(
-            "conquest",
-            p,
-            zone_id=world.zone,
-            **{f"{n.lower()}_rank": (balance >> (2 * i)) & 3 for i, n in enumerate(NATIONS)},
-            alliance=f("Conquest.Alliance"),
-            next_tally=f("Conquest.NextTally"),
-            **{n.lower(): f(f"Conquest.CurrentRegion{n}") for n in NATIONS},
-            beastmen=f("Conquest.CurrentRegionBeastmen"),
-            **{f"{n.lower()}_no_beastmen": f(f"Conquest.CurrentRegion{n}Pct") for n in NATIONS},
-        )
-        for i in range(27):
-            r = f"Conquest.Regions[{i}]."
-            row = {
-                "owner": f(r + "Owner"),
-                "ranking": f(r + "InfluenceRankingWithBeastmen"),
-                "ranking_no_beastmen": f(r + "InfluenceRankingNoBeastmen"),
-                "graphics": f(r + "InfluenceGraphics"),
-            }
-            if any(row.values()):
-                emit("conquest_regions", p, region_id=i, **row)
-        held = f("Besieged.Overview.AstralCandescence")
-        for name in STRONGHOLDS:
-            s = f"Besieged.{name}Stronghold."
-            emit(
-                "besieged",
-                p,
-                stronghold=name,
-                orders=f(s + "Orders"),
-                forces=f(s + "Forces"),
-                level=f(s + "Level"),
-                mirrors=f(s + "Mirrors"),
-                prisoners=f(s + "Prisoners"),
-                flag=f(s + "Unknown"),
-                map_orders=f(f"Besieged.Overview.{name}Orders"),
-                map_level=f(f"Besieged.Overview.{name}Level"),
-                candescence=CANDESCENCE[held] if held is not None and held < len(CANDESCENCE) else None,
-                al_zahbi_orders=f("Besieged.Overview.AlZahbiOrders"),
-                zone_id=world.zone,
-            )

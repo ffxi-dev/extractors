@@ -2,13 +2,13 @@
 
 import struct
 
-from conftest import MOB, PLAYER, drive, raw
+import pytest
+from conftest import MOB, PLAYER, P, drive, raw
 
-from ffxi_extractors.combat import P
 from ffxi_extractors.extractors.battle.actions import Actions
 from ffxi_extractors.extractors.battle.delay import Delay
 from ffxi_extractors.extractors.battle.fights import Fights
-from ffxi_extractors.extractors.battle.hp import Hp, _Mob
+from ffxi_extractors.extractors.battle.hp import Hp
 from ffxi_extractors.extractors.battle.immunity import Immunity
 from ffxi_extractors.extractors.world.character import Character
 
@@ -243,14 +243,6 @@ def test_slow_regen_gives_its_rate_and_a_hit_between_rises_breaks_the_run():
     assert (rows[0]["regen"], rows[0]["regen_rate"]) == (4, round(2 * 3000 / 180000, 4))
 
 
-def test_under_regen_the_hp_most_windows_allow_wins_over_the_first():
-    # One window thrown off by regen the bar didn't show yet comes first; the rest agree on 980-1,020.
-    m = _Mob(100, 100)
-    m.regen = 1
-    m.windows = [(1300, 1400), (900, 1100), (950, 1050), (980, 1020), (970, 1200)]
-    assert m.range() == (980, 1020)
-
-
 def test_a_rise_after_a_heal_is_not_regen():
     rows = raw(
         Hp,
@@ -321,29 +313,6 @@ def test_a_trust_that_falls_is_no_mob():
         (1000, message(MOB, trust, 6)),
     )["mob_hp"]
     assert rows == []
-
-
-def test_regen_with_no_window_left_standing_falls_back_on_the_damage():
-    m = _Mob(100, 100)
-    m.regen, m.windows = 1, [(10, 5)]  # healed, then hit by a tick: every window inverted
-    m.hit(300, False, 0)
-    assert m.range() == (1, 300)
-
-
-def test_hp_tracks_no_player_and_ends_on_the_last_hit_and_its_procs():
-    """A mob's hits on the party made a tracker per player, kept until the zone changed; each round summed
-    the mob's whole hit list again (Codex's review, 9)."""
-    hp = Hp()
-    rows = raw(
-        lambda: hp,
-        (0, act(MOB, 1, 0, [(PLAYER, [r(1, 30, react=(40, 44))])])),
-        (500, act(OTHER, 4, 1, [(PLAYER, [r(7, 20)])])),
-        (1000, act(PLAYER, 1, 0, [(MOB, [r(1, 60)]), (MOB, [r(1, 5, proc=(7, 163))])])),
-        (2000, message(PLAYER, MOB, 6)),
-    )["mob_hp"]
-    assert hp.mobs == {}, "the player hit and healed has no tracker"
-    (m,) = rows
-    assert (m["damage"], m["hits"], m["hp_min"], m["hp_max"]) == (112, 4, 101, 112)
 
 
 def test_fights_end_at_defeat_and_a_defeat_alone_is_a_fight():
@@ -585,7 +554,8 @@ def test_who_stood_near_a_tp_move():
              tp_move(PLAYER, stranger)]  # fmt: skip
     times = [0, 100, 200, 300, 400, 500, 600, 700, 1000, 1100, 1200, 5000]
     rows = drive(Actions, *steps, times=times, directions=[0, 1] + [0] * 10)
-    assert [(a["actor_dir"], a["actor_size"]) for a in rows["actions"]] == [(0, 3.2), (64, 3.2), (None, 3.2)]
+    g = pytest.approx(3.2)  # a float32
+    assert [(a["actor_dir"], a["actor_size"]) for a in rows["actions"]] == [(0, g), (64, g), (None, g)]
 
     def near(r):
         b, t = r["bearing"], r["from_target"]

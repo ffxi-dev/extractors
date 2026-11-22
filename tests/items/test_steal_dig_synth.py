@@ -4,7 +4,6 @@ from conftest import PLAYER, drive
 
 from ffxi_extractors.extractors.items.digs import Digs
 from ffxi_extractors.extractors.items.synths import Synths
-from ffxi_extractors.vana import EPOCH_MS, vana
 
 GREENS, PEBBLE, HINT = 4545, 17296, 3
 ZONE = 117
@@ -50,12 +49,6 @@ def test_a_dig_that_finds_nothing():
     # The greens go, a hint names a number, and an item the dig did not name enters the inventory.
     (row,) = dig((0x01E, {"Category": 0, "ItemIndex": 5, "ItemNum": 11}), told(HINT), slot(0x020, 12, 515, 1))
     assert row["item_id"] is None
-
-
-def test_vanadiel_time_as_lsb_counts_it():
-    assert vana(EPOCH_MS) == (0, 0, 10)  # Firesday, midnight; the moon (318986 % 84 = 38 days in) at 10%
-    day = 86_400_000 // 25
-    assert vana(EPOCH_MS + 9 * day + 13 * day // 24)[:2] == (1, 13)
 
 
 def test_the_characters_synthesis_and_someone_elses():

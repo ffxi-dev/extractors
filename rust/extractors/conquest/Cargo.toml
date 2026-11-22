@@ -1,0 +1,10 @@
+[package]
+name = "xc-conquest"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "world/conquest.py: the conquest and Besieged map (0x05E)"
+publish = false
+
+[dependencies]
+xc-core = { path = "../../xc-core" }
