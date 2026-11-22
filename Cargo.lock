@@ -291,6 +291,8 @@ dependencies = [
  "xc-core",
  "xc-defeats",
  "xc-delay",
+ "xc-digs",
+ "xc-drops",
  "xc-effects",
  "xc-engages",
  "xc-entity-changes",
@@ -298,6 +300,8 @@ dependencies = [
  "xc-events",
  "xc-experience",
  "xc-fights",
+ "xc-fishing",
+ "xc-holdings",
  "xc-hp",
  "xc-immunity",
  "xc-influence",
@@ -310,6 +314,8 @@ dependencies = [
  "xc-party",
  "xc-shops",
  "xc-spawns",
+ "xc-synths",
+ "xc-trades",
  "xc-weather",
  "xc-zones",
 ]
@@ -366,6 +372,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-digs"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-gathering",
+]
+
+[[package]]
+name = "xc-drops"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
 name = "xc-effects"
 version = "0.1.0"
 dependencies = [
@@ -415,6 +436,29 @@ name = "xc-fights"
 version = "0.1.0"
 dependencies = [
  "xc-core",
+]
+
+[[package]]
+name = "xc-fishing"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-gathering",
+]
+
+[[package]]
+name = "xc-gathering"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-holdings"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-gathering",
 ]
 
 [[package]]
@@ -517,6 +561,20 @@ dependencies = [
 
 [[package]]
 name = "xc-spawns"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-synths"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-trades"
 version = "0.1.0"
 dependencies = [
  "xc-core",

@@ -1,0 +1,11 @@
+[package]
+name = "xc-digs"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "items/digs.py: each chocobo dig the character made, and what it found"
+publish = false
+
+[dependencies]
+xc-core = { path = "../../xc-core" }
+xc-gathering = { path = "../gathering" }

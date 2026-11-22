@@ -26,6 +26,12 @@ pub fn all() -> Vec<Box<dyn Extractor>> {
         Box::new(xc_experience::Experience::default()),
         Box::new(xc_battlefields::Battlefields::default()),
         // B5 items: fishing, digs, synths, drops, trades, holdings
+        Box::new(xc_fishing::Fishing::default()),
+        Box::new(xc_digs::Digs::default()),
+        Box::new(xc_synths::Synths),
+        Box::new(xc_drops::Drops::default()),
+        Box::new(xc_trades::Trades::default()),
+        Box::new(xc_holdings::Holdings::default()),
         // B6 entities: looks, entity_changes, levels, spawns, weather, zones
         Box::new(xc_looks::Looks::default()),
         Box::new(xc_entity_changes::EntityChanges::default()),
