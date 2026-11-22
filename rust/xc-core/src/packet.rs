@@ -110,11 +110,21 @@ pub fn as_flag(v: Option<Value>) -> bool {
 /// One field of one opcode, its id found once: `static UID: Field = Field::new(S2C, 0x00E, "UniqueNo");` then
 /// `UID.int(f)`. A packet of xc-decode reads it by id, a test's by path. The id is today's layout's, which
 /// every client version uses while packets has no older layouts (xc-decode's build fails on one).
+///
+/// `field!(S2C, 0x00E, "UniqueNo")` declares one in place: `field!(S2C, 0x00E, "UniqueNo").int(f)`.
 pub struct Field {
     direction: u8,
     opcode: u16,
     pub path: &'static str,
     id: OnceLock<Option<FieldId>>,
+}
+
+#[macro_export]
+macro_rules! field {
+    ($dir:expr, $op:expr, $path:expr) => {{
+        static F: $crate::packet::Field = $crate::packet::Field::new($dir, $op, $path);
+        &F
+    }};
 }
 
 impl Field {

@@ -4,7 +4,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::packet::{C2S, Fields, Packet, S2C};
+use crate::field;
+use crate::packet::{C2S, Field, Fields, Packet, S2C, Value};
 
 /// The packets update() reads. Every run decodes them, beside its extractors' own.
 pub const WORLD: [(u8, u16); 11] = [
@@ -27,6 +28,23 @@ pub const WORLD_VERSION: u32 = 2;
 pub fn zone_of(id: Option<i64>) -> Option<i64> {
     id.filter(|&i| i >= 0x1000000).map(|i| (i >> 12) & 0xFFF)
 }
+
+static C015: [Field; 3] = [Field::new(C2S, 0x015, "x"), Field::new(C2S, 0x015, "y"), Field::new(C2S, 0x015, "z")];
+macro_rules! group {
+    ($($i:literal)*) => { [$(Field::new(S2C, 0x0C8, concat!("GroupTbl[", $i, "].UniqueNo"))),*] };
+}
+static C0C8: [Field; 20] = group!(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19);
+macro_rules! item {
+    ($op:expr) => {
+        [
+            Field::new(S2C, $op, "Category"),
+            Field::new(S2C, $op, "ItemIndex"),
+            Field::new(S2C, $op, "ItemNum"),
+            Field::new(S2C, $op, "ItemNo"),
+        ]
+    };
+}
+static ITEM: [[Field; 4]; 3] = [item!(0x01E), item!(0x01F), item!(0x020)];
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Entity {
@@ -95,57 +113,71 @@ impl World {
         let op = p.opcode;
         if p.direction == C2S {
             if op == 0x015 {
-                self.pos = (f.float("x"), f.float("y"), f.float("z"));
+                let c = |path| Field::float(&C015[path], f);
+                self.pos = (c(0), c(1), c(2));
                 self.pos_ms = p.ts_ms;
             }
             return;
         }
         match op {
             0x00A => {
-                self.zone = f.int("ZoneNo");
+                self.zone = field!(S2C, 0x00A, "ZoneNo").int(f);
                 self.entities.clear();
-                self.character_id = or(f.int("PosHead.UniqueNo"), |&v| v == 0, self.character_id);
-                self.character = or(f.text("name"), |s| s.is_empty(), self.character.take());
-                self.pos = (f.float("PosHead.x"), f.float("PosHead.y"), f.float("PosHead.z"));
+                self.character_id = or(field!(S2C, 0x00A, "PosHead.UniqueNo").int(f), |&v| v == 0, self.character_id);
+                self.character = or(field!(S2C, 0x00A, "name").text(f), |s| s.is_empty(), self.character.take());
+                self.pos = (
+                    field!(S2C, 0x00A, "PosHead.x").float(f),
+                    field!(S2C, 0x00A, "PosHead.y").float(f),
+                    field!(S2C, 0x00A, "PosHead.z").float(f),
+                );
                 self.pos_ms = p.ts_ms;
-                self.weather = f.int("WeatherNumber");
+                self.weather = field!(S2C, 0x00A, "WeatherNumber").int(f);
             }
-            0x057 => self.weather = f.int("WeatherNumber"),
-            0x037 => self.character_id = or(f.int("UniqueNo"), |&v| v == 0, self.character_id),
+            0x057 => self.weather = field!(S2C, 0x057, "WeatherNumber").int(f),
+            0x037 => self.character_id = or(field!(S2C, 0x037, "UniqueNo").int(f), |&v| v == 0, self.character_id),
             0x00E => {
-                let uid = f.int("UniqueNo");
+                let uid = field!(S2C, 0x00E, "UniqueNo").int(f);
                 if self.zone.is_none() {
                     self.zone = zone_of(uid);
                 }
-                let Some(index) = f.int("ActIndex") else { return };
+                let Some(index) = field!(S2C, 0x00E, "ActIndex").int(f) else { return };
                 let e = self.entities.entry(Some(index)).or_default();
                 if e.id != uid {
                     *e = Entity { id: uid, name: None };
                 }
-                if let Some(name) = f.text("Data.name").filter(|s| !s.is_empty()) {
-                    e.name = Some(name);
+                // Text is None when empty; a name is copied only when it changes.
+                if let Some(Value::Text(name)) = field!(S2C, 0x00E, "Data.name").get(f)
+                    && e.name.as_deref() != Some(&*name)
+                {
+                    e.name = Some(name.into_owned());
                 }
-                if f.flag("SendFlg.Despawn") {
+                if field!(S2C, 0x00E, "SendFlg.Despawn").flag(f) {
                     self.entities.remove(&Some(index));
                 }
             }
-            0x0DD | 0x0E2 => {
-                if let Some(uid) = f.int("UniqueNo") {
+            0x0DD => {
+                if let Some(uid) = field!(S2C, 0x0DD, "UniqueNo").int(f) {
+                    self.party.insert(uid);
+                }
+            }
+            0x0E2 => {
+                if let Some(uid) = field!(S2C, 0x0E2, "UniqueNo").int(f) {
                     self.party.insert(uid);
                 }
             }
             0x0C8 => {
-                let members: Vec<Option<i64>> = (0..20).map(|i| f.int(&format!("GroupTbl[{i}].UniqueNo"))).collect();
+                let members: Vec<Option<i64>> = C0C8.iter().map(|m| m.int(f)).collect();
                 if members.iter().any(Option::is_some) {
                     self.party = members.into_iter().flatten().filter(|&m| m != 0).collect();
                 }
             }
             0x01E..=0x020 => {
-                let key = (f.int("Category"), f.int("ItemIndex"));
-                if !f.flag("ItemNum") {
+                let k = &ITEM[(op - 0x01E) as usize];
+                let key = (k[0].int(f), k[1].int(f));
+                if !k[2].flag(f) {
                     self.items.remove(&key);
                 } else if op != 0x01E {
-                    self.items.insert(key, f.int("ItemNo"));
+                    self.items.insert(key, k[3].int(f));
                 }
             }
             _ => {}
