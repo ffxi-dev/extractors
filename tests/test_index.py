@@ -179,3 +179,21 @@ def test_a_sink_writes_finished_rows_and_keeps_those_still_filled(monkeypatch):
     del held
     sink.flush(everything=True)
     assert written == [0, 2, 3, 10] and sink.written == 4
+
+
+def test_a_table_made_under_another_order_is_sorted_again_with_its_rows(con):
+    """entity_changes was sorted by entity first, so each capture's lookup read every capture's rows: setup
+    copies a table made under another ORDER BY into one sorted as the code says, rows and all, once."""
+    con.command("DROP TABLE IF EXISTS sorting_probe SYNC")
+    con.command("CREATE TABLE sorting_probe (a String, b Int64) ENGINE = MergeTree ORDER BY (b, a)")
+    con.command("INSERT INTO sorting_probe VALUES ('x', 2), ('y', 1)")
+    for _ in range(2):  # the second call finds it sorted and leaves it
+        store._create(con, "sorting_probe", "a String, b Int64", "a, b")
+        key = "SELECT sorting_key FROM system.tables WHERE name = 'sorting_probe'"
+        assert value(con, key) == "a, b"
+        assert rows(con, "SELECT a, b FROM sorting_probe ORDER BY a") == [("x", 2), ("y", 1)]
+    leftovers = (
+        "SELECT count() FROM system.tables WHERE database = currentDatabase() AND name LIKE 'sorting_probe_%'"
+    )
+    assert value(con, leftovers) == 0
+    con.command("DROP TABLE sorting_probe SYNC")

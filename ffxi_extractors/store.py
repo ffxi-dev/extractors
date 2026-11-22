@@ -148,10 +148,34 @@ def now() -> int:
 
 
 def _create(con, name: str, cols: str, order: str, engine: str = "MergeTree") -> None:
+    """A table, made if missing. One made under another ORDER BY is copied into a new one sorted by order,
+    and swapped in: the same rows, read by the new key. Each process copies under its own name and checks
+    again before the swap, so two setting up at once (a deploy's indexer and its rebuild) do not undo each
+    other."""
     con.command(
         f"CREATE TABLE IF NOT EXISTS {name} ({cols}) ENGINE = {engine} ORDER BY ({order})"
         " SETTINGS allow_nullable_key = 1"
     )
+    if _sorting_key(con, name) == _key(order):
+        return
+    tmp = f"{name}_sorted_{os.getpid()}"
+    con.command(f"DROP TABLE IF EXISTS {tmp} SYNC")
+    con.command(
+        f"CREATE TABLE {tmp} AS {name} ENGINE = {engine} ORDER BY ({order}) SETTINGS allow_nullable_key = 1"
+    )
+    con.command(f"INSERT INTO {tmp} SELECT * FROM {name}")
+    if _sorting_key(con, name) != _key(order):
+        con.command(f"EXCHANGE TABLES {name} AND {tmp}")
+    con.command(f"DROP TABLE {tmp} SYNC")
+
+
+def _key(order: str) -> str:
+    return order.replace(" ", "").replace("`", "").strip("()")
+
+
+def _sorting_key(con, name: str) -> str:
+    sql = "SELECT sorting_key FROM system.tables WHERE database = currentDatabase() AND name = {t:String}"
+    return _key(one(con, sql, {"t": name})[0])
 
 
 def ch_type(c: Column) -> str:
