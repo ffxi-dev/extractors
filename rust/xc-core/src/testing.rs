@@ -1,6 +1,8 @@
 //! tests/conftest.py's drivers, for extractors' own tests: drive() feeds decoded fields, raw() feeds bytes
 //! through the decoder as a capture would.
 
+pub mod packets;
+
 use std::collections::HashMap;
 
 use crate::extract::{Extractor, Out};
