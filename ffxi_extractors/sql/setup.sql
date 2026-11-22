@@ -192,7 +192,9 @@ CREATE OR REPLACE VIEW conquest_region_names AS SELECT toInt64(i - 1) AS id, w[i
 -- One capture's entities (all of them when capture is ''), each change with its name as the client spells it:
 -- the release's name when it starts the way the packet's squashed, cut-short one does ("GrognardNeckch");
 -- else, where the release reuses the id for another (Limbus), the zone's one name that starts that way. An id a
--- release lists twice (Whitegate's two DATs) is one row, its names together.
+-- release lists twice (Whitegate's two DATs) is one row, its names together. Names are read for the capture's
+-- ids and zones only, by the names table's key: an entity id is 0x01ZZZIII, so a zone's ids share
+-- intDiv(id, 4096), and a name's id outside that form is always read.
 CREATE OR REPLACE VIEW capture_entities AS
 WITH e AS (
   SELECT t.capture_id AS capture_id, t.entity_id AS entity_id, t.idx AS idx, t.ts_ms AS ts_ms, t.name AS name,
@@ -201,12 +203,16 @@ WITH e AS (
   FROM entity_changes t JOIN captures c ON c.capture_id = t.capture_id
   WHERE t.capture_id = {capture:String} OR {capture:String} = ''
 ),
-n AS (SELECT release, id, name, bitAnd(bitShiftRight(id, 12), 4095) AS zone FROM names
-  WHERE kind = 'entity' AND release IN (SELECT release FROM e)),
 fn AS (
   SELECT s.release AS release, s.zone AS zone, s.short AS short, argMax(n.name, squash(n.name) = squash(s.short)) AS name
   FROM (SELECT DISTINCT release, zone, name AS short FROM e WHERE name IS NOT NULL) s
-  JOIN n ON n.release = s.release AND n.zone = s.zone
+  JOIN (SELECT release, name, bitAnd(bitShiftRight(id, 12), 4095) AS zone FROM names
+    WHERE kind = 'entity'
+      AND release IN (SELECT release FROM captures WHERE capture_id = {capture:String} OR {capture:String} = '')
+      AND (intDiv(id, 4096) NOT BETWEEN 4096 AND 8191 OR intDiv(id, 4096) IN (
+        SELECT 4096 + bitAnd(bitShiftRight(entity_id, 12), 4095) FROM entity_changes
+        WHERE (capture_id = {capture:String} OR {capture:String} = '') AND name IS NOT NULL))) n
+    ON n.release = s.release AND n.zone = s.zone
   WHERE startsWith(squash(n.name), squash(s.short))
   GROUP BY s.release, s.zone, s.short
   HAVING uniqExact(n.name) = 1 OR max(squash(n.name) = squash(s.short))
@@ -217,7 +223,11 @@ SELECT e.capture_id AS capture_id, e.entity_id AS entity_id, e.idx AS idx, e.ts_
     arrayFirst(x -> startsWith(squash(x), squash(e.name)), i.names), coalesce(fn.name, e.name)) AS entity_name,
   e.model_id AS model_id, e.monster AS monster, e.x AS x, e.y AS y, e.z AS z, e.release AS release
 FROM e
-LEFT JOIN (SELECT release, id, arraySort(groupUniqArray(name)) AS names FROM n GROUP BY release, id) i
+LEFT JOIN (SELECT release, id, arraySort(groupUniqArray(name)) AS names FROM names
+  WHERE kind = 'entity'
+    AND release IN (SELECT release FROM captures WHERE capture_id = {capture:String} OR {capture:String} = '')
+    AND id IN (SELECT entity_id FROM entity_changes WHERE capture_id = {capture:String} OR {capture:String} = '')
+  GROUP BY release, id) i
   ON i.release = e.release AND i.id = e.entity_id
 LEFT JOIN fn ON fn.release = e.release AND fn.zone = e.zone AND fn.short = e.name;
 
