@@ -190,9 +190,10 @@ fn run<'py>(py: Python<'py>, path: &str, capture_id: &str, units: Vec<String>) -
     })?;
     let arrow = Arrow { py, pa: py.import("pyarrow")? };
     let out = PyDict::new(py);
-    for o in &outs {
-        for rows in &o.tables {
-            out.set_item(rows.table.name, arrow.rows(rows, capture_id, &info.client_version)?)?;
+    // Each table's rows are let go once in Arrow, so a capture holds them once, not twice.
+    for o in outs {
+        for rows in o.tables {
+            out.set_item(rows.table.name, arrow.rows(&rows, capture_id, &info.client_version)?)?;
         }
     }
     if let Some(s) = &stats {
