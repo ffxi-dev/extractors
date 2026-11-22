@@ -17,3 +17,8 @@ xc-actions = { path = "../extractors/actions" }
 # B5 items: fishing, digs, synths, drops, trades, holdings
 # B6 entities: looks, entity_changes, levels, spawns, weather, zones
 # B7 character and maps: character, party, conquest, influence, shops
+xc-character = { path = "../extractors/character" }
+xc-party = { path = "../extractors/party" }
+xc-conquest = { path = "../extractors/conquest" }
+xc-influence = { path = "../extractors/influence" }
+xc-shops = { path = "../extractors/shops" }
