@@ -137,3 +137,26 @@ def test_a_capture_entity_a_release_names_twice_is_one_event_named_as_its_packet
     ])  # fmt: skip
     got = rows(con, "SELECT idx, entity_name FROM capture_entities(capture = 'w') ORDER BY idx")
     assert got == [(1, "Zasshal"), (2, "Taru Guard")]
+
+
+def test_a_capture_entity_takes_its_zone_s_name_only_from_names_in_its_zone(con, tmp_path):
+    """capture_entities reads names only for the capture's ids and zones: a cut-short packet name whose id the
+    release lists for another still finds its zone's one name that starts that way, and a like name in another
+    zone stays out."""
+    from fill import put
+
+    rel = tmp_path / "30261006_0"
+    rel.mkdir()
+    ids = [0x0100A200, 0x0100A300, 0x0100B200, 0x0100A123]
+    names = ["Grognard Neckchopper", "Goblin Thug", "Grognard Neckchomper", "Mind Hoarder"]
+    pq.write_table(pa.table({"entity_id": ids, "name": names}), rel / "entities.parquet")
+    resources.load(con, tmp_path)
+    put(con, "captures", [{"capture_id": "z", "client_version": "v", "release": "30261006_0", "retail": True,
+                           "packets": 0, "start_ms": 0}])  # fmt: skip
+    change = {"capture_id": "z", "ts_ms": 0, "client_version": "v"}
+    put(con, "entity_changes", [
+        {**change, "idx": 1, "entity_id": 0x0100A123, "name": "GrognardNeckch"},
+        {**change, "idx": 2, "entity_id": 0x0100A300},
+    ])  # fmt: skip
+    got = rows(con, "SELECT idx, entity_name FROM capture_entities(capture = 'z') ORDER BY idx")
+    assert got == [(1, "Grognard Neckchopper"), (2, "Goblin Thug")]

@@ -38,11 +38,12 @@ SQL = f"""
 WITH
 fs AS (SELECT * FROM fights WHERE {ONE}),
 fk AS (SELECT capture_id, mob_id, idx AS fidx, end_idx FROM fs),
-ce AS (SELECT capture_id, entity_id, idx, packet_name, entity_name
-  FROM capture_entities(capture = {{capture:String}})),
 -- The release names a mob by its id from its first sighting, often before the packets send its name.
-ent AS (SELECT * FROM ce WHERE packet_name IS NOT NULL),
-nm AS (SELECT * FROM ce WHERE entity_name IS NOT NULL),
+-- capture_entities keeps one row per change, so its packet names are entity_changes' own.
+ent AS (SELECT capture_id, entity_id, idx, name AS packet_name FROM entity_changes
+  WHERE {ONE} AND name IS NOT NULL AND capture_id IN (SELECT capture_id FROM captures)),
+nm AS (SELECT capture_id, entity_id, idx, entity_name FROM capture_entities(capture = {{capture:String}})
+  WHERE entity_name IS NOT NULL),
 mdl AS (SELECT capture_id, entity_id, idx, model_id FROM entity_changes WHERE {ONE} AND model_id IS NOT NULL),
 lr AS (SELECT capture_id, entity_id, idx, end_idx, level FROM levels WHERE {ONE}),
 zs AS (SELECT capture_id, idx, server FROM zones WHERE {ONE}),
@@ -309,14 +310,19 @@ ta AS (
     AND r.idx BETWEEN k.fidx AND k.kill_idx
   WHERE r.actor_id != k.mob_id
 ),
-tw AS (
+-- Each actor's state without its name, for tg: ClickHouse plans a CTE again at each use, and each
+-- capture_entities is most of the plan.
+tj AS (
   SELECT a.capture_id AS capture_id, a.mob_id AS mob_id, a.fidx AS fidx, a.idx AS idx, a.actor AS actor,
     c.character_id = a.actor AS me, c.main_job AS mj, c.main_level AS ml, c.sub_job AS sj, c.sub_level AS sl,
-    coalesce(z.capture_id, '') != '' AS zoned, n.entity_name AS name
+    coalesce(z.capture_id, '') != '' AS zoned
   FROM ta a
   ASOF LEFT JOIN (SELECT capture_id, idx, character_id, main_job, main_level, sub_job, sub_level
     FROM character WHERE {ONE} AND main_job IS NOT NULL) c ON c.capture_id = a.capture_id AND c.idx <= a.idx
   ASOF LEFT JOIN zs z ON z.capture_id = a.capture_id AND z.idx <= a.idx
+),
+tw AS (
+  SELECT a.*, n.entity_name AS name FROM tj a
   ASOF LEFT JOIN nm n ON n.capture_id = a.capture_id AND n.entity_id = a.actor AND n.idx <= a.idx
 ),
 tg AS (
@@ -324,7 +330,7 @@ tg AS (
     sum(transform(g.item_id, {list(TH_GEAR)}, {list(TH_GEAR.values())}, 0)) AS gear,
     max(g.item_id IN {TH_AUGMENTABLE}) AS augmentable,
     sum(transform(g.item_id, {list(GF_GEAR)}, {list(GF_GEAR.values())}, 0)) AS gf_gear
-  FROM (SELECT DISTINCT capture_id, idx, slot FROM tw ARRAY JOIN {list(SLOTS)} AS slot WHERE me) w
+  FROM (SELECT DISTINCT capture_id, idx, slot FROM tj ARRAY JOIN {list(SLOTS)} AS slot WHERE me) w
   ASOF LEFT JOIN (SELECT capture_id, slot, idx, item_id FROM character_gear WHERE {ONE}) g
     ON g.capture_id = w.capture_id AND g.slot = w.slot AND g.idx <= w.idx
   GROUP BY w.capture_id, w.idx
