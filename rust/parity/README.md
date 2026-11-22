@@ -33,9 +33,10 @@ For each capture and unit:
 - **Python**: a walk with that unit alone, as `index.walk` does it, then its sink's tables. Its rows and time
   are cached in `/home/sruon/scholar-data/parity-ref/<capture>/<unit>.json` and `<unit>.<table>.jsonl.gz`, and
   made again when the unit's version or `DECODER_VERSION` changes. The first check of a unit on a capture makes
-  them.
+  them. The Python walk is gone since the Rust switch: the cache, made at v1.14.4, is the reference, and a
+  checkout of v1.14.4 makes it for a capture it lacks (`parity ref`).
 - **Rust**: `extractors_rs.run(path, capture_id, [unit])`, which returns `{table: pyarrow.Table}`; its time.
-  The image builds every maturin crate under `rust/` into its environment.
+  The image builds the package, extractors_rs in it, into its environment.
 - **Canonical rows**: each row a JSON list of its values in column order (floats as Python's `repr`), the rows
   sorted, so the order they come in does not count, as it does not in ClickHouse. A table is identical when
   its md5 over those rows and its column names and types are.
@@ -44,8 +45,8 @@ The speedup is Python's seconds over Rust's, summed over the captures, each the 
 world, and the unit. Both run one process a capture, `-j` (default 4) at once. lsb also runs Scholar, whose
 indexer can take 14 cores: times are a guide, rows are exact.
 
-`PARITY_RUST=python rust/parity/parity zones` runs Python in Rust's place: every unit identical, about 1x.
-`uv run pytest rust/parity` checks the diff.
+`PARITY_RUST=python rust/parity/parity zones`, from a checkout of v1.14.4, runs Python in Rust's place: every
+unit identical, about 1x. `uv run pytest rust/parity` checks the diff.
 
 `parity ref <unit>...` makes Python's cache without Rust; `parity baseline <unit>...` prints Python's
 seconds per unit from it.

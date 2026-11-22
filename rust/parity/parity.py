@@ -29,7 +29,6 @@ import xicap
 from ffxi_extractors.capture import Skipped, read
 from ffxi_extractors.decode import DECODER_VERSION
 from ffxi_extractors.extractors import ALL
-from ffxi_extractors.index import walk
 
 HERE = Path(__file__).parent
 MIRROR = Path(os.environ.get("PARITY_MIRROR", "/mirror"))
@@ -49,7 +48,12 @@ def lines(t: pa.Table) -> list[str]:
 
 
 def python(path: Path, cid: str, unit: str) -> dict[str, pa.Table]:
-    """Python's tables for one unit, from a walk with that unit alone."""
+    """Python's tables for one unit, from a walk with that unit alone. Only a checkout from before the Rust
+    switch (v1.14.4 and older) has the Python walk; after it, the cache in REF is the reference."""
+    try:
+        from ffxi_extractors.index import walk  # type: ignore[attr-defined]
+    except ImportError:
+        sys.exit(f"no Python reference for {unit} at {version(unit)} on {cid}: parity ref, from v1.14.4")
     cap = read(path, cid, True)
     if unit == "decode":
         stats, world, _ = walk(cap, [], count=True)
