@@ -23,4 +23,4 @@ for t in decode(S2C, 0x028, &action, None).unwrap().action().unwrap().targets() 
 Bump packets: copy the tag's `schemas/*.json` and `cases/*.json` into `packets/`, then `cargo test`.
 `build.rs` fails when packets ships older layouts by client version (`layouts.json`), which it does not pick yet.
 
-`parity/` compares the crate with Python's decoder on real captures; its README has the numbers.
+`parity/` compares the crate with Python on real captures: every packet the same. Its README has the numbers.
