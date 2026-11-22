@@ -40,19 +40,30 @@ pub fn intmod(a: i64, b: i64) -> i64 {
 
 /// math.dist(p, q).
 pub fn dist(p: &[f64], q: &[f64]) -> f64 {
-    let d: Vec<f64> = p.iter().zip(q).map(|(a, b)| (a - b).abs()).collect();
-    norm(&d)
+    abs_norm(p.iter().zip(q).map(|(a, b)| a - b))
 }
 
-/// math.dist of two points in 3D.
+/// math.dist of two points in 3D, without an allocation.
 pub fn dist3(p: (f64, f64, f64), q: (f64, f64, f64)) -> f64 {
-    dist(&[p.0, p.1, p.2], &[q.0, q.1, q.2])
+    norm(&[(p.0 - q.0).abs(), (p.1 - q.1).abs(), (p.2 - q.2).abs()])
 }
 
 /// math.hypot(*xs).
 pub fn hypot(xs: &[f64]) -> f64 {
-    let d: Vec<f64> = xs.iter().map(|x| x.abs()).collect();
-    norm(&d)
+    abs_norm(xs.iter().copied())
+}
+
+/// norm of the absolute values, on the stack for up to 8 of them.
+fn abs_norm(xs: impl ExactSizeIterator<Item = f64>) -> f64 {
+    let n = xs.len();
+    if n > 8 {
+        return norm(&xs.map(f64::abs).collect::<Vec<_>>());
+    }
+    let mut d = [0.0f64; 8];
+    for (slot, x) in d.iter_mut().zip(xs) {
+        *slot = x.abs();
+    }
+    norm(&d[..n])
 }
 
 /// CPython 3.13's vector_norm (Modules/mathmodule.c): the scaled, compensated sum it computes dist and hypot
