@@ -288,7 +288,9 @@ dependencies = [
  "xc-character",
  "xc-conquest",
  "xc-core",
+ "xc-effects",
  "xc-engages",
+ "xc-hp",
  "xc-influence",
  "xc-party",
  "xc-shops",
@@ -325,10 +327,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-effects"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
 name = "xc-engages"
 version = "0.1.0"
 dependencies = [
  "indexmap",
+ "xc-core",
+]
+
+[[package]]
+name = "xc-hp"
+version = "0.1.0"
+dependencies = [
  "xc-core",
 ]
 
