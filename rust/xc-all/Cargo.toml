@@ -24,6 +24,11 @@ xc-immunity = { path = "../extractors/immunity" }
 xc-defeats = { path = "../extractors/defeats" }
 xc-evasion = { path = "../extractors/evasion" }
 # B4 events: events, obtained, keyitems, experience, battlefields
+xc-events = { path = "../extractors/events" }
+xc-obtained = { path = "../extractors/obtained" }
+xc-keyitems = { path = "../extractors/keyitems" }
+xc-experience = { path = "../extractors/experience" }
+xc-battlefields = { path = "../extractors/battlefields" }
 # B5 items: fishing, digs, synths, drops, trades, holdings
 # B6 entities: looks, entity_changes, levels, spawns, weather, zones
 xc-looks = { path = "../extractors/looks" }

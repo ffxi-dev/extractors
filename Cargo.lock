@@ -285,6 +285,7 @@ name = "xc-all"
 version = "0.1.0"
 dependencies = [
  "xc-actions",
+ "xc-battlefields",
  "xc-character",
  "xc-conquest",
  "xc-core",
@@ -294,19 +295,30 @@ dependencies = [
  "xc-engages",
  "xc-entity-changes",
  "xc-evasion",
+ "xc-events",
+ "xc-experience",
  "xc-fights",
  "xc-hp",
  "xc-immunity",
  "xc-influence",
+ "xc-keyitems",
  "xc-kills",
  "xc-levels",
  "xc-looks",
  "xc-mob-messages",
+ "xc-obtained",
  "xc-party",
  "xc-shops",
  "xc-spawns",
  "xc-weather",
  "xc-zones",
+]
+
+[[package]]
+name = "xc-battlefields"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
 ]
 
 [[package]]
@@ -383,6 +395,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-events"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-link",
+]
+
+[[package]]
+name = "xc-experience"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-keyitems",
+]
+
+[[package]]
 name = "xc-fights"
 version = "0.1.0"
 dependencies = [
@@ -411,6 +439,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-keyitems"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-link",
+]
+
+[[package]]
 name = "xc-kills"
 version = "0.1.0"
 dependencies = [
@@ -419,6 +455,13 @@ dependencies = [
 
 [[package]]
 name = "xc-levels"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-link"
 version = "0.1.0"
 dependencies = [
  "xc-core",
@@ -437,6 +480,15 @@ name = "xc-mob-messages"
 version = "0.1.0"
 dependencies = [
  "xc-core",
+]
+
+[[package]]
+name = "xc-obtained"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "xc-core",
+ "xc-link",
 ]
 
 [[package]]
