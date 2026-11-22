@@ -27,7 +27,7 @@ struct Bits {
 impl Bits {
     fn w(&mut self, v: i64, bits: usize) {
         for b in 0..bits {
-            if self.n % 8 == 0 {
+            if self.n.is_multiple_of(8) {
                 self.body.push(0);
             }
             self.body[self.n / 8] |= (((v >> b) & 1) as u8) << (self.n % 8);
