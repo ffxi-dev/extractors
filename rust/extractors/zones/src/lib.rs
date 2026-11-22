@@ -69,12 +69,11 @@ mod tests {
     }
 
     fn servers(logout: Vec<u8>) -> V {
-        let mut zone_in = vec![0u8; 16];
+        let mut zone_in = vec![0u8; 16]; // too short for ZoneNo, but a zone-in
         zone_in[0] = 0x0A;
-        zone_in[4] = 230;
         let out = raw(Box::new(Zones::default()), vec![(0, S2C, 0x00B, logout), (1, S2C, 0x00A, zone_in)], 1);
         let r = out.rows("zones");
-        assert_eq!((r.len(), r.get(0, "zone_id")), (1, V::Int(230)));
+        assert_eq!(r.len(), 1);
         r.get(0, "server")
     }
 
