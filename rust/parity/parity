@@ -1,0 +1,21 @@
+#!/bin/sh
+# parity [check|ref|baseline] <unit>... [--captures sample|all|<id>,<id>] [-j N] [--rows N]
+# Runs parity.py on lsb, in its image, over this checkout's files as they are now. README.md says more.
+set -eu
+host=${PARITY_HOST:-sruon@192.168.1.218}
+data=${PARITY_DATA:-/home/sruon/scholar-data}
+cmd=check
+case "${1:-}" in check | ref | baseline) cmd=$1 && shift ;; esac
+cd "$(git rev-parse --show-toplevel)"
+work=/tmp/parity-$(date +%s)-$$
+git ls-files -co --exclude-standard | tar --ignore-failed-read -czf - -T - 2>/dev/null |
+    ssh "$host" "mkdir -p $work && tar -xzf - -C $work"
+ssh "$host" sh -s <<SH
+set -e
+img=
+trap 'rm -rf $work; [ -z "\$img" ] || docker rmi -f "\$img" >/dev/null' EXIT
+img=\$(docker build -q -f $work/rust/parity/Dockerfile $work)
+mkdir -p $data/parity-ref
+docker run --rm --user "\$(id -u):\$(id -g)" -e PARITY_RUST=${PARITY_RUST:-} \
+    -v $data/mirror:/mirror:ro -v $data/parity-ref:/ref \$img python rust/parity/parity.py $cmd $*
+SH
