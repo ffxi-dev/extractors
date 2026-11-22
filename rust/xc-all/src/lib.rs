@@ -8,6 +8,8 @@ pub fn all() -> Vec<Box<dyn Extractor>> {
         // B1 positions: engages, actions
         Box::new(xc_actions::Actions::default()),
         // B2 hp and effects
+        Box::new(xc_hp::Hp::default()),
+        Box::new(xc_effects::Effects::default()),
         // B3 combat rounds: delay, fights, kills, mob_messages, immunity, defeats, evasion_skill
         // B4 events: events, obtained, keyitems, experience, battlefields
         // B5 items: fishing, digs, synths, drops, trades, holdings

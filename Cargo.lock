@@ -286,6 +286,8 @@ version = "0.1.0"
 dependencies = [
  "xc-actions",
  "xc-core",
+ "xc-effects",
+ "xc-hp",
 ]
 
 [[package]]
@@ -302,6 +304,20 @@ name = "xc-decode"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+]
+
+[[package]]
+name = "xc-effects"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-hp"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
 ]
 
 [[package]]

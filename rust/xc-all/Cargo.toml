@@ -12,6 +12,8 @@ xc-core = { path = "../xc-core" }
 # B1 positions: engages, actions
 xc-actions = { path = "../extractors/actions" }
 # B2 hp and effects
+xc-hp = { path = "../extractors/hp" }
+xc-effects = { path = "../extractors/effects" }
 # B3 combat rounds: delay, fights, kills, mob_messages, immunity, defeats, evasion_skill
 # B4 events: events, obtained, keyitems, experience, battlefields
 # B5 items: fishing, digs, synths, drops, trades, holdings
