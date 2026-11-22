@@ -61,3 +61,14 @@ An extractor table that its readers filter by capture SHALL be sorted by capture
 #### Scenario: entity_changes made under the old order
 - **WHEN** setup finds entity_changes sorted by entity first
 - **THEN** it holds the same rows sorted by capture first, and a second setup leaves it
+
+### Requirement: A name lookup gives one name, the same every time
+Each `*_names` view SHALL give one name per release and id, read from `names_one`, which the names loader builds beside `names` with no query grouping names. Where a release lists an id under two names, the view SHALL give the least. `party_names` SHALL give a member one name at a capture's start: the party's, or the capture's character when the party never names it.
+
+#### Scenario: An id a release names two ways
+- **WHEN** a release lists an entity id as both Modest Coffer and Capacious Coffer
+- **THEN** entity_names gives Capacious Coffer, in whatever order the release lists them
+
+#### Scenario: A recorder the party names otherwise
+- **WHEN** the party names the recorder misha and the capture names its character Damisha
+- **THEN** party_names gives misha at idx 0, and nothing else there

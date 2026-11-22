@@ -67,12 +67,14 @@ CREATE OR REPLACE FUNCTION sc_exposed AS (chain, ts_ms, weather) -> sc_element(c
 
 -- A party member's name from each packet the party list gave it on, so a slot a trust held and another took after
 -- names each in its turn (Tenzen, then Joachim, in one id); the first name it had from the capture's start, and the
--- capture's own character from its start. A query takes the name at its row with an ASOF join on (member_id, idx).
+-- capture's own character from its start when the party never names it. A query takes the name at its row with an
+-- ASOF join on (member_id, idx).
 CREATE OR REPLACE VIEW party_names AS
 SELECT capture_id, member_id, idx, name FROM party WHERE name != ''
 UNION ALL SELECT capture_id, member_id, toInt64(0), argMin(name, idx) FROM party WHERE name != ''
   GROUP BY capture_id, member_id
-UNION ALL SELECT capture_id, character_id, toInt64(0), character FROM captures WHERE character != '';
+UNION ALL SELECT capture_id, character_id, toInt64(0), character FROM captures WHERE character != ''
+  AND (capture_id, character_id) NOT IN (SELECT capture_id, member_id FROM party WHERE name != '');
 
 -- The resistance rank, in percent, nearest a ratio by factor (BG Wiki, Resist: Resistance Ranks); NULL for no ratio,
 -- one not above 0, or NaN, which an aggregate over no rows gives. 150 is also any ratio past it.
@@ -91,21 +93,22 @@ CREATE OR REPLACE FUNCTION acc_state AS (ci) -> multiIf(tupleElement(ci, 'hi') >
 
 -- Names by release, as retail-resources publishes them (resources.py loads them). A spell's id is
 -- its index, as packets send it; a quest's or mission's is its bit or value in its log.
--- One name per release and id: a release may list an id twice, as Whitegate's two entity DATs do.
-CREATE OR REPLACE VIEW zone_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'zone' GROUP BY release, id;
-CREATE OR REPLACE VIEW entity_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'entity' GROUP BY release, id;
-CREATE OR REPLACE VIEW item_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'item' GROUP BY release, id;
+-- One name per release and id, from names_one: a release may list an id twice, as Whitegate's two entity DATs
+-- do, and names_one keeps the least.
+CREATE OR REPLACE VIEW zone_names AS SELECT release, id, name FROM names_one WHERE kind = 'zone';
+CREATE OR REPLACE VIEW entity_names AS SELECT release, id, name FROM names_one WHERE kind = 'entity';
+CREATE OR REPLACE VIEW item_names AS SELECT release, id, name FROM names_one WHERE kind = 'item';
 CREATE OR REPLACE VIEW item_rare AS SELECT DISTINCT id FROM names WHERE kind = 'item_rare';
-CREATE OR REPLACE VIEW keyitem_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'keyitem' GROUP BY release, id;
-CREATE OR REPLACE VIEW spell_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'spell' GROUP BY release, id;
-CREATE OR REPLACE VIEW ability_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'ability' GROUP BY release, id;
-CREATE OR REPLACE VIEW status_names AS SELECT release, id, any(name) AS name, any(name_passive) AS name_passive FROM names WHERE kind = 'status' GROUP BY release, id;
-CREATE OR REPLACE VIEW mob_skill_names AS SELECT release, id, any(name) AS name FROM names WHERE kind = 'mob_skill' GROUP BY release, id;
-CREATE OR REPLACE VIEW quest_names AS SELECT release, log_id, any(log) AS log, id, any(name) AS name FROM names WHERE kind = 'quest' GROUP BY release, log_id, id;
-CREATE OR REPLACE VIEW mission_names AS SELECT release, log_id, any(log) AS log, id, any(name) AS name FROM names WHERE kind = 'mission' GROUP BY release, log_id, id;
+CREATE OR REPLACE VIEW keyitem_names AS SELECT release, id, name FROM names_one WHERE kind = 'keyitem';
+CREATE OR REPLACE VIEW spell_names AS SELECT release, id, name FROM names_one WHERE kind = 'spell';
+CREATE OR REPLACE VIEW ability_names AS SELECT release, id, name FROM names_one WHERE kind = 'ability';
+CREATE OR REPLACE VIEW status_names AS SELECT release, id, name, name_passive FROM names_one WHERE kind = 'status';
+CREATE OR REPLACE VIEW mob_skill_names AS SELECT release, id, name FROM names_one WHERE kind = 'mob_skill';
+CREATE OR REPLACE VIEW quest_names AS SELECT release, log_id, log, id, name FROM names_one WHERE kind = 'quest';
+CREATE OR REPLACE VIEW mission_names AS SELECT release, log_id, log, id, name FROM names_one WHERE kind = 'mission';
 -- The client's text for each message id 0x028 and 0x029 send, its blanks as tokens ("{actor}"): the grammar is
 -- retail-resources' docs/FORMATS.md.
-CREATE OR REPLACE VIEW battle_messages AS SELECT release, id, any(name) AS text FROM names WHERE kind = 'battle_message' GROUP BY release, id;
+CREATE OR REPLACE VIEW battle_messages AS SELECT release, id, name AS text FROM names_one WHERE kind = 'battle_message';
 
 -- The zones where a mob above the character's level gains accuracy for it, copied from LSB's
 -- scripts/data/level_correction.lua (LandSandBoat/server commit 4d311b4, 216 zones). The bestiary stores what
@@ -192,8 +195,8 @@ CREATE OR REPLACE VIEW conquest_region_names AS SELECT toInt64(i - 1) AS id, w[i
 -- One capture's entities (all of them when capture is ''), each change with its name as the client spells it:
 -- the release's name when it starts the way the packet's squashed, cut-short one does ("GrognardNeckch");
 -- else, where the release reuses the id for another (Limbus), the zone's one name that starts that way. An id a
--- release lists twice (Whitegate's two DATs) is one row, its names together. Names are read for the capture's
--- ids and zones only, by the names table's key: an entity id is 0x01ZZZIII, so a zone's ids share
+-- release lists twice (Whitegate's two DATs) is one row of names_one, its names together. Names are read for the
+-- capture's ids and zones only, by the names tables' key: an entity id is 0x01ZZZIII, so a zone's ids share
 -- intDiv(id, 4096), and a name's id outside that form is always read.
 CREATE OR REPLACE VIEW capture_entities AS
 WITH e AS (
@@ -223,11 +226,10 @@ SELECT e.capture_id AS capture_id, e.entity_id AS entity_id, e.idx AS idx, e.ts_
     arrayFirst(x -> startsWith(squash(x), squash(e.name)), i.names), coalesce(fn.name, e.name)) AS entity_name,
   e.model_id AS model_id, e.monster AS monster, e.x AS x, e.y AS y, e.z AS z, e.release AS release
 FROM e
-LEFT JOIN (SELECT release, id, arraySort(groupUniqArray(name)) AS names FROM names
+LEFT JOIN (SELECT release, id, names FROM names_one
   WHERE kind = 'entity'
     AND release IN (SELECT release FROM captures WHERE capture_id = {capture:String} OR {capture:String} = '')
-    AND id IN (SELECT entity_id FROM entity_changes WHERE capture_id = {capture:String} OR {capture:String} = '')
-  GROUP BY release, id) i
+    AND id IN (SELECT entity_id FROM entity_changes WHERE capture_id = {capture:String} OR {capture:String} = '')) i
   ON i.release = e.release AND i.id = e.entity_id
 LEFT JOIN fn ON fn.release = e.release AND fn.zone = e.zone AND fn.short = e.name;
 

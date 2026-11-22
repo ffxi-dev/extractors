@@ -186,15 +186,19 @@ def lacking(con, folder: str | Path) -> bool:
 
 
 def load(con, folder: str | Path) -> None:
-    """Replace ClickHouse's names with every release mirrored here, at once."""
+    """Replace ClickHouse's names, and names_one built from them, with every release mirrored here, at
+    once."""
     folder = Path(folder)
-    con.command("DROP TABLE IF EXISTS names_next SYNC")
-    con.command("CREATE TABLE names_next AS names")
+    for t in ("names", "names_one"):
+        con.command(f"DROP TABLE IF EXISTS {t}_next SYNC")
+        con.command(f"CREATE TABLE {t}_next AS {t}")
     for r in releases(folder):
         for file, (kind, id_col, col) in KINDS.items():
             if (folder / r / f"{file}.parquet").exists():
                 store.insert(con, "names_next", _rows(r, folder / r / f"{file}.parquet", kind, id_col, col))
         if (folder / r / "items.parquet").exists():
             store.insert(con, "names_next", _rare(r, folder / r / "items.parquet"))
-    con.command("EXCHANGE TABLES names AND names_next")
-    con.command("DROP TABLE names_next SYNC")
+    store.pick_names(con, "names_next", "names_one_next")
+    for t in ("names", "names_one"):
+        con.command(f"EXCHANGE TABLES {t} AND {t}_next")
+        con.command(f"DROP TABLE {t}_next SYNC")

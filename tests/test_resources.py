@@ -117,6 +117,22 @@ def test_an_id_a_release_lists_twice_has_one_name(con, tmp_path):
     assert got == [(16982171, "Rytaal"), (16982309, "Zasshal")]
 
 
+def test_an_id_a_release_names_two_ways_takes_the_least_name(con, tmp_path):
+    """756 ids name both Modest Coffer and Capacious Coffer; any() took whichever row it met first, which the
+    load's order set. names_one keeps the least, however the release lists them."""
+    from fill import put
+
+    rel = tmp_path / "30261006_0"
+    rel.mkdir()
+    ids, names = [20922554, 20922554], ["Modest Coffer", "Capacious Coffer"]
+    pq.write_table(pa.table({"entity_id": ids, "name": names}), rel / "entities.parquet")
+    resources.load(con, tmp_path)
+    assert rows(con, "SELECT id, name FROM entity_names") == [(20922554, "Capacious Coffer")]
+    put(con, "names", [{"release": "r", "kind": "entity", "id": 1, "name": n} for n in ("B", "A")])
+    assert rows(con, "SELECT id, name FROM entity_names WHERE release = 'r'") == [(1, "A")]
+    assert rows(con, "SELECT names FROM names_one WHERE release = 'r'") == [(["A", "B"],)]
+
+
 def test_a_capture_entity_a_release_names_twice_is_one_event_named_as_its_packet_says(con, tmp_path):
     """capture_entities joined each change to every name its id has: an id Whitegate's two DATs both list
     doubled the change (Codex's review, 16). One id can carry two names; the packet's picks between them."""
