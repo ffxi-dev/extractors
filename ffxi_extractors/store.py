@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -318,10 +319,16 @@ def delete(con, table: str, capture_id: str) -> None:
     raise RuntimeError(f"{table} kept rows of {capture_id} after five deletes")
 
 
+def delete_all(con, tables, capture_id: str) -> None:
+    """Delete a capture's rows from each table, the tables at once: a DELETE waits on its mutation, about 0.3
+    s, so a capture's 65 tables in turn took 11 s of a re-run's capture. One DELETE a table at a time keeps
+    clear of 26.8's lost DELETE (delete's)."""
+    with ThreadPoolExecutor(16) as pool:
+        list(pool.map(lambda t: delete(con, t, capture_id), tables))
+
+
 def _clear(con, capture_id: str, units) -> None:
-    for unit in units:
-        for t in tables_of(unit):
-            delete(con, t, capture_id)
+    delete_all(con, [t for unit in units for t in tables_of(unit)], capture_id)
 
 
 def begin(con, capture_id: str, versions: dict[str, str], decoder: str, started: int) -> None:
@@ -359,13 +366,13 @@ def drop(con, capture_id: str) -> None:
     """Remove every row of a capture: its runs, trust, and share of the mob pages with it. A fight it
     held a copy of counts in another capture's copy."""
     others = partners(con, [capture_id])
-    for (t,) in rows(
+    tables = rows(
         con,
         "SELECT DISTINCT table FROM system.columns c JOIN system.tables t ON t.database = c.database"
         " AND t.name = c.table WHERE c.database = currentDatabase() AND c.name = 'capture_id'"
         " AND t.engine LIKE '%MergeTree' AND NOT startsWith(t.name, '.inner')",
-    ):
-        delete(con, t, capture_id)
+    )
+    delete_all(con, [t for (t,) in tables], capture_id)
     reroll(con, others)
 
 
