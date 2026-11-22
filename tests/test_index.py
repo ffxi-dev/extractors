@@ -99,6 +99,8 @@ def test_a_unit_whose_last_run_wrote_no_rows_sends_no_delete(con, monkeypatch):
 def test_begin_many_clears_each_table_once_and_the_runs_send_none(con, monkeypatch):
     run(con, CAPTAIN, "c")
     run(con, MEMORIA, "m")
+    store.begin_many(con, {"new": versions()}, DECODER_VERSION, 1)
+    assert not rows(con, "SELECT 1 FROM runs WHERE capture_id = 'new'"), "a capture never run is left alone"
     want = counts(con)
     current = versions()
     sent = deletes(con, monkeypatch)
@@ -106,7 +108,11 @@ def test_begin_many_clears_each_table_once_and_the_runs_send_none(con, monkeypat
     tables = deleted(sent)
     assert tables and len(tables) == len(set(tables))
     assert all(n == 0 for n in counts(con, "c").values()) and all(n == 0 for n in counts(con, "m").values())
-    assert {s for _, _, s in store.runs(con).values()} == {"attempting"}
+    states = {
+        (c, u): (s, n) for c, u, s, n in rows(con, "SELECT capture_id, unit, state, rows FROM runs FINAL")
+    }
+    assert all(n == 0 for _, n in states.values()), "every unit as having no rows yet"
+    assert states["c", "decode"] == ("attempting", 0)
     sent.clear()
     run(con, CAPTAIN, "c")
     run(con, MEMORIA, "m")

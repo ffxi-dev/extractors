@@ -387,17 +387,18 @@ def begin(con, capture_id: str, versions: dict[str, str], decoder: str, started:
 
 def begin_many(con, units: dict[str, dict[str, str]], decoder: str, started: int) -> None:
     """begin for many captures before any of them runs, with one DELETE a table for all: units maps each
-    capture to {unit: version}. Each attempt is then recorded again as having written no rows, so the
-    capture's own begin sends no DELETE. A DELETE waits about 0.5 s on ClickHouse's mutation scheduling, so a
-    DELETE a table for each capture took 44% of a re-index. A run stopped before it is done stays
-    attempting, as with begin."""
+    capture to {unit: version}. Only units that may hold rows are touched: their attempts are recorded, their
+    rows deleted, and the attempts recorded again as having written none, so the capture's own begin sends
+    no DELETE. A DELETE waits about 0.5 s on ClickHouse's mutation scheduling, so a DELETE a table for each
+    capture took 44% of a re-index. A run stopped before it is done stays attempting, as with begin."""
     held = _held(con, list(units))
+    clear = {c: {u: v for u, v in us.items() if (c, u) in held} for c, us in units.items()}
 
     def attempts(n):
-        return {c: {u: (v, n, None) for u, v in us.items()} for c, us in units.items()}
+        return {c: {u: (v, n, None) for u, v in us.items()} for c, us in clear.items()}
 
     _runs(con, attempts(None), decoder, "attempting", started)
-    _clear(con, {c: [u for u in us if (c, u) in held] for c, us in units.items()})
+    _clear(con, {c: list(us) for c, us in clear.items()})
     _runs(con, attempts(0), decoder, "attempting", started)
 
 
