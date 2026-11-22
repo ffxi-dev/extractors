@@ -33,10 +33,11 @@ class Decoded:
                 groups[(p.direction, p.opcode)].append(i)
         self.cols: dict[tuple[int, int], dict] = {}
         self._lists: dict[tuple[int, int], dict[str, list]] = {}  # the columns read so far, as lists
-        self._row = np.full(len(packets), -1, dtype=np.int64)
+        self._row = [-1] * len(packets)
         for key, at in groups.items():
             self.cols[key] = decoder.decode(client_version, *key, [packets[i].data for i in at])
-            self._row[at] = np.arange(len(at))
+            for j, i in enumerate(at):
+                self._row[i] = j
 
     def fields(self, i: int, p: Packet) -> Fields:
         """A getter for the batch's packet i by path: f("UniqueNo"), f("SendFlg.Position"). A field the
@@ -45,7 +46,7 @@ class Decoded:
         cols = self.cols.get(key) if p.channel == 0 else None
         if not cols:
             return _none
-        row, lists = int(self._row[i]), self._lists.setdefault(key, {})
+        row, lists = self._row[i], self._lists.setdefault(key, {})
 
         def f(path: str):
             got = lists.get(path)
