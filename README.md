@@ -6,7 +6,7 @@ Turns FFXI captures into ClickHouse tables and findings. **Extractors** read one
 
 ## Quick start
 
-You need [uv](https://docs.astral.sh/uv/), Docker, and a C++20 compiler with CMake and zstd, which xicap's reader builds with.
+You need [uv](https://docs.astral.sh/uv/), Docker, [Rust](https://rustup.rs), git, and gcc 14 or newer with CMake and zstd, which xicap's reader builds with. The extractors are Rust (`extractors_rs`); `uv sync` builds them into the package.
 
 ```bash
 uv sync
@@ -30,24 +30,29 @@ Only retail captures are read.
 
 ```
 ffxi_extractors/
-  capture.py     reads a xicap capture, a batch at a time
-  decode.py      decodes a batch with packets, only the opcodes a run reads
-  world.py       what the packets say so far: zone, character, party, inventory, entities
+  capture.py     a xicap capture's header, and which captures are read
+  decode.py      the decode unit's tables: what the decoder counts of every packet
+  world.py       the packets the world reads: zone, character, party, inventory, entities
   extract.py     the contract: Extractor, Derived, Table, Column, and SQL fragments facts share
-  index.py       walks a capture once with every extractor, then runs the derived facts
+  index.py       walks a capture once in Rust with every extractor, then runs the derived facts
   store.py       the ClickHouse tables and each unit's write
   resources.py   mirrors and loads retail-resources' names
   cli.py         ffxi-extractors index
-  combat.py      the action packet (0x028), resends, defeats, and which ids are mobs
-  link.py        the event a change follows
-  vana.py        Vana'diel time
+  link.py        the packets an event is made of
   sql/setup.sql  SQL functions and views the facts share
-  extractors/    packet extractors, listed in extractors/__init__.py (ALL)
+  extractors/    each extractor's declaration: name, version, reads, tables; listed in extractors/__init__.py (ALL)
     battle/      actions, HP, delay, immunity, fights, effects, engages, defeats, kills, ...
     items/       drops, obtained, holdings, trades, shops, synths, digs, fishing
     world/       zones, entities, spawns, levels, looks, weather, conquest, party, character, ...
     progress/    events, key items, battlefields, experience
   facts/         derived facts, ClickHouse SQL, listed in facts/__init__.py (DERIVED)
+rust/
+  xc-decode/     packets' layouts, decoded as packets does, from its schemas
+  xc-core/       the capture reader (xicap's C API), the world, the extractor contract, and the runner
+  extractors/    one crate an extractor, the code of each declaration above
+  xc-all/        every Rust extractor by name
+  xc-py/         extractors_rs, the Python module index.py calls
+  parity/        the Rust rows against the Python extractors' last release on real captures
 tests/           the same domains; tests/expected/ pins each unit's output on the fixtures
 ```
 

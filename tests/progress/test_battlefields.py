@@ -3,10 +3,11 @@
 from conftest import PLAYER, drive
 
 from ffxi_extractors.extractors.progress.battlefields import Battlefields
-from ffxi_extractors.vana import EPOCH_S
 
 ZONE = 168
 START = 783520182  # AOIRM1YTB1Wq's countdown Timestamp: the moment it was sent
+
+EPOCH_S = 1009810800  # LSB's vanadiel_epoch, Unix seconds
 
 
 def countdown(limit=1800, start=START, mode=1):

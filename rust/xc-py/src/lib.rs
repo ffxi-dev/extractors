@@ -9,7 +9,8 @@ use pyo3::types::{PyBytes, PyDict, PyList};
 use xc_core::extract::{COMMON, Col, Rows};
 use xc_core::run::{Error, See, walk};
 use xc_core::stats::CaptureStats;
-use xc_core::{Extractor, Ty};
+use xc_core::testing::{self, Drive, MapFields, PLAYER};
+use xc_core::{Extractor, Out, Ty};
 
 fn pa_type<'py>(pa: &Bound<'py, PyModule>, ty: Ty) -> PyResult<Bound<'py, PyAny>> {
     let simple = |name: &str| pa.call_method0(name);
@@ -176,8 +177,7 @@ fn run<'py>(py: Python<'py>, path: &str, capture_id: &str, units: Vec<String>) -
         match u.as_str() {
             "world" => {}
             "decode" => stats = Some(CaptureStats::default()),
-            name => xs
-                .push(xc_all::by_name(name).ok_or_else(|| PyValueError::new_err(format!("no Rust extractor {name}")))?),
+            name => xs.push(extractor(name)?),
         }
     }
     let see = stats.as_mut().map(|s| s as &mut dyn See);
@@ -229,9 +229,77 @@ fn extractors<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
     PyList::new(py, out)
 }
 
+fn extractor(name: &str) -> PyResult<Box<dyn Extractor>> {
+    xc_all::by_name(name).ok_or_else(|| PyValueError::new_err(format!("no Rust extractor {name}")))
+}
+
+fn tables<'py>(py: Python<'py>, out: &Out, capture_id: &str, client_version: &str) -> PyResult<Bound<'py, PyDict>> {
+    let arrow = Arrow { py, pa: py.import("pyarrow")? };
+    let d = PyDict::new(py);
+    for rows in &out.tables {
+        d.set_item(rows.table.name, arrow.rows(rows, capture_id, client_version)?)?;
+    }
+    Ok(d)
+}
+
+/// tests/conftest.py's drive: steps of (opcode, {path: value}) through the world and one extractor, as
+/// xc_core::testing::drive. Its rows by table, client version "v".
+#[pyfunction]
+#[pyo3(signature = (name, steps, capture="c", t0=0, times=None, directions=None, me=PLAYER))]
+#[allow(clippy::too_many_arguments)]
+fn drive<'py>(
+    py: Python<'py>,
+    name: &str,
+    steps: Vec<(u16, Bound<'py, PyDict>)>,
+    capture: &str,
+    t0: i64,
+    times: Option<Vec<i64>>,
+    directions: Option<Vec<u8>>,
+    me: i64,
+) -> PyResult<Bound<'py, PyDict>> {
+    let mut steps_ = Vec::with_capacity(steps.len());
+    for (op, d) in steps {
+        let mut f = MapFields::new();
+        for (k, v) in d.iter() {
+            let k: String = k.extract()?;
+            if v.is_none() {
+                continue;
+            }
+            f = if let Ok(i) = v.extract::<i64>() {
+                f.int(&k, i)
+            } else if let Ok(x) = v.extract::<f64>() {
+                f.float(&k, x)
+            } else {
+                f.text(&k, &v.extract::<String>()?)
+            };
+        }
+        steps_.push((op, f));
+    }
+    let out = testing::drive(&mut *extractor(name)?, steps_, Drive { t0, times, directions, me });
+    tables(py, &out, capture, "v")
+}
+
+/// tests/conftest.py's raw: packets of (ts_ms, direction, opcode, bytes) decoded and walked with one extractor
+/// as a capture's. Its rows by table.
+#[pyfunction]
+#[pyo3(signature = (name, packets, me=PLAYER, capture_id="t", client_version=""))]
+fn raw<'py>(
+    py: Python<'py>,
+    name: &str,
+    packets: Vec<(i64, u8, u16, Vec<u8>)>,
+    me: i64,
+    capture_id: &str,
+    client_version: &str,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = testing::raw_with(extractor(name)?, packets, me, client_version);
+    tables(py, &out, capture_id, client_version)
+}
+
 #[pymodule]
 fn extractors_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(extractors, m)?)?;
+    m.add_function(wrap_pyfunction!(drive, m)?)?;
+    m.add_function(wrap_pyfunction!(raw, m)?)?;
     Ok(())
 }

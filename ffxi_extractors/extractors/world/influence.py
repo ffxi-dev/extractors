@@ -1,30 +1,10 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
-# Campaign areas in packet order, as zone ids: LSB's sql/campaign_map.sql (LandSandBoat/server commit
-# 2baf9d4a24). The first packet of a pair carries areas 0 to 12, the second 13 to 25.
-CAMPAIGN_ZONES = (80, 81, 82, 83, 84, 85, 175, 87, 88, 89, 90, 91, 92, 171, 94, 95, 96, 97, 98, 99, 164, 136,
-                  137, 138, 155, 156)  # fmt: skip
-# The packet's army order; ControlledAreas counts the four beastman armies as one.
-ARMIES = (
-    "Sandoria",
-    "Bastok",
-    "Windurst",
-    "BeastmanOrc",
-    "BeastmanQuadav",
-    "BeastmanYagudo",
-    "BeastmanDarkKindred",
-)
 ARMY_COLUMNS = ("sandoria", "bastok", "windurst", "orcs", "quadav", "yagudo", "kindred")
 ARMY_NAMES = ("San d'Oria", "Bastok", "Windurst", "The Orcs", "The Quadav", "The Yagudo", "The Kindred")
 OWNER = "1 San d'Oria, 2 Bastok, 3 Windurst, 4 Orcs, 5 Quadav, 6 Yagudo, 7 Kindred"
-# Colonization areas in packet order (its first slot is unused), with their zone ids from LSB's zone enum.
-COLONIES = (
-    ("YahseHuntingGrounds", 260), ("CeizakBattlegrounds", 261), ("ForetDeHennetiel", 262),
-    ("YorciaWeald", 263), ("MorimarBasaltFields", 265), ("MarjamiRavine", 266), ("KamihrDrifts", 267),
-    ("RaKaznar", 274),
-)  # fmt: skip
 
 
 class Influence(Extractor):
@@ -107,60 +87,3 @@ class Influence(Extractor):
             ),
         ),
     )
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        mode = f("Mode")
-        if mode == 2:
-            offset = f("data.ZoneOffset")
-            if offset is None:
-                return
-            if offset == 0:
-                n = "data.Nations."
-                emit(
-                    "campaign",
-                    p,
-                    **{f"{k}_areas": f(f"data.ControlledAreas.{v}")
-                       for k, v in (("sandoria", "Sandoria"), ("bastok", "Bastok"), ("windurst", "Windurst"),
-                                    ("beastmen", "Beastman"))},
-                    **{f"{c}_{k}": f(f"{n}{a}.{k.title()}")
-                       for a, c in zip(ARMIES, ARMY_COLUMNS, strict=True)
-                       for k in ("morale", "prosperity", "reconnaissance")},
-                    zone_id=world.zone,
-                )  # fmt: skip
-            for i in range(13):
-                z = f"data.Zones[{i}]."
-                area = offset + i
-                if area >= len(CAMPAIGN_ZONES):
-                    break
-                emit(
-                    "campaign_areas",
-                    p,
-                    area=area,
-                    area_zone_id=CAMPAIGN_ZONES[area],
-                    owner=f(z + "Owner"),
-                    fortifications=f(z + "CurrentFortifications"),
-                    max_fortifications=f(z + "MaxFortifications"),
-                    resources=f(z + "CurrentResources"),
-                    max_resources=f(z + "MaxResources"),
-                    heroism=f(z + "Heroism"),
-                    **{f"influence_{c}": f(z + f"Influence{n}")
-                       for c, n in (("sandoria", "Sandoria"), ("bastok", "Bastok"), ("windurst", "Windurst"),
-                                    ("beastmen", "Beastman"))},
-                    flag=f(z + "unused00"),
-                    zone_id=world.zone,
-                )  # fmt: skip
-        elif mode == 3:
-            for name, zone in COLONIES:
-                z = f"data.Zones.{name}."
-                rate = f(z + "ColonizationRate")
-                if rate is None:
-                    return
-                emit(
-                    "colonization",
-                    p,
-                    area_zone_id=zone,
-                    rate=rate,
-                    bivouacs=f(z + "CurrentBivouacs"),
-                    max_bivouacs=f(z + "MaxBivouacs"),
-                    zone_id=world.zone,
-                )

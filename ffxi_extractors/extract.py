@@ -1,18 +1,14 @@
 """The extractor contract. An extractor is one analysis: it reads one capture's packets in order, with
 the world so far, and writes rows to its own tables. Its version changes whenever its output would, so
-a runner such as Scholar re-runs it over the archive."""
+a runner such as Scholar re-runs it over the archive. Its code is Rust's (rust/extractors), its declaration
+here: name, version, reads, sparse, and tables, which extractors_rs's are checked against."""
 
 from __future__ import annotations
 
-import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 import pyarrow as pa
-
-from ffxi_extractors.capture import Fields, Packet
-from ffxi_extractors.world import World
 
 
 @dataclass(frozen=True)
@@ -63,9 +59,6 @@ def arrow(table: Table, values: dict[str, Any]) -> pa.Table:
     return pa.table({c.name: pa.array(values[c.name], c.type) for c in table.columns})
 
 
-Emit = Callable[..., dict]  # emit(table, packet, **values) -> the row
-
-
 class Extractor:
     name: str
     version: int
@@ -75,56 +68,6 @@ class Extractor:
     # Its rows come only from its reads outside the world's: a capture holding none of them gives it no rows,
     # so a re-run may pass that capture by. False for one that also writes from the world's packets it reads.
     sparse = True
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        raise NotImplementedError
-
-    def finish(self, world: World, emit: Emit) -> None:
-        pass
-
-
-FLUSH = 100_000  # rows a table holds before the sink writes them
-
-
-class Sink:
-    """Collects one extractor's rows for one capture. With write, flush() writes a table's rows once it holds
-    FLUSH, all but those the extractor still holds to fill in."""
-
-    def __init__(self, x: Extractor, capture_id: str, client_version: str, write=None):
-        self.tables = {t.name: t for t in x.tables}
-        self.rows: dict[str, list[dict]] = {t.name: [] for t in x.tables}
-        self.base = {"capture_id": capture_id, "client_version": client_version}
-        self.write = write  # write(table, arrow)
-        self.written = 0
-
-    def emit(self, table: str, p: Packet | None, **values) -> dict:
-        """Add a row; it is returned so an extractor can fill in a value a later packet gives. A row the
-        extractor still holds is written at the end, or once it lets go; one it holds to the end is never
-        written early, so FLUSH bounds only the rows it is done with."""
-        row = dict(self.base, idx=p.idx if p else None, ts_ms=p.ts_ms if p else None)
-        row.update(values)
-        self.rows[table].append(row)
-        return row
-
-    def _arrow(self, name: str, rows: list[dict]) -> pa.Table:
-        cols = COMMON + self.tables[name].columns
-        if extra := set().union(*rows) - {c.name for c in cols}:  # a typo would drop a column unseen
-            raise KeyError(f"{name} has no column {sorted(extra)}")
-        return pa.table({c.name: pa.array([r.get(c.name) for r in rows], c.type) for c in cols})
-
-    def arrow(self) -> dict[str, pa.Table]:
-        return {name: self._arrow(name, rows) for name, rows in self.rows.items()}
-
-    def flush(self, everything: bool = False) -> None:
-        for name, rows in self.rows.items():
-            if not rows or (len(rows) < FLUSH and not everything):
-                continue
-            # A row only this list, the loop, and getrefcount refer to is finished.
-            held = [] if everything else [r for r in rows if sys.getrefcount(r) > 3]
-            done = rows if everything else [r for r in rows if sys.getrefcount(r) <= 3]
-            self.write(name, self._arrow(name, done))
-            self.written += len(done)
-            self.rows[name] = held
 
 
 # One capture's rows of a table, or every capture's when {capture:String} is ''.

@@ -1,5 +1,6 @@
 """Draw-ins and blue magic learned: their mob, the move a spell ties to, the marks and the mob card."""
 
+import pytest
 from conftest import MEMBER, PLAYER, drive
 
 from ffxi_extractors.extractors.battle.mob_messages import MobMessages
@@ -38,7 +39,7 @@ def test_a_draw_in_names_the_monster_nearest_where_the_player_landed():
     rows = drive(MobMessages, *steps, times=times, directions=directions)["mob_messages"]
     got = [(r["kind"], r["player_id"], r.get("mob_id"), r.get("distance"), r.get("spell_id")) for r in rows]
     assert got == [
-        ("drawn_in", PLAYER, OTHER, 2**0.5, None),
+        ("drawn_in", PLAYER, OTHER, pytest.approx(2**0.5), None),  # a float32
         ("drawn_in", MEMBER, MOB, 0.5, None),
         ("drawn_in", MEMBER, None, None, None),
         ("learned", PLAYER, None, None, SHEEP_SONG),

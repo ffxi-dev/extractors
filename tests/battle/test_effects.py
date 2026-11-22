@@ -1,12 +1,14 @@
 """The character's status effects (0x063 type 9 beside 0x028), its defeats, and the items it and its party
 used. Packets are given as decoded fields."""
 
-from conftest import MEMBER, PLAYER, drive
+from conftest import MEMBER, PLAYER, P, drive
 from fill import put
 
-from ffxi_extractors.combat import P
 from ffxi_extractors.extractors.battle.defeats import Defeats
-from ffxi_extractors.extractors.battle.effects import EPOCH_S, WRAP, Effects, expiry_ms
+from ffxi_extractors.extractors.battle.effects import Effects
+
+EPOCH_S = 1009810800  # LSB's vanadiel_epoch, Unix seconds
+WRAP = 1 << 32  # where 0x063's expiry counter wraps
 
 T0 = 1_792_000_000_000
 ZONE = 0x0BE
@@ -229,13 +231,6 @@ def test_food_takes_the_item_eaten_and_an_unclaimed_icon_has_no_source():
     keys = ("status_id", "category", "action_id", "source_idx", "expires_ms", "duration_ms")
     assert [food[k] for k in keys] == [FOOD, 5, 4422, 0, T0 + 1_800_000, 1_800_000]
     assert [other.get(k) for k in keys] == [143, None, None, None, None, None]
-
-
-def test_the_expiry_wraps_every_two_years():
-    now = T0 + 5_000
-    assert expiry_ms(raw(now + 90_000), now) == now + 90_000
-    later = (EPOCH_S + (WRAP * 3 + 7) // 60) * 1000  # just past a wrap: the raw value is small again
-    assert expiry_ms(raw(later + 60_000), later) == later + 60_000
 
 
 def test_the_characters_defeats():

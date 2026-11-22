@@ -4,21 +4,22 @@ Set up as the README's quick start says. Then:
 
 1. Make the change, with a test. A bug fix needs a test that fails without it.
 2. If any unit's output changes, bump its `version`, then write its new pin: `BLESS=1 uv run pytest tests/test_expected.py`. Commit the new `tests/expected/<unit>-v<version>.json` and delete the old one.
-3. `uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest` passes. mypy checks every annotated function, `packet()` and `finish()` among them.
-4. Open a pull request saying what retail does and how a capture shows it: a capture id and packet index (Lens opens `https://lens.sruon.dev/c/<id>#packet=<index>`).
+3. `cargo fmt --check && cargo clippy --workspace --tests -- -D warnings && cargo test --workspace` and `uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest` pass. After a change to an extractor, `uv sync` builds it again.
+4. For a change to an extractor's output, `rust/parity/parity <name>` on lsb shows the rows it changes on real captures.
+5. Open a pull request saying what retail does and how a capture shows it: a capture id and packet index (Lens opens `https://lens.sruon.dev/c/<id>#packet=<index>`).
 
 A version is how Scholar knows to re-run a unit over the archive. Change a unit's output without bumping it and CI fails, naming the unit.
 
 ## The rules
 
-- Decode packets only through `packets`. If a field is wrong or missing there, fix it in packets first.
+- Decode packets only through `packets`' layouts, which rust/xc-decode reads. If a field is wrong or missing there, fix it in packets first.
 - Ids stay ids. Names come from the `*_names` views at query time, or from the packet that carries them.
 - Fixtures and test cases come only from public Mogsafe captures.
 - A column's doc says what the value is and where it comes from, in short plain words.
 
 ## A new extractor
 
-An extractor reads the packets it names in `reads`, in order, with the world so far, and emits rows to its own tables. Every row also gets `capture_id`, `idx` (the packet's index, as Lens counts it), `ts_ms`, and `client_version`.
+An extractor reads the packets it names in `reads`, in order, with the world so far, and emits rows to its own tables. Every row also gets `capture_id`, `idx` (the packet's index, as Lens counts it), `ts_ms`, and `client_version`. Its code is Rust, a crate under `rust/extractors/`; its declaration is Python, which Scholar's planner and the ClickHouse schema read. `tests/test_rust.py` checks the two agree.
 
 ```python
 # ffxi_extractors/extractors/world/music.py
@@ -43,14 +44,38 @@ class Music(Extractor):
             ),
         ),
     )
-
-    def packet(self, p, f, world, emit):
-        emit("music", p, zone_id=world.zone, slot=f("Slot"), track=f("MusicNum"))
 ```
 
-`f(path)` gives the packet's fields by packets' paths (`UniqueNo`, `SendFlg.Despawn`, `GrapIDTbl[3]`), or None for a field the packet does not hold. An extractor that needs to see a whole fight first keeps state on `self` (a run makes a fresh one per capture) and emits in `finish`.
+```rust
+// rust/extractors/music/src/lib.rs, in a crate xc-music that depends on xc-core
+use xc_core::extract::{Extractor, Meta, Out, Table, Ty::*};
+use xc_core::{Decoded, Fields, Packet, S2C, World, row};
 
-Put it in the domain it belongs to (`battle`, `items`, `world`, `progress`), list the class in `ALL` in `extractors/__init__.py`, then test it on hand-built packets with `drive`, in the same domain under `tests/`:
+pub static META: Meta = Meta {
+    name: "music",
+    version: 1,
+    reads: &[(S2C, 0x05F)],
+    tables: &[Table { name: "music", columns: &[("zone_id", I32), ("slot", I32), ("track", I32)] }],
+    sparse: true,
+};
+
+#[derive(Default)]
+pub struct Music;
+
+impl Extractor for Music {
+    fn meta(&self) -> &'static Meta {
+        &META
+    }
+
+    fn packet(&mut self, p: &Packet, f: &Decoded, world: &World, out: &mut Out) {
+        out.emit("music", Some(p), row! { zone_id: world.zone, slot: f.int("Slot"), track: f.int("MusicNum") });
+    }
+}
+```
+
+`f.int(path)`, `f.float(path)`, `f.text(path)`, and `f.flag(path)` give the packet's fields by packets' paths (`UniqueNo`, `SendFlg.Despawn`, `GrapIDTbl[3]`), or None for a field the packet does not hold; `field!(S2C, 0x05F, "Slot").int(f)` reads one by its id, for a hot path. `f.action()` is the action packet's bitstream. An extractor that needs to see a whole fight first keeps state on itself (a run makes a fresh one per capture), changes a row it emitted with `out.set(id, column, value)`, and emits in `finish`. `xc_core::py` has Python's rounding, `%`, and `math.dist`, where Rust's differ in the last bit. `rust/xc-core/src/lib.rs` lists the rest: World, combat, positions, Vana'diel time.
+
+Put the Python class in the domain it belongs to (`battle`, `items`, `world`, `progress`) and list it in `ALL` in `extractors/__init__.py`; add the crate to `rust/xc-all` (its Cargo.toml and `all()`). Test it in Rust with `xc_core::testing::drive`, on hand-built fields, or `raw`, on bytes; Python tests reach the same through conftest's `drive` and `raw`:
 
 ```python
 from conftest import drive

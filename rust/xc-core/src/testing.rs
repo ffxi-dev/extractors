@@ -103,7 +103,12 @@ impl Source for Owned {
 
 /// raw(): packets as (ts_ms, direction, opcode, bytes) decoded and walked as a capture's, the character me.
 pub fn raw(x: Box<dyn Extractor>, packets: Vec<(i64, u8, u16, Vec<u8>)>, me: i64) -> Out {
+    raw_with(x, packets, me, "")
+}
+
+/// raw() for a capture of this client version.
+pub fn raw_with(x: Box<dyn Extractor>, packets: Vec<(i64, u8, u16, Vec<u8>)>, me: i64, client_version: &str) -> Out {
     let mut w = World::new(me, "Tester");
     let mut xs = [x];
-    walk_packets(&mut Owned { packets, next: 0 }, "", &mut w, &mut xs, None).unwrap().pop().unwrap()
+    walk_packets(&mut Owned { packets, next: 0 }, client_version, &mut w, &mut xs, None).unwrap().pop().unwrap()
 }

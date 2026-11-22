@@ -1,11 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-
-# A fight with no action between its mob and a player, Trust, or pet for this long is over. Inside fights
-# 99.9% of gaps are under 18 s; the 30 to 180 s ones are fights partly out of range.
-IDLE_MS = 180_000
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Fights(Extractor):
@@ -47,75 +42,3 @@ class Fights(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.open: dict[int, dict] = {}  # mob id -> its open fight's row
-        self.resends = combat.Resends()
-        self.last = None  # the last packet read, to tell at the capture's end which fights went idle
-
-    def _close(self, mob_id, outcome, p, end=False):
-        """Close a fight at p; it ends at p only when end is set, else at its last action. A fight already
-        idle for IDLE_MS was disengaged, whatever closes it now."""
-        row = self.open.pop(mob_id)
-        if p.ts_ms - row["end_ms"] > IDLE_MS:
-            outcome, end = "disengaged", False
-        if end:
-            row.update(end_idx=p.idx, end_ms=p.ts_ms)
-        row["outcome"] = outcome
-
-    def _expire(self, mob_id, p):
-        fight = self.open.get(mob_id)
-        if fight and p.ts_ms - fight["end_ms"] > IDLE_MS:
-            self._close(mob_id, "disengaged", p)
-
-    def _start(self, mob_id, p, world, emit):
-        row = emit("fights", p, mob_id=mob_id, end_idx=p.idx, end_ms=p.ts_ms, outcome="open", actions=0,
-                   actions_by=0, zone_id=world.zone)  # fmt: skip
-        self.open[mob_id] = row
-        return row
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        self.last = p
-        op = p.opcode
-        if op == 0x00A:
-            for mob_id in list(self.open):
-                self._close(mob_id, "zoned", p)
-        elif op == 0x00E:
-            uid = f("UniqueNo")
-            if f("SendFlg.Despawn") and uid in self.open:
-                self._close(uid, "despawned", p)
-        elif op == 0x029:
-            mob_id = f("UniqueNoTar")
-            if f("MessageNum") in combat.DEFEAT and combat.is_mob(mob_id) and not self.resends.is_resend(p):
-                self._expire(mob_id, p)
-                if mob_id not in self.open:
-                    self._start(mob_id, p, world, emit)
-                self._close(mob_id, "defeated", p, end=True)
-        elif op == 0x028:
-            if self.resends.is_resend(p):
-                return
-            a = combat.action(f)
-            actor = a["actor_id"]
-            targets = {t for t, _ in a["targets"] if t is not None}
-            # Only actions between a mob and someone else open or extend a fight: a mob buffing itself or a
-            # fellow mob is not fighting, and kept fights open for hours. Mid-fight, such a buff still counts.
-            if combat.is_mob(actor):
-                if all(combat.is_mob(t) for t in targets):
-                    fight = self.open.get(actor)
-                    if fight and p.ts_ms - fight["end_ms"] <= IDLE_MS:
-                        fight["actions"] += 1
-                        fight["actions_by"] += 1
-                    return
-                mobs = {actor}
-            else:
-                mobs = {t for t in targets if combat.is_mob(t)}
-            for mob_id in mobs:
-                self._expire(mob_id, p)
-                fight = self.open.get(mob_id)
-                row = fight or self._start(mob_id, p, world, emit)
-                row.update(end_idx=p.idx, end_ms=p.ts_ms, actions=row["actions"] + 1,
-                           actions_by=row["actions_by"] + (mob_id == actor))  # fmt: skip
-
-    def finish(self, world: World, emit: Emit) -> None:
-        for mob_id in list(self.open):
-            self._expire(mob_id, self.last)

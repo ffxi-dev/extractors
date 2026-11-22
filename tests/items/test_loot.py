@@ -1,8 +1,7 @@
 """The loot extractors, one test per spec scenario in scholar-loot. Packets are given as decoded fields."""
 
-from conftest import MEMBER, MOB, PLAYER, STRANGER, claim, drive
+from conftest import MEMBER, MOB, PLAYER, STRANGER, P, claim, drive
 
-from ffxi_extractors.combat import P
 from ffxi_extractors.extractors.battle.kills import Kills
 from ffxi_extractors.extractors.items.drops import Drops
 from ffxi_extractors.extractors.items.obtained import Obtained

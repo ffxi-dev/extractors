@@ -1,16 +1,8 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
-# The Results retail's captures show the meaning of. LSB's SynthesisResult names more (2 interrupted, 3 bad
-# recipe, 13 too soon, 14 critical interruption), but on retail those, 9, 10 and 11 come with an item made at
-# grades 0 to 3 as often as not, so they stay unnamed. A failure, whatever its Result, has grade -1.
-OUTCOME = {0: "success", 12: "desynth"}
 INTS = pa.list_(pa.int32())
-
-
-def _ids(f, field: str, n: int) -> list[int]:
-    return [v for k in range(n) if (v := f(f"{field}[{k}]"))]
 
 
 class Synths(Extractor):
@@ -80,31 +72,3 @@ class Synths(Extractor):
             ),
         ),
     )
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        own = p.opcode == 0x06F
-        result = f("Result") or 0
-        kinds = [(f(f"UpKind[{k}]") or 0, f(f"UpLevel[{k}]") or 0) for k in range(4)] if own else []
-        kinds = [k for k in kinds if k[0]]
-        ingredients = _ids(f, "MaterialNo", 8) if own else None
-        failed = f("Grade") == -1
-        lost = _ids(f, "BreakNo", 8) if failed else []
-        if own:
-            lost = [i for i in lost if i in (ingredients or [])]
-        emit(
-            "synths",
-            p,
-            own=own,
-            crafter=world.character if own else f("name"),
-            result=result,
-            outcome="failed" if failed else OUTCOME.get(result),
-            grade=f("Grade"),
-            item_id=f("ItemNo") or None,
-            count=f("Count"),
-            crystal_id=(f("CrystalNo") or None) if own else None,
-            ingredients=ingredients,
-            lost=lost,
-            skill_kinds=[k for k, _ in kinds] if own else None,
-            skill_levels=[v for _, v in kinds] if own else None,
-            zone_id=world.zone,
-        )

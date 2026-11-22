@@ -2,7 +2,6 @@ import struct
 
 from conftest import walked
 
-from ffxi_extractors.capture import Packet
 from ffxi_extractors.extractors.world.zones import Zones
 
 
@@ -21,8 +20,7 @@ def zone_in():
 
 
 def servers(*packets):
-    _, _, (sink,) = walked([Zones()], [Packet(i, i, 0, 0, op, 0, d) for i, (op, d) in enumerate(packets)])
-    return [r["server"] for r in sink.rows["zones"]]
+    return [r["server"] for r in walked(Zones, [(i, 0, op, d) for i, (op, d) in enumerate(packets)])["zones"]]
 
 
 def test_a_zone_change_names_its_server_and_a_short_one_none():

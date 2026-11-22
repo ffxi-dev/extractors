@@ -1,24 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.extractors.world.character import job
-
-# GP_GROUP_ATTR's bits, low first, as 0x0DD, 0x0E2, and each 0x0C8 entry send them.
-GATTR = (("PartyNo", 0), ("PartyLeaderFlg", 2), ("AllianceLeaderFlg", 3), ("PartyRFlg", 4),
-         ("AllianceRFlg", 5), ("unknown06", 6), ("unknown07", 7))  # fmt: skip
-
-
-def gattr(f, prefix: str) -> int | None:
-    bits = [(f(prefix + name), shift) for name, shift in GATTR]
-    if all(v is None for v, _ in bits):
-        return None
-    return sum((v or 0) << shift for v, shift in bits)
-
-
-def is_trust(member_id: int | None) -> bool:
-    """Any NPC id, 0x01ZZZIII, in the party list: a Trust, whose index the zone hands out (0x700 on), or an
-    Adventuring Fellow, which reads as one. A player's id is under 0x1000000."""
-    return member_id is not None and member_id >> 24 == 1
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class Party(Extractor):
@@ -59,40 +41,3 @@ class Party(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.names: dict[int, str] = {}
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if p.opcode == 0x0C8:
-            for i in range(20):
-                g = f"GroupTbl[{i}]."
-                uid = f(g + "UniqueNo")
-                if not uid:
-                    continue
-                e = world.entities.get(f(g + "ActIndex")) or {}
-                name = self.names.get(uid) or (e.get("name") if e.get("id") == uid else None)
-                emit("party", p, member_id=uid, name=name, member_number=i, list="alliance",
-                     zone_id=f(g + "ZoneNo"), trust=is_trust(uid), flags=gattr(f, g))  # fmt: skip
-            return
-        uid = f("UniqueNo")
-        if name := f("Name"):
-            self.names[uid] = name
-        emit(
-            "party",
-            p,
-            member_id=uid,
-            name=name or None,
-            member_number=f("MemberNumber"),
-            list="party",
-            zone_id=f("ZoneNo"),
-            trust=is_trust(uid),
-            main_job=job(f("mjob_no")),
-            main_level=f("mjob_lv"),
-            sub_job=job(f("sjob_no")),
-            sub_level=f("sjob_lv"),
-            hpp=f("Hpp"),
-            mpp=f("Mpp"),
-            tp=f("Tp"),
-            flags=gattr(f, "GAttr."),
-        )

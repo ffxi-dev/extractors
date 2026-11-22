@@ -1,19 +1,10 @@
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
-JOBS = ("", "WAR", "MNK", "WHM", "BLM", "RDM", "THF", "PLD", "DRK", "BST", "BRD", "RNG", "SAM", "NIN", "DRG",
-        "SMN", "BLU", "COR", "PUP", "DNC", "SCH", "GEO", "RUN")  # fmt: skip
 STATS = ("str", "dex", "vit", "agi", "int", "mnd", "chr")
-# /checkparam replies, by message, as captain's checkparam addon reads them
-PARAMS = {712: "main", 713: "sub", 714: "ranged", 715: "defense"}
 SLOTS = ("main", "sub", "range", "ammo", "head", "body", "hands", "legs", "feet", "neck", "waist",
          "ear1", "ear2", "ring1", "ring2", "back")  # fmt: skip
-
-
-def job(n):
-    return JOBS[n] if n is not None and 0 <= n < len(JOBS) else None
 
 
 class Character(Extractor):
@@ -23,10 +14,6 @@ class Character(Extractor):
     doc = "Who recorded the capture: job, levels, stats, gear, and /checkparam replies as they changed."
     # The inventory lists (0x01F, 0x020) can come after the gear at login, so they fill in its items.
     reads = frozenset({(0, 0x061), (0, 0x050), (0, 0x01F), (0, 0x020), (0, 0x029)})
-
-    def __init__(self):
-        self.unnamed: dict[tuple[int, int], list[dict]] = {}  # (container, index) -> gear rows waiting
-        self.resends = combat.Resends()
 
     tables = (
         Table(
@@ -86,49 +73,3 @@ class Character(Extractor):
             ),
         ),
     )
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if p.opcode == 0x061:
-            emit(
-                "character",
-                p,
-                character_id=world.character_id,
-                character=world.character,
-                main_job=job(f("statusdata.mjob_no")),
-                main_level=f("statusdata.mjob_lv"),
-                sub_job=job(f("statusdata.sjob_no")),
-                sub_level=f("statusdata.sjob_lv"),
-                hp_max=f("statusdata.hpmax"),
-                mp_max=f("statusdata.mpmax"),
-                **{s: f(f"statusdata.bp_base[{i}]") for i, s in enumerate(STATS)},
-                **{s + "_bonus": f(f"statusdata.bp_adj[{i}]") for i, s in enumerate(STATS)},
-                attack=f("statusdata.atk"),
-                defense=f("statusdata.def"),
-            )
-        elif p.opcode == 0x050:
-            slot, container, index = f("EquipKind"), f("Category"), f("PropertyItemIndex")
-            row = emit(
-                "character_gear",
-                p,
-                character_id=world.character_id,
-                slot=None if slot is None else SLOTS[slot] if slot < len(SLOTS) else str(slot),
-                item_id=world.items.get((container, index)) if index else None,
-                container=container,
-                item_index=index,
-            )
-            if index and row["item_id"] is None:
-                self.unnamed.setdefault((container, index), []).append(row)
-        elif p.opcode == 0x029:
-            kind = PARAMS.get(f("MessageNum"))
-            if kind is None or not world.character_id or f("UniqueNoTar") != world.character_id:
-                return
-            if self.resends.is_resend(p):
-                return
-            a, b = f("Data"), f("Data2")
-            stats = {"evasion": a, "defense": b} if kind == "defense" else {"accuracy": a, "attack": b}
-            emit("character_params", p, character_id=world.character_id, kind=kind, **stats)
-        else:
-            key = (f("Category"), f("ItemIndex"))
-            if key in self.unnamed and (item := world.items.get(key)) is not None:
-                for row in self.unnamed.pop(key):
-                    row["item_id"] = item

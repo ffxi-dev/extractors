@@ -220,6 +220,34 @@ mod tests {
     }
 
     #[test]
+    fn a_zone_in_wins_over_entity_ids() {
+        let mut w = World::new(0, "");
+        let mob = MapFields::new().int("UniqueNo", 0x1000000 | (178 << 12) | 5).int("ActIndex", 5);
+        w.update(&at(0x00E, S2C), &mob);
+        w.update(&at(0x00A, S2C), &MapFields::new().int("ZoneNo", 230));
+        w.update(&at(0x00E, S2C), &mob);
+        assert_eq!(w.zone, Some(230));
+        assert_eq!((zone_of(Some(0x0004_0BB8)), zone_of(Some(0x0101_2005))), (None, Some(0x012)));
+    }
+
+    #[test]
+    fn a_captain_log_names_the_character_by_its_status() {
+        let mut w = World::new(0, "");
+        w.update(&at(0x037, S2C), &MapFields::new().int("UniqueNo", 0x0001_0001));
+        w.update(&at(0x037, S2C), &MapFields::new());
+        assert_eq!(w.character_id, Some(0x0001_0001), "a status without an id keeps the one known");
+    }
+
+    #[test]
+    fn the_party_follows_its_lists_and_roster() {
+        let mut w = World::new(77, "Me");
+        w.update(&at(0x0E2, S2C), &MapFields::new().int("UniqueNo", 99));
+        assert!(w.claimed_by_party(Some(99)), "0x0E2 lists a member as 0x0DD does");
+        w.update(&at(0x0C8, S2C), &MapFields::new().int("GroupTbl[0].UniqueNo", 77).int("GroupTbl[1].UniqueNo", 0));
+        assert!(!w.claimed_by_party(Some(99)), "the roster no longer lists it");
+    }
+
+    #[test]
     fn items() {
         let mut w = World::new(0, "");
         let slot = |n| MapFields::new().int("Category", 0).int("ItemIndex", 3).int("ItemNum", n).int("ItemNo", 4096);

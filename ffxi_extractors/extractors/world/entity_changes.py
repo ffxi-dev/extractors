@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
+from ffxi_extractors.extract import Column, Extractor, Table
 
 
 class EntityChanges(Extractor):
@@ -39,42 +39,3 @@ class EntityChanges(Extractor):
             order="capture_id, entity_id, idx",  # every reader takes one capture
         ),
     )
-
-    def __init__(self):
-        self.known: dict[int, tuple] = {}  # entity id -> (name, monster, model)
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        uid = f("UniqueNo")
-        if uid is None:
-            return
-        if p.opcode == 0x00D:
-            name, monster, model = f("name") or None, None, None
-        else:
-            name = f("Data.name") or (world.entities.get(f("ActIndex")) or {}).get("name")
-            monster = bool(f("Flags1.MonsterFlag")) if f("SendFlg.General") else None
-            model = f("Data.model_id") if f("SubKind") == 0 else None  # SendFlg.Model: a humanoid look
-        last = self.known.get(uid)
-        now = (
-            (name, monster, model)
-            if last is None
-            else tuple(
-                new if new is not None else old for new, old in zip((name, monster, model), last, strict=True)
-            )
-        )
-        if now == last:
-            return
-        self.known[uid] = now
-        placed = f("SendFlg.Position")
-        emit(
-            "entity_changes",
-            p,
-            entity_id=uid,
-            act_index=f("ActIndex"),
-            zone_id=world.zone,
-            name=now[0],
-            monster=now[1],
-            model_id=now[2],
-            x=f("x") if placed else None,
-            y=f("y") if placed else None,
-            z=f("z") if placed else None,
-        )

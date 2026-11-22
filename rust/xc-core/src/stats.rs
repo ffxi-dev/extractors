@@ -151,3 +151,21 @@ impl CaptureStats {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_cut_off_capture_ends_at_its_last_packet() {
+        let (mut s, w) = (CaptureStats::default(), World::default());
+        for (idx, ts_ms) in [(0, 1000), (1, 2500)] {
+            s.see(&Packet { idx, ts_ms, channel: 0, direction: 0, opcode: 0x00D, flags: 0, data: &[] }, &w);
+        }
+        let info = Info { start_ms: 1000, ..Info::default() };
+        let t = s.tables("c", &info, None);
+        let captures = &t[0].1;
+        assert!(matches!(&captures[7], ("end_ms", Col::I64(v)) if v == &[Some(2500)]));
+        assert!(matches!(&captures[8], ("packets", Col::I64(v)) if v == &[Some(2)]));
+    }
+}

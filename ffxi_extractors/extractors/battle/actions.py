@@ -1,16 +1,7 @@
-import math
-
 import pyarrow as pa
 
-from ffxi_extractors import combat
-from ffxi_extractors.extract import Column, Emit, Extractor, Fields, Packet, Table, World
-from ffxi_extractors.extractors.battle.positions import Places, bearing
-
-FRESH_MS = 2000  # a mob's heading older than this at its TP move is unknown
-NEAR = 30.0  # yalms: bystanders farther from the mob than this are not kept; targets always are
-INTERRUPT = 28787  # a start's cmd_arg low half when it stops what began (LSB's interrupt); 24931 begins it
-STALE_MS = 30000  # a start older than this is not the finish's: pairs past it were a later mob's
-FINISH = {11: 7, 4: 8, 2: 12}  # a finish's category -> its start's
+from ffxi_extractors.extract import Column, Extractor, Table
+from ffxi_extractors.extractors.battle import positions
 
 
 class Actions(Extractor):
@@ -27,8 +18,8 @@ class Actions(Extractor):
     # party follows 0x0E2 and 0x0C8; 5: ready_ms pairs a finish with its own start only, and an interrupt
     # carries what it stopped
     doc = "Each action (0x028): who acted, what they did, and what it did to each target."
-    # Places' positions and HP%, so a fallen bystander is not taken for one missed.
-    reads = frozenset({(0, 0x028)}) | Places.reads
+    # The positions and HP%, so a fallen bystander is not taken for one missed.
+    reads = frozenset({(0, 0x028)}) | positions.READS
     tables = (
         Table(
             "actions",
@@ -178,115 +169,3 @@ class Actions(Extractor):
             ),
         ),
     )
-
-    def __init__(self):
-        self.starts: dict[int, tuple[int, int | None, int]] = {}  # actor -> (category, action id, ts)
-        self.resends = combat.Resends()
-        self.places = Places()
-
-    def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
-        if self.places.update(p, f):
-            if p.opcode == 0x00A:
-                self.starts.clear()
-            return
-        a = combat.action(f)
-        cat, actor = a["cmd_no"], a["actor_id"]
-        first = a["targets"][0][1][0] if a["targets"] and a["targets"][0][1] else {}
-        action_id = first.get("value") if cat in (7, 8, 9) and first else a["cmd_arg"]
-        resend = self.resends.is_resend(p)
-        ready = None
-        if not resend and cat in (7, 8, 12) and (a["cmd_arg"] or 0) & 0xFFFF == INTERRUPT:
-            start = self.starts.pop(actor, None)
-            if start and start[0] == cat and p.ts_ms - start[2] <= STALE_MS:
-                action_id, ready = start[1], p.ts_ms - start[2]
-        elif not resend and cat in (7, 8, 12):
-            self.starts[actor] = (cat, action_id, p.ts_ms)
-        elif not resend and cat in FINISH and actor in self.starts:
-            c, i, t = self.starts.pop(actor)
-            # A ranged start carries no id of its finish's.
-            if c == FINISH[cat] and (cat == 2 or i == action_id) and p.ts_ms - t <= STALE_MS:
-                ready = p.ts_ms - t
-        reach = spread = heading = size = None
-        if cat == 11 and not resend:
-            me = world.character_id
-            places = self.places
-            if me and world.here:
-                places.pos[me], places.at[me] = world.here, world.pos_ms
-            reach, spread = self._measure(actor, [t for t, _ in a["targets"] if t != actor])
-            d, at = places.dir.get(actor, (None, None))
-            heading = d if at is not None and p.ts_ms - at <= FRESH_MS else None
-            size = places.size.get(actor)
-            self._nearby(p, actor, action_id, [t for t, _ in a["targets"]], heading, world, emit)
-        emit(
-            "actions",
-            p,
-            actor_id=actor,
-            actor_is_mob=combat.is_mob(actor),
-            category=cat,
-            action_id=action_id,
-            cmd_arg=a["cmd_arg"],
-            targets=len(a["targets"]),
-            message=first.get("message"),
-            animation=first.get("sub_kind"),
-            ready_ms=ready,
-            max_range=reach,
-            max_spread=spread,
-            actor_dir=heading,
-            actor_size=size,
-            zone_id=world.zone,
-            resend=resend,
-        )
-        for t, (target_id, results) in enumerate(a["targets"]):
-            for i, r in enumerate(results):
-                proc, react = r["proc"] or {}, r["react"] or {}
-                emit(
-                    "action_results",
-                    p,
-                    actor_id=actor,
-                    category=cat,
-                    action_id=action_id,
-                    target_id=target_id,
-                    target_index=t,
-                    result_index=i,
-                    **{k: r[k] for k in combat.RESULT},
-                    **{f"proc_{k}": proc.get(k) for k in combat.EXTRA},
-                    **{f"react_{k}": react.get(k) for k in combat.EXTRA},
-                )
-
-    def _nearby(self, p, actor, action_id, targets, heading, world, emit):
-        """A tp_nearby row for each target placed and each other placed entity within NEAR of the mob."""
-        places = self.places
-        here = places.pos.get(actor)
-        if here is None:
-            return
-        hit, party = set(targets), {world.character_id, *world.party}
-        first = places.pos.get(targets[0]) if targets else None
-        for uid, there in places.pos.items():
-            if uid == actor:
-                continue
-            far = math.dist(here, there)
-            if uid not in hit and (far > NEAR or places.hpp.get(uid) == 0):
-                continue
-            emit(
-                "tp_nearby",
-                p,
-                actor_id=actor,
-                action_id=action_id,
-                entity_id=uid,
-                hit=uid in hit,
-                party=uid in party,
-                distance=far,
-                bearing=bearing(here, there, heading),
-                from_target=math.dist(first, there) if first else None,
-                age_ms=p.ts_ms - places.at[uid],
-            )
-
-    def _measure(self, actor: int, targets: list[int]) -> tuple[float | None, float | None]:
-        """The farthest target from the actor and the farthest two targets apart. A target that is the
-        actor is left out; any unknown position leaves its measure unknown rather than short."""
-        here, there = self.places.pos.get(actor), [self.places.pos.get(t) for t in targets]
-        if None in there or not there:
-            return None, None
-        reach = max(math.dist(here, t) for t in there) if here else None
-        spread = max((math.dist(a, b) for i, a in enumerate(there) for b in there[i + 1 :]), default=None)
-        return reach, spread
