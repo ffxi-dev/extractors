@@ -68,13 +68,13 @@ CREATE OR REPLACE FUNCTION sc_exposed AS (chain, ts_ms, weather) -> sc_element(c
 -- A party member's name from each packet the party list gave it on, so a slot a trust held and another took after
 -- names each in its turn (Tenzen, then Joachim, in one id); the first name it had from the capture's start, and the
 -- capture's own character from its start when the party never names it. A query takes the name at its row with an
--- ASOF join on (member_id, idx).
+-- ASOF join on (member_id, idx). The start's names are one GROUP BY by capture, so a query's capture narrows it.
 CREATE OR REPLACE VIEW party_names AS
 SELECT capture_id, member_id, idx, name FROM party WHERE name != ''
-UNION ALL SELECT capture_id, member_id, toInt64(0), argMin(name, idx) FROM party WHERE name != ''
-  GROUP BY capture_id, member_id
-UNION ALL SELECT capture_id, character_id, toInt64(0), character FROM captures WHERE character != ''
-  AND (capture_id, character_id) NOT IN (SELECT capture_id, member_id FROM party WHERE name != '');
+UNION ALL SELECT capture_id, member_id, toInt64(0), argMin(name, (src, idx)) FROM (
+  SELECT capture_id, member_id, idx, name, 0 AS src FROM party WHERE name != ''
+  UNION ALL SELECT capture_id, character_id, toInt64(0), character, 1 FROM captures WHERE character != '')
+  GROUP BY capture_id, member_id;
 
 -- The resistance rank, in percent, nearest a ratio by factor (BG Wiki, Resist: Resistance Ranks); NULL for no ratio,
 -- one not above 0, or NaN, which an aggregate over no rows gives. 150 is also any ratio past it.
