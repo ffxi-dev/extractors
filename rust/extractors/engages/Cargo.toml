@@ -1,0 +1,11 @@
+[package]
+name = "xc-engages"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "battle/engages.py: idle, unclaimed mobs that engage, and the character's passes by those that do not"
+publish = false
+
+[dependencies]
+indexmap = "2"
+xc-core = { path = "../../xc-core" }

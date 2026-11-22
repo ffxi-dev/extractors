@@ -286,6 +286,7 @@ version = "0.1.0"
 dependencies = [
  "xc-actions",
  "xc-core",
+ "xc-engages",
 ]
 
 [[package]]
@@ -302,6 +303,14 @@ name = "xc-decode"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+]
+
+[[package]]
+name = "xc-engages"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "xc-core",
 ]
 
 [[package]]
