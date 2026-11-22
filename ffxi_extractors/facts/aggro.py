@@ -1,4 +1,4 @@
-from ffxi_extractors.extract import COARSE, COMMON, NAMES, ONE, Column, Derived, Table
+from ffxi_extractors.extract import COARSE, COMMON, MATERIALIZE, NAMES, ONE, Column, Derived, Table
 from ffxi_extractors.extractors.battle.engages import Engages
 
 # The c2s 0x01A actions that provoke a mob: engage, cast, weapon skill, job ability, change target, ranged.
@@ -88,13 +88,14 @@ PLACED = (
 CLEAN = f"kind = 'aggro_recorder' AND link_mob_id IS NULL AND {PLACED}"
 
 SQL = f"""
-WITH a AS ({with_context("mob_engages")}),
+WITH a AS MATERIALIZED ({with_context("mob_engages")}),
 p AS (SELECT capture_id, mob_id, ts_ms, mob_name, model_id, link_mob_id, link_ms, link_distance,
   {PULLED} AS pulled FROM a)
 SELECT *, {CLEAN} AS clean FROM (
   SELECT a.*, {KIND} AS kind FROM a
   LEFT JOIN ({STARTED}) k ON {link_join("k", "a")}
 )
+{MATERIALIZE}
 """
 
 

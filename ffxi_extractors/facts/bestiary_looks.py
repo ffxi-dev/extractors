@@ -1,4 +1,4 @@
-from ffxi_extractors.extract import NAMES, ONE, Column, Derived, Table
+from ffxi_extractors.extract import MATERIALIZE, NAMES, ONE, Column, Derived, Table
 
 # A monster's looks, named as the bestiary names it, with whether the capture's widescan listed it: a mob page
 # sums them by zone and name. A look takes the name its entity had at that packet, as every fact does, since a
@@ -7,8 +7,8 @@ from ffxi_extractors.extract import NAMES, ONE, Column, Derived, Table
 # may hide it, or that it stood out of range.
 SQL = f"""
 WITH
-nm AS (SELECT capture_id, entity_id, argMin(entity_name, idx) AS first_name
-  FROM capture_entities(capture = {{capture:String}}) WHERE entity_name IS NOT NULL
+ce AS MATERIALIZED {NAMES},
+nm AS (SELECT capture_id, entity_id, argMin(entity_name, idx) AS first_name FROM ce
   GROUP BY capture_id, entity_id),
 ws AS (SELECT capture_id, zone_id, groupUniqArray(entity_id) AS listed FROM levels
   WHERE {ONE} AND source = 'widescan' GROUP BY capture_id, zone_id)
@@ -20,8 +20,9 @@ SELECT l.capture_id AS capture_id, l.idx AS idx, l.ts_ms AS ts_ms, l.client_vers
   notEmpty(w.listed) AS scanned, has(w.listed, l.entity_id) AS listed
 FROM (SELECT * FROM entity_looks WHERE {ONE} AND has(flags, 'Flags1.MonsterFlag=1')) l
 JOIN nm n ON n.capture_id = l.capture_id AND n.entity_id = l.entity_id
-ASOF LEFT JOIN {NAMES} a ON a.capture_id = l.capture_id AND a.entity_id = l.entity_id AND a.idx <= l.idx
+ASOF LEFT JOIN ce a ON a.capture_id = l.capture_id AND a.entity_id = l.entity_id AND a.idx <= l.idx
 LEFT JOIN ws w ON w.capture_id = l.capture_id AND w.zone_id = l.zone_id
+{MATERIALIZE}
 """
 
 

@@ -1,4 +1,4 @@
-from ffxi_extractors.extract import COARSE, ONE, Column, Derived, Table, ordered
+from ffxi_extractors.extract import COARSE, MATERIALIZE, ONE, Column, Derived, Table, ordered
 from ffxi_extractors.extractors.world.character import SLOTS
 
 # Treasure Hunter on the recorder's gear, by item id, from the client's item text: "Treasure Hunter"+n.
@@ -36,17 +36,17 @@ CAST = ordered("tuple(a.action_id AS id, a.ready_ms AS ready, g.gap AS gap)", "a
 # fmt: off
 SQL = f"""
 WITH
-fs AS (SELECT * FROM fights WHERE {ONE}),
-fk AS (SELECT capture_id, mob_id, idx AS fidx, end_idx FROM fs),
+fs AS MATERIALIZED (SELECT * FROM fights WHERE {ONE}),
+fk AS MATERIALIZED (SELECT capture_id, mob_id, idx AS fidx, end_idx FROM fs),
 -- The release names a mob by its id from its first sighting, often before the packets send its name.
 -- capture_entities keeps one row per change, so its packet names are entity_changes' own.
 ent AS (SELECT capture_id, entity_id, idx, name AS packet_name FROM entity_changes
   WHERE {ONE} AND name IS NOT NULL AND capture_id IN (SELECT capture_id FROM captures)),
-nm AS (SELECT capture_id, entity_id, idx, entity_name FROM capture_entities(capture = {{capture:String}})
-  WHERE entity_name IS NOT NULL),
+nm AS MATERIALIZED (SELECT capture_id, entity_id, idx, entity_name
+  FROM capture_entities(capture = {{capture:String}}) WHERE entity_name IS NOT NULL),
 mdl AS (SELECT capture_id, entity_id, idx, model_id FROM entity_changes WHERE {ONE} AND model_id IS NOT NULL),
 lr AS (SELECT capture_id, entity_id, idx, end_idx, level FROM levels WHERE {ONE}),
-zs AS (SELECT capture_id, idx, server FROM zones WHERE {ONE}),
+zs AS MATERIALIZED (SELECT capture_id, idx, server FROM zones WHERE {ONE}),
 -- 0x0C8 lists the whole party and alliance alike to each member: one roster for every copy of a fight.
 al AS (SELECT capture_id, idx, arraySort(groupArray(member_id)) AS roster FROM party
   WHERE {ONE} AND list = 'alliance' GROUP BY capture_id, idx),
@@ -189,7 +189,7 @@ sh AS (
 acts AS (SELECT * FROM actions WHERE {ONE} AND NOT resend AND category IN (4, 11)),
 -- Each spell a mob finished, with the wait from its previous finish of that spell in the capture to this
 -- cast's start (its finish less its cast time): its recast is no longer than the shortest.
-cg AS (
+cg AS MATERIALIZED (
   SELECT capture_id, idx, ts_ms - coalesce(ready_ms, 0) - lagInFrame(toNullable(ts_ms)) OVER (
       PARTITION BY capture_id, actor_id, action_id ORDER BY idx ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)
     AS gap
@@ -261,7 +261,7 @@ sc AS (
     AND (s.proc_message BETWEEN 288 AND 301 OR s.proc_message IN (767, 768))
   GROUP BY f.capture_id, f.mob_id, f.fidx
 ),
-kl AS (SELECT * FROM kills WHERE {ONE}),
+kl AS MATERIALIZED (SELECT * FROM kills WHERE {ONE}),
 -- A mob's casts while it fought no one: since its previous fight or defeat, before this fight. A buff it
 -- casts once it has aggroed, before its first action with anyone, counts here too.
 -- ponytail: casts after a mob's last fight in a capture, or by a mob never fought, go uncounted; a row per
@@ -289,7 +289,7 @@ s AS (
   JOIN fk f ON s.capture_id = f.capture_id AND s.target_id = f.mob_id AND s.idx BETWEEN f.fidx AND f.end_idx
   GROUP BY f.capture_id, f.mob_id, f.fidx
 ),
-k AS (
+k AS MATERIALIZED (
   SELECT f.capture_id AS capture_id, f.mob_id AS mob_id, f.fidx AS fidx, k.idx AS kill_idx,
     k.ts_ms AS kill_ms, k.claimed_by_party AS claimed_by_party, k.th_level AS th_level, k.gil AS gil
   FROM fk f ASOF JOIN kl k ON k.capture_id = f.capture_id AND k.mob_id = f.mob_id AND k.idx <= f.end_idx
@@ -310,9 +310,8 @@ ta AS (
     AND r.idx BETWEEN k.fidx AND k.kill_idx
   WHERE r.actor_id != k.mob_id
 ),
--- Each actor's state without its name, for tg: ClickHouse plans a CTE again at each use, and each
--- capture_entities is most of the plan.
-tj AS (
+-- Each actor's state without its name, for tg.
+tj AS MATERIALIZED (
   SELECT a.capture_id AS capture_id, a.mob_id AS mob_id, a.fidx AS fidx, a.idx AS idx, a.actor AS actor,
     c.character_id = a.actor AS me, c.main_job AS mj, c.main_level AS ml, c.sub_job AS sj, c.sub_level AS sl,
     coalesce(z.capture_id, '') != '' AS zoned
@@ -441,6 +440,7 @@ ASOF LEFT JOIN zs hz ON hz.capture_id = f.capture_id AND hz.idx <= f.end_idx
 LEFT JOIN dr ON dr.capture_id = f.capture_id AND dr.mob_id = f.mob_id AND dr.fidx = f.idx
 LEFT JOIN sc ON sc.capture_id = f.capture_id AND sc.mob_id = f.mob_id AND sc.fidx = f.idx
 LEFT JOIN rp ON rp.capture_id = f.capture_id AND rp.mob_id = f.mob_id AND rp.fidx = f.idx
+{MATERIALIZE}
 """
 # fmt: on
 

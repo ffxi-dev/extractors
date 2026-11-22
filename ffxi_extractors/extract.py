@@ -73,6 +73,12 @@ class Extractor:
 # One capture's rows of a table, or every capture's when {capture:String} is ''.
 ONE = "(capture_id = {capture:String} OR {capture:String} = '')"
 
+# Ends the SQL of a fact with a CTE AS MATERIALIZED: ClickHouse plans and runs a CTE again at each reference,
+# and planning is most of a fact's time on one capture; a materialized one runs once. The rows are the same.
+# Only CTEs small over every capture, as a rebuild runs them: a large one held in memory costs it more than
+# the plans it saves.
+MATERIALIZE = "SETTINGS enable_materialized_cte = 1"
+
 # Each entity's name and model as the packets up to each one left them, for an ASOF join on idx.
 NAMES = (
     "(SELECT capture_id, entity_id, idx, entity_name, model_id"

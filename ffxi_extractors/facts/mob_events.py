@@ -1,4 +1,4 @@
-from ffxi_extractors.extract import NAMES, ONE, Column, Derived, Table
+from ffxi_extractors.extract import MATERIALIZE, NAMES, ONE, Column, Derived, Table
 
 # A spell learned names no mob: retail sends it a few ms after the defeat of a mob that used the move in the
 # recorder's sight. Its mob is the defeat just before it, under 60 s; its move, the TP move that mob used in
@@ -6,9 +6,9 @@ from ffxi_extractors.extract import NAMES, ONE, Column, Derived, Table
 # 13 captures came 0 to 33 ms after a defeat, and one of that fight's moves bore the spell's name.
 SQL = f"""
 WITH
-m AS (SELECT * FROM mob_messages WHERE {ONE}),
+m AS MATERIALIZED (SELECT * FROM mob_messages WHERE {ONE}),
 kl AS (SELECT capture_id, idx, ts_ms, mob_id FROM kills WHERE {ONE}),
-lm AS (
+lm AS MATERIALIZED (
   SELECT l.capture_id AS capture_id, l.idx AS idx, l.spell_id AS spell_id, k.mob_id AS mob_id,
     k.idx AS kill_idx
   FROM (SELECT * FROM m WHERE kind = 'learned') l
@@ -49,6 +49,7 @@ SELECT e.capture_id AS capture_id, e.idx AS idx, e.ts_ms AS ts_ms, e.client_vers
 FROM e
 ASOF LEFT JOIN {NAMES} n
   ON n.capture_id = e.capture_id AND n.entity_id = e.mob AND n.idx <= e.idx
+{MATERIALIZE}
 """
 
 
