@@ -29,10 +29,12 @@ def versions(extractors=ALL, derived=DERIVED) -> dict[str, str]:
     return out
 
 
-def walk(cap: Capture, extractors: Iterable[Extractor], write=None) -> tuple[CaptureStats, World, list[Sink]]:
+def walk(
+    cap: Capture, extractors: Iterable[Extractor], write=None, count: bool = True
+) -> tuple[CaptureStats, World, list[Sink]]:
     """One pass over the packets, decoding the world's opcodes and those the extractors read: the decoder's
-    facts, the world at the end, and every extractor's sink. With write(table, arrow), sinks write their
-    rows as they fill."""
+    facts (counted only with count, which the decode unit needs), the world at the end, and every extractor's
+    sink. With write(table, arrow), sinks write their rows as they fill."""
     world = World(cap)
     stats = CaptureStats(cap)
     sinks = [(x, Sink(x, cap.capture_id, cap.client_version, write)) for x in extractors]
@@ -46,13 +48,15 @@ def walk(cap: Capture, extractors: Iterable[Extractor], write=None) -> tuple[Cap
         decoded = Decoded(decoder, cap.client_version, batch, keys)
         for i, p in enumerate(batch):
             key = (p.direction, p.opcode)
-            f = decoded.fields(i, p)
-            if key in WORLD:
-                world.update(p, f)
-            stats.see(p, world.zone)
-            if p.channel == 0:
-                for x, s in by_key.get(key, ()):
+            xs = by_key.get(key) if p.channel == 0 else None
+            if xs or key in WORLD:  # most packets concern neither: no fields for them
+                f = decoded.fields(i, p)
+                if key in WORLD:
+                    world.update(p, f)
+                for x, s in xs or ():
                     x.packet(p, f, world, s.emit)
+            if count:
+                stats.see(p, world.zone)
         if write:
             for _, s in sinks:
                 s.flush()
@@ -89,7 +93,7 @@ def run(
         cap = read(path, capture_id, ((record or {}).get("capture") or {}).get("retail"))
         capture_id = cap.capture_id
         store.begin(con, capture_id, {u: current[u] for u in walked}, DECODER_VERSION, started)
-        stats, world, sinks = walk(cap, chosen, lambda t, a: store.insert(con, t, a))
+        stats, world, sinks = walk(cap, chosen, lambda t, a: store.insert(con, t, a), "decode" in units)
         for x, s in zip(chosen, sinks, strict=True):
             s.flush(everything=True)
             out[x.name] = s.written

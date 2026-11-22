@@ -59,12 +59,12 @@ class Capture:
     def batches(self, size: int = BATCH) -> Iterator[list[Packet]]:
         """The packets in order, size at a time. Raises Skipped once a capture with no count passes
         MAX_PACKETS. A cut-off capture has no trailer, so no end time: its last packet's time stands in."""
-        c2s = xicap.PacketFlag.ClientToServer
+        c2s = int(xicap.PacketFlag.ClientToServer)  # an int: an enum's & runs Python code per packet
         batch: list[Packet] = []
         for i, p in enumerate(self.reader):
             if i >= MAX_PACKETS:
                 raise Skipped(TOO_LARGE)
-            batch.append(Packet(i, p.timestamp, p.channel, int(p.flags & c2s), p.opcode, p.flags, p.data))
+            batch.append(Packet(i, p.timestamp, p.channel, p.flags & c2s, p.opcode, p.flags, p.data))
             if len(batch) == size:
                 yield from self._seen(batch)
                 batch = []
