@@ -288,6 +288,7 @@ dependencies = [
  "xc-character",
  "xc-conquest",
  "xc-core",
+ "xc-engages",
  "xc-influence",
  "xc-party",
  "xc-shops",
@@ -321,6 +322,14 @@ name = "xc-decode"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+]
+
+[[package]]
+name = "xc-engages"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "xc-core",
 ]
 
 [[package]]

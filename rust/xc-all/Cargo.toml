@@ -11,6 +11,7 @@ xc-core = { path = "../xc-core" }
 # A line a crate, under its batch's comment, so batches merge without conflicts.
 # B1 positions: engages, actions
 xc-actions = { path = "../extractors/actions" }
+xc-engages = { path = "../extractors/engages" }
 # B2 hp and effects
 # B3 combat rounds: delay, fights, kills, mob_messages, immunity, defeats, evasion_skill
 # B4 events: events, obtained, keyitems, experience, battlefields
