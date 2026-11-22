@@ -13,6 +13,13 @@ xc-core = { path = "../xc-core" }
 xc-actions = { path = "../extractors/actions" }
 # B2 hp and effects
 # B3 combat rounds: delay, fights, kills, mob_messages, immunity, defeats, evasion_skill
+xc-delay = { path = "../extractors/delay" }
+xc-fights = { path = "../extractors/fights" }
+xc-kills = { path = "../extractors/kills" }
+xc-mob-messages = { path = "../extractors/mob_messages" }
+xc-immunity = { path = "../extractors/immunity" }
+xc-defeats = { path = "../extractors/defeats" }
+xc-evasion = { path = "../extractors/evasion" }
 # B4 events: events, obtained, keyitems, experience, battlefields
 # B5 items: fishing, digs, synths, drops, trades, holdings
 # B6 entities: looks, entity_changes, levels, spawns, weather, zones
