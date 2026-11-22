@@ -1,6 +1,6 @@
 # The Rust extractors as a Python module: `maturin build --release` here. Needs XICAP_SRC (see xc-core/build.rs).
 [build-system]
-requires = ["maturin>=1.9,<2"]
+requires = ["maturin>=1.16,<2"]
 build-backend = "maturin"
 
 [project]

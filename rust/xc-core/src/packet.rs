@@ -5,6 +5,7 @@
 //! packets are Fields; so is testing's MapFields, which drive() feeds.
 
 use std::cell::OnceCell;
+use std::sync::OnceLock;
 
 use crate::combat::{self, ActResult, Action, Extra, Target};
 
@@ -33,51 +34,116 @@ impl Packet<'_> {
     }
 }
 
-pub use xc_decode::Value;
+pub use xc_decode::{FieldId, Value};
 
 /// One packet's fields by path: `UniqueNo`, `SendFlg.Position`, `GroupTbl[3].UniqueNo`, `Data.name`.
 pub trait Fields {
     fn get(&self, path: &str) -> Option<Value<'_>>;
 
+    /// A field found once with `xc_decode::layout(dir, op, None)?.field(path)`, read without a lookup by path;
+    /// path is what a packet that is not xc-decode's (a test's MapFields) reads instead. The id must be of
+    /// this packet's layout.
+    fn at(&self, id: FieldId, path: &str) -> Option<Value<'_>> {
+        let _ = id;
+        self.get(path)
+    }
+
     /// An integer field; None for a float, text, or a field wider than 53 bits (Python's decimal text).
     fn int(&self, path: &str) -> Option<i64> {
-        self.get(path)?.int()
+        as_int(self.get(path))
     }
 
     /// A number as a float: an integer field reads as one too, as Python's arithmetic would take it.
     fn float(&self, path: &str) -> Option<f64> {
-        match self.get(path)? {
-            Value::U(v) => Some(v as f64),
-            Value::I(v) => Some(v as f64),
-            Value::F(v) => Some(v),
-            Value::Wide(_) | Value::Text(_) => None,
-        }
+        as_float(self.get(path))
     }
 
     /// Text, or a field wider than 53 bits as its decimal text, as Python gives both.
     fn text(&self, path: &str) -> Option<String> {
-        match self.get(path)? {
-            Value::Text(s) => Some(s.into_owned()),
-            Value::Wide(v) => Some(v.to_string()),
-            _ => None,
-        }
+        as_text(self.get(path))
     }
 
     /// Python's truthiness of the field: present and not 0. Empty text has no value.
     fn flag(&self, path: &str) -> bool {
-        match self.get(path) {
-            Some(Value::U(v)) => v != 0,
-            Some(Value::I(v)) => v != 0,
-            Some(Value::F(v)) => v != 0.0,
-            Some(Value::Wide(v)) => v != 0,
-            Some(Value::Text(s)) => !s.is_empty(),
-            None => false,
-        }
+        as_flag(self.get(path))
     }
 
     /// The action packet (0x028), as combat.action reads it.
     fn action(&self) -> Action {
         combat::action_by_path(self)
+    }
+}
+
+/// An integer; None for a float, text, or a value wider than 53 bits (Python's decimal text).
+pub fn as_int(v: Option<Value>) -> Option<i64> {
+    v?.int()
+}
+
+pub fn as_float(v: Option<Value>) -> Option<f64> {
+    match v? {
+        Value::U(v) => Some(v as f64),
+        Value::I(v) => Some(v as f64),
+        Value::F(v) => Some(v),
+        Value::Wide(_) | Value::Text(_) => None,
+    }
+}
+
+pub fn as_text(v: Option<Value>) -> Option<String> {
+    match v? {
+        Value::Text(s) => Some(s.into_owned()),
+        Value::Wide(v) => Some(v.to_string()),
+        _ => None,
+    }
+}
+
+pub fn as_flag(v: Option<Value>) -> bool {
+    match v {
+        Some(Value::U(v)) => v != 0,
+        Some(Value::I(v)) => v != 0,
+        Some(Value::F(v)) => v != 0.0,
+        Some(Value::Wide(v)) => v != 0,
+        Some(Value::Text(s)) => !s.is_empty(),
+        None => false,
+    }
+}
+
+/// One field of one opcode, its id found once: `static UID: Field = Field::new(S2C, 0x00E, "UniqueNo");` then
+/// `UID.int(f)`. A packet of xc-decode reads it by id, a test's by path. The id is today's layout's, which
+/// every client version uses while packets has no older layouts (xc-decode's build fails on one).
+pub struct Field {
+    direction: u8,
+    opcode: u16,
+    pub path: &'static str,
+    id: OnceLock<Option<FieldId>>,
+}
+
+impl Field {
+    pub const fn new(direction: u8, opcode: u16, path: &'static str) -> Field {
+        Field { direction, opcode, path, id: OnceLock::new() }
+    }
+
+    pub fn get<'a, F: Fields + ?Sized>(&self, f: &'a F) -> Option<Value<'a>> {
+        let id = self.id.get_or_init(|| xc_decode::layout(self.direction, self.opcode, None)?.field(self.path));
+        match *id {
+            Some(id) => f.at(id, self.path),
+            None => f.get(self.path),
+        }
+    }
+
+    pub fn int<F: Fields + ?Sized>(&self, f: &F) -> Option<i64> {
+        as_int(self.get(f))
+    }
+
+    pub fn float<F: Fields + ?Sized>(&self, f: &F) -> Option<f64> {
+        as_float(self.get(f))
+    }
+
+    pub fn text<F: Fields + ?Sized>(&self, f: &F) -> Option<String> {
+        as_text(self.get(f))
+    }
+
+    pub fn flag<F: Fields + ?Sized>(&self, f: &F) -> bool {
+        as_flag(self.get(f))
     }
 }
 
@@ -93,6 +159,10 @@ impl Fields for NoFields {
 impl Fields for xc_decode::Packet<'_> {
     fn get(&self, path: &str) -> Option<Value<'_>> {
         xc_decode::Packet::get(self, path)
+    }
+
+    fn at(&self, id: FieldId, _: &str) -> Option<Value<'_>> {
+        xc_decode::Packet::at(self, id)
     }
 
     /// The bitstream read straight: the same as by path, without a lookup a field.
@@ -160,6 +230,10 @@ impl<'a> std::ops::Deref for Decoded<'a> {
 impl Fields for Decoded<'_> {
     fn get(&self, path: &str) -> Option<Value<'_>> {
         self.fields.get(path)
+    }
+
+    fn at(&self, id: FieldId, path: &str) -> Option<Value<'_>> {
+        self.fields.at(id, path)
     }
 
     fn action(&self) -> Action {

@@ -37,6 +37,9 @@ pub struct Meta {
     /// (direction, opcode): 0 is to the client, 1 from it.
     pub reads: &'static [(u8, u16)],
     pub tables: &'static [Table],
+    /// Its rows come only from its reads outside the world's: Python's sparse. False for one that also writes
+    /// from the world's packets it reads.
+    pub sparse: bool,
 }
 
 pub trait Extractor {
@@ -327,7 +330,7 @@ mod tests {
 
     static T: [Table; 1] =
         [Table { name: "t", columns: &[("a", Ty::I32), ("b", Ty::F32), ("c", Ty::Str), ("d", Ty::ListI32)] }];
-    static M: Meta = Meta { name: "x", version: 1, reads: &[], tables: &T };
+    static M: Meta = Meta { name: "x", version: 1, reads: &[], tables: &T, sparse: true };
 
     #[test]
     fn rows_are_typed_and_held() {

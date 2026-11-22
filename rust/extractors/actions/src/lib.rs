@@ -96,6 +96,7 @@ pub static META: Meta = Meta {
             ],
         },
     ],
+    sparse: true,
 };
 
 #[derive(Default)]

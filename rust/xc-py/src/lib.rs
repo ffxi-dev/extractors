@@ -7,7 +7,8 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 use xc_core::extract::{COMMON, Col, Rows};
-use xc_core::run::{Error, walk};
+use xc_core::run::{Error, See, walk};
+use xc_core::stats::CaptureStats;
 use xc_core::{Extractor, Ty};
 
 fn pa_type<'py>(pa: &Bound<'py, PyModule>, ty: Ty) -> PyResult<Bound<'py, PyAny>> {
@@ -138,36 +139,49 @@ impl<'py> Arrow<'py> {
         }
     }
 
-    fn table(&self, rows: &Rows, capture_id: &str, client_version: &str) -> PyResult<Bound<'py, PyAny>> {
+    fn table(&self, cols: Vec<(&str, Bound<'py, PyAny>)>) -> PyResult<Bound<'py, PyAny>> {
+        let d = PyDict::new(self.py);
+        for (name, c) in cols {
+            d.set_item(name, c)?;
+        }
+        self.pa.call_method1("table", (d,))
+    }
+
+    /// An extractor table's rows, COMMON's columns first.
+    fn rows(&self, rows: &Rows, capture_id: &str, client_version: &str) -> PyResult<Bound<'py, PyAny>> {
         let n = rows.len();
-        let cols = PyDict::new(self.py);
         let repeat = |s: &str| {
             self.pa.call_method1("repeat", (self.pa.call_method1("scalar", (s, pa_type(&self.pa, Ty::Str)?))?, n))
         };
-        cols.set_item(COMMON[0].0, repeat(capture_id)?)?;
-        cols.set_item(COMMON[1].0, self.column(&Col::I64(rows.idx.clone()))?)?;
-        cols.set_item(COMMON[2].0, self.column(&Col::I64(rows.ts_ms.clone()))?)?;
-        cols.set_item(COMMON[3].0, repeat(client_version)?)?;
+        let mut cols = vec![
+            (COMMON[0].0, repeat(capture_id)?),
+            (COMMON[1].0, self.column(&Col::I64(rows.idx.clone()))?),
+            (COMMON[2].0, self.column(&Col::I64(rows.ts_ms.clone()))?),
+            (COMMON[3].0, repeat(client_version)?),
+        ];
         for (&(name, _), c) in rows.table.columns.iter().zip(&rows.cols) {
-            cols.set_item(name, self.column(c)?)?;
+            cols.push((name, self.column(c)?));
         }
-        self.pa.call_method1("table", (cols,))
+        self.table(cols)
     }
 }
 
-/// One pass over the capture for these units: extractor names, and "world" (the walk alone, no tables).
-/// Returns each extractor table's rows by table name.
+/// One pass over the capture for these units: extractor names, "decode" (its tables with no Mogsafe record
+/// and no release), and "world" (the walk alone, no tables). Returns each table's rows by table name.
 #[pyfunction]
 fn run<'py>(py: Python<'py>, path: &str, capture_id: &str, units: Vec<String>) -> PyResult<Bound<'py, PyDict>> {
     let mut xs: Vec<Box<dyn Extractor>> = Vec::new();
+    let mut stats = None;
     for u in &units {
         match u.as_str() {
             "world" => {}
+            "decode" => stats = Some(CaptureStats::default()),
             name => xs
                 .push(xc_all::by_name(name).ok_or_else(|| PyValueError::new_err(format!("no Rust extractor {name}")))?),
         }
     }
-    let (info, _, outs) = walk(Path::new(path), &mut xs, None).map_err(|e| match e {
+    let see = stats.as_mut().map(|s| s as &mut dyn See);
+    let (info, world, outs) = walk(Path::new(path), &mut xs, see).map_err(|e| match e {
         Error::TooLarge => py
             .import("ffxi_extractors.capture")
             .and_then(|m| m.getattr("Skipped"))
@@ -178,13 +192,20 @@ fn run<'py>(py: Python<'py>, path: &str, capture_id: &str, units: Vec<String>) -
     let out = PyDict::new(py);
     for o in &outs {
         for rows in &o.tables {
-            out.set_item(rows.table.name, arrow.table(rows, capture_id, &info.client_version)?)?;
+            out.set_item(rows.table.name, arrow.rows(rows, capture_id, &info.client_version)?)?;
+        }
+    }
+    if let Some(s) = &stats {
+        let character_id = Some(info.character_id as i64).filter(|&c| c != 0).or(world.character_id);
+        for (name, cols) in s.tables(capture_id, &info, character_id) {
+            let cols = cols.iter().map(|(c, col)| Ok((*c, arrow.column(col)?))).collect::<PyResult<Vec<_>>>()?;
+            out.set_item(name, arrow.table(cols)?)?;
         }
     }
     Ok(out)
 }
 
-/// Each Rust extractor's name, version, reads, and tables: [(name, [(column, type)])], for the Python side
+/// Each Rust extractor's name, version, reads, sparse, and tables: [(name, [(column, type)])], for the Python side
 /// to check against its own declarations.
 #[pyfunction]
 fn extractors<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
@@ -196,6 +217,7 @@ fn extractors<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         d.set_item("name", m.name)?;
         d.set_item("version", m.version)?;
         d.set_item("reads", m.reads.to_vec())?;
+        d.set_item("sparse", m.sparse)?;
         let mut tables = Vec::new();
         for t in m.tables {
             let cols = t.columns.iter().map(|&(c, ty)| Ok((c, pa_type(&pa, ty)?))).collect::<PyResult<Vec<_>>>()?;

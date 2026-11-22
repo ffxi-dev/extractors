@@ -8,10 +8,11 @@ pub mod packet;
 pub mod positions;
 pub mod py;
 pub mod run;
+pub mod stats;
 pub mod testing;
 pub mod vana;
 pub mod world;
 
 pub use extract::{Extractor, Meta, Out, Rows, Table, Ty, V};
-pub use packet::{C2S, Decoded, Fields, Packet, S2C, Value};
+pub use packet::{C2S, Decoded, Field, FieldId, Fields, Packet, S2C, Value};
 pub use world::World;
