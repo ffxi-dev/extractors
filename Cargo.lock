@@ -292,15 +292,21 @@ dependencies = [
  "xc-delay",
  "xc-effects",
  "xc-engages",
+ "xc-entity-changes",
  "xc-evasion",
  "xc-fights",
  "xc-hp",
  "xc-immunity",
  "xc-influence",
  "xc-kills",
+ "xc-levels",
+ "xc-looks",
  "xc-mob-messages",
  "xc-party",
  "xc-shops",
+ "xc-spawns",
+ "xc-weather",
+ "xc-zones",
 ]
 
 [[package]]
@@ -363,6 +369,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-entity-changes"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
 name = "xc-evasion"
 version = "0.1.0"
 dependencies = [
@@ -405,6 +418,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-levels"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-looks"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-decode",
+]
+
+[[package]]
 name = "xc-mob-messages"
 version = "0.1.0"
 dependencies = [
@@ -430,6 +458,27 @@ dependencies = [
 
 [[package]]
 name = "xc-shops"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-spawns"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-weather"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-zones"
 version = "0.1.0"
 dependencies = [
  "xc-core",

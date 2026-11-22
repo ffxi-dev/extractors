@@ -26,6 +26,12 @@ xc-evasion = { path = "../extractors/evasion" }
 # B4 events: events, obtained, keyitems, experience, battlefields
 # B5 items: fishing, digs, synths, drops, trades, holdings
 # B6 entities: looks, entity_changes, levels, spawns, weather, zones
+xc-looks = { path = "../extractors/looks" }
+xc-entity-changes = { path = "../extractors/entity_changes" }
+xc-levels = { path = "../extractors/levels" }
+xc-spawns = { path = "../extractors/spawns" }
+xc-weather = { path = "../extractors/weather" }
+xc-zones = { path = "../extractors/zones" }
 # B7 character and maps: character, party, conquest, influence, shops
 xc-character = { path = "../extractors/character" }
 xc-party = { path = "../extractors/party" }
