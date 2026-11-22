@@ -26,6 +26,7 @@ class Party(Extractor):
     version = 3  # 3: list
     doc = "Who was with the recording character: each party and alliance member and Trust, as listed."
     reads = frozenset({(0, 0x0DD), (0, 0x0E2), (0, 0x0C8)})
+    sparse = False  # it reads only the world's packets
     tables = (
         Table(
             "party",

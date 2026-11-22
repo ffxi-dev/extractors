@@ -12,6 +12,7 @@ class EntityChanges(Extractor):
     version = 1
     doc = "Each NPC, mob, and player's first sighting in a capture, and each change of name, model, or flag."
     reads = frozenset({(0, 0x00E), (0, 0x00D)})
+    sparse = False  # 0x00E, the world's, gives most rows
     tables = (
         Table(
             "entity_changes",

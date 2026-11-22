@@ -103,6 +103,7 @@ class Engages(Extractor):
     version = 2  # 2: a stranger's claimed mob can be the one it linked to
     doc = "Each idle, unclaimed mob that engaged, and each pass the character made by one that did not."
     reads = Places.reads | frozenset({(0, 0x028), (0, 0x037), (1, 0x01A)})
+    sparse = False  # a pass needs only the world's sightings
     tables = (
         Table(
             "mob_engages",

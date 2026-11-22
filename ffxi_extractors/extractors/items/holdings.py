@@ -11,6 +11,7 @@ class Holdings(Extractor):
     version = 1
     doc = "Each change to what the recording character holds, by bag and slot."
     reads = frozenset({(0, 0x01E), (0, 0x01F), (0, 0x020)})
+    sparse = False  # it reads only the world's packets
     tables = (
         Table(
             "holdings",

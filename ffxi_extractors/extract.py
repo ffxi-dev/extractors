@@ -72,6 +72,9 @@ class Extractor:
     doc: str
     reads: frozenset[tuple[int, int]]  # (direction, opcode): 0 is to the client, 1 from it
     tables: tuple[Table, ...]
+    # Its rows come only from its reads outside the world's: a capture holding none of them gives it no rows,
+    # so a re-run may pass that capture by. False for one that also writes from the world's packets it reads.
+    sparse = True
 
     def packet(self, p: Packet, f: Fields, world: World, emit: Emit) -> None:
         raise NotImplementedError
