@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 indexmap = "2"
+rustc-hash = "2"
 xc-decode = { path = "../xc-decode" }
 
 [build-dependencies]

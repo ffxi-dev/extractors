@@ -1,7 +1,7 @@
 //! combat.py: the action packet (0x028) as the combat extractors read it, which ids are mobs, which messages
 //! mean a defeat, and how a resent packet is spotted.
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap as HashMap;
 
 use crate::packet::{Fields, Packet};
 

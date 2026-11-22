@@ -2,7 +2,7 @@
 //! character and where it stands, its party, its inventory, and the entities around it. Field for field as
 //! Python's World, None where Python keeps None.
 
-use std::collections::{HashMap, HashSet};
+use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
 use crate::field;
 use crate::packet::{C2S, Field, Fields, Packet, S2C, Value};
@@ -214,7 +214,7 @@ mod tests {
         w.update(&at(0x0DD, S2C), &MapFields::new().int("UniqueNo", 9));
         assert!(w.claimed_by_party(Some(9)) && w.claimed_by_party(Some(7)) && !w.claimed_by_party(None));
         w.update(&at(0x0C8, S2C), &MapFields::new().int("GroupTbl[0].UniqueNo", 7).int("GroupTbl[1].UniqueNo", 0));
-        assert_eq!(w.party, HashSet::from([7]));
+        assert_eq!(w.party.iter().collect::<Vec<_>>(), [&7]);
         w.update(&at(0x015, C2S), &MapFields::new().float("x", 1.0).float("y", 2.0).float("z", 3.0));
         assert_eq!(w.here(), Some((1.0, 2.0, 3.0)));
     }

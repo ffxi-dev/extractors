@@ -1,8 +1,7 @@
 //! battle/positions.py: where each entity is, as the packets last placed it, and which way it faces.
 
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
+use rustc_hash::{FxBuildHasher, FxHashMap as HashMap};
 
 use crate::packet::{C2S, Field, Fields, Packet, S2C};
 use crate::py;
@@ -46,7 +45,7 @@ static ENTITY_00E: [Field; 10] = entity!(0x00E);
 #[derive(Default)]
 pub struct Places {
     /// Entity id -> last x, y, z, in the order Python's dict keeps: a key set again keeps its place.
-    pub pos: IndexMap<Option<i64>, Xyz>,
+    pub pos: IndexMap<Option<i64>, Xyz, FxBuildHasher>,
     pub at: HashMap<Option<i64>, i64>,
     /// Entity id -> (heading, when).
     pub dir: HashMap<Option<i64>, (i64, i64)>,

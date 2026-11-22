@@ -300,11 +300,16 @@ impl Out {
         for c in &mut rows.cols {
             c.push();
         }
-        let id = RowId { table: t, row: i };
+        // Values mostly come in the table's order: look for each from where the last was found.
+        let cols = rows.table.columns;
+        let mut at = 0;
         for (name, v) in values {
-            self.set(id, name, v);
+            let k = (0..cols.len()).map(|k| (at + k) % cols.len()).find(|&k| cols[k].0 == name);
+            let k = k.unwrap_or_else(|| panic!("{} has no column {name}", rows.table.name));
+            rows.cols[k].set(name, i, v);
+            at = k + 1;
         }
-        id
+        RowId { table: t, row: i }
     }
 
     /// Change a row emitted before.
