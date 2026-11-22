@@ -35,8 +35,7 @@ fn cases() {
                 eprintln!("skipped {} {}: offsets depend on the data", c["direction"], c["opcode"]);
                 continue;
             };
-            let got: BTreeMap<String, J> =
-                p.fields().filter_map(|(k, v)| Some((k.into_owned(), json(&v)?))).collect();
+            let got: BTreeMap<String, J> = p.fields().filter_map(|(k, v)| Some((k.into_owned(), json(&v)?))).collect();
             let want: BTreeMap<String, J> =
                 c["fields"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             for (k, v) in &want {

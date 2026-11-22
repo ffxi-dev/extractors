@@ -201,7 +201,7 @@ fn main() {
     assert!(read("layouts.json").as_array().unwrap().is_empty(), "layouts.json has older layouts: support them");
 
     let mut out = String::new();
-    let mut lookup = String::new();
+    let mut table = vec!["None".to_string(); 2 * 0x200]; // opcodes are 9 bits
     for (direction, name) in [(0u8, "s2c"), (1u8, "c2s")] {
         for p in read(&format!("{name}.json")).as_array().unwrap() {
             let opcode = u16::from_str_radix(p["id"].as_str().unwrap().trim_start_matches("0x"), 16).unwrap();
@@ -225,19 +225,27 @@ fn main() {
                 p["name"].as_str().unwrap()
             )
             .unwrap();
-            for e in &w.entries {
+            let mut names = String::new();
+            let mut runs = String::new();
+            for (i, e) in w.entries.iter().enumerate() {
+                if i == 0 || w.entries[i - 1].path != e.path {
+                    write!(names, "{:?},", e.path).unwrap();
+                    write!(runs, "{i},").unwrap();
+                }
                 let cond = e.cond.map_or(u16::MAX, |c| c as u16);
-                write!(out, "E({:?},{},{},K::{},{cond}),", e.path, e.pos, e.bits, e.kind).unwrap();
+                write!(out, "E({},{},K::{},{cond}),", e.pos, e.bits, e.kind).unwrap();
             }
-            out.push_str("], conds: &[");
+            write!(runs, "{}", w.entries.len()).unwrap();
+            write!(out, "], names: &[{names}], runs: &[{runs}]").unwrap();
+            out.push_str(", conds: &[");
             for c in &w.conds {
                 let parent = c.parent.map_or(u16::MAX, |c| c as u16);
                 write!(out, "C({},{},{parent}),", at[c.field], c.value).unwrap();
             }
             out.push_str("] };\n");
-            writeln!(lookup, "({direction}, {opcode:#05x}) => Some(&{id}),").unwrap();
+            table[direction as usize * 0x200 + opcode as usize] = format!("Some(&{id})");
         }
     }
-    write!(out, "fn layout_of(direction: u8, opcode: u16) -> Option<&'static Layout> {{ match (direction, opcode) {{ {lookup} _ => None }} }}").unwrap();
+    write!(out, "static LAYOUTS: [Option<&Layout>; {}] = [{}];", table.len(), table.join(",")).unwrap();
     std::fs::write(std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("layouts.rs"), out).unwrap();
 }
