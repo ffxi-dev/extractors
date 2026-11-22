@@ -100,8 +100,21 @@ NAMES_TABLE = Table(
     ),
     order="release, kind, log_id, id",
 )
+NAMES_ONE = Table(
+    "names_one",
+    "One row per release, kind, log_id, and id of names, which pick_names builds from it: the *_names views"
+    " read it, so no query groups names.",
+    (
+        *NAMES_TABLE.columns[:4],
+        Column("name", pa.string(), "The least of the key's names: a release may list an id twice."),
+        Column("name_passive", pa.string(), "The least passive name."),
+        Column("log", pa.string(), "The least log name."),
+        Column("names", None, "Every name of the key, sorted, once each.", ch="Array(String)"),
+    ),
+    order=NAMES_TABLE.order,
+)
 # Every table that is not a unit's: the decoder's, the run records, and any a caller adds.
-BASE = {t.name: t for t in (*TABLES, RUNS, TRUST, NAMES_TABLE)}
+BASE = {t.name: t for t in (*TABLES, RUNS, TRUST, NAMES_TABLE, NAMES_ONE)}
 DECODE = tuple(t.name for t in TABLES)
 # The tables of units that are not extractors or derived facts: the decoder, and any a caller adds.
 UNITS = {"decode": DECODE}
@@ -226,10 +239,22 @@ def setup(con) -> None:
                     con.command(f"ALTER TABLE {t.name} ADD COLUMN IF NOT EXISTS `{c}` {typ}")
             for index in t.indexes:
                 con.command(f"ALTER TABLE {t.name} ADD INDEX IF NOT EXISTS {index}")
+    if not one(con, "SELECT 1 FROM names_one LIMIT 1"):
+        pick_names(con)
     script(con, "setup.sql")
     for d in DERIVED:
         create_derived(con, d, d.tables[0].name)
     views(con)
+
+
+def pick_names(con, src: str = "names", dst: str = "names_one") -> None:
+    """Fill dst with one row per key of src, in place of what it held: the least of each text, so an id a
+    release lists under two names (Capacious Coffer and Modest Coffer) gets the same one every time."""
+    con.command(f"TRUNCATE TABLE {dst}")
+    con.command(
+        f"INSERT INTO {dst} SELECT release, kind, log_id, id, min(name), min(name_passive), min(log),"
+        f" arraySort(groupUniqArray(name)) FROM {src} GROUP BY release, kind, log_id, id"
+    )
 
 
 def views(con) -> None:

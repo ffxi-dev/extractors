@@ -8,9 +8,12 @@ from ffxi_extractors import store
 
 
 def put(con, table: str, rows: list[dict]) -> None:
-    """Insert rows by column name; a column they leave out takes its default."""
+    """Insert rows by column name; a column they leave out takes its default. Names go on to names_one, as
+    resources.load sends them."""
     keys = dict.fromkeys(k for r in rows for k in r)
     store.insert(con, table, pa.table({k: [r.get(k) for r in rows] for k in keys}))
+    if table == "names":
+        store.pick_names(con)
 
 
 def records(con, sql: str, params: dict | None = None) -> list[dict]:
