@@ -2,9 +2,9 @@
 packets. The captures are the only permanent copy; these tables can be rebuilt from them.
 
 A unit's write for one capture is an idempotent replace: it records an attempt in runs, deletes the
-capture's rows from its tables only when an earlier attempt exists, inserts, then records done. A crash or a
-lost acknowledgement leaves the attempt, so the next run of the unit does it again and the delete keeps counts
-single, while a first ingest sends no DELETE."""
+capture's rows from its tables only when an earlier run may have left some, inserts, then records done. A
+crash or a lost acknowledgement leaves the attempt, so the next run of the unit does it again and the delete
+keeps counts single, while a first ingest, or a unit whose last run wrote no rows, sends no DELETE."""
 
 from __future__ import annotations
 
@@ -324,43 +324,82 @@ def runs(con, capture_id: str | None = None) -> dict[tuple[str, str], tuple[str,
     return {(c, u): (v, d, s) for c, u, v, d, s in got}
 
 
-def _runs(con, capture_id: str, units: dict[str, tuple], decoder: str, state: str, started: int) -> None:
-    """One runs row per unit: units maps each to (version, rows, error)."""
+def _runs(con, units: dict[str, dict[str, tuple]], decoder: str, state: str, started: int) -> None:
+    """One runs row per capture and unit, in one insert: units maps each capture to {unit: (version, rows,
+    error)}."""
     finished = int(time.time() * 1000) if state != "attempting" else None
     records = [
-        [capture_id, u, v, decoder, state, e, started, finished, n, now()] for u, (v, n, e) in units.items()
+        [c, u, v, decoder, state, e, started, finished, n, now()]
+        for c, us in units.items()
+        for u, (v, n, e) in us.items()
     ]
-    con.insert("runs", records, column_names=[c.name for c in RUNS.columns])
+    if records:
+        con.insert("runs", records, column_names=[c.name for c in RUNS.columns])
 
 
-def delete(con, table: str, capture_id: str) -> None:
-    """Delete a capture's rows from a table, again until none are left. ClickHouse 26.8 can lose one of two
-    DELETEs that land on a table at once, when it applies both mutations in one step."""
-    sql = f"SELECT count() FROM `{table}` WHERE capture_id = {{c:String}}"
+def _held(con, captures: list[str]) -> dict[tuple[str, str], str]:
+    """(capture, unit) -> state of its last run, for each that may have left rows: every run but one that
+    recorded writing none."""
+    got = rows(con, "SELECT capture_id, unit, state FROM runs FINAL WHERE capture_id IN {c:Array(String)}"
+                    " AND coalesce(rows, -1) != 0", {"c": captures})  # fmt: skip
+    return {(c, u): s for c, u, s in got}
+
+
+def delete(con, table: str, captures: list[str]) -> None:
+    """Delete these captures' rows from a table, again until none are left. ClickHouse 26.8 can lose one of
+    two DELETEs that land on a table at once, when it applies both mutations in one step."""
+    sql = f"SELECT count() FROM `{table}` WHERE capture_id IN {{c:Array(String)}}"
     for _ in range(5):
-        con.command(f"DELETE FROM `{table}` WHERE capture_id = {{c:String}}", parameters={"c": capture_id})
-        if not one(con, sql, {"c": capture_id})[0]:
+        con.command(
+            f"DELETE FROM `{table}` WHERE capture_id IN {{c:Array(String)}}", parameters={"c": captures}
+        )
+        if not one(con, sql, {"c": captures})[0]:
             return
-    raise RuntimeError(f"{table} kept rows of {capture_id} after five deletes")
+    raise RuntimeError(f"{table} kept rows of {len(captures)} captures after five deletes")
 
 
-def delete_all(con, tables, capture_id: str) -> None:
-    """Delete a capture's rows from each table, the tables at once: a DELETE waits on its mutation, about 0.3
-    s, so a capture's 65 tables in turn took 11 s of a re-run's capture. One DELETE a table at a time keeps
+def delete_all(con, tables: dict[str, list[str]]) -> None:
+    """Delete each table's captures' rows, the tables at once: a DELETE waits on its mutation, about 0.3 s,
+    so a capture's 65 tables in turn took 11 s of a re-run's capture. One DELETE a table at a time keeps
     clear of 26.8's lost DELETE (delete's)."""
     with ThreadPoolExecutor(16) as pool:
-        list(pool.map(lambda t: delete(con, t, capture_id), tables))
+        list(pool.map(lambda t: delete(con, t, tables[t]), tables))
 
 
-def _clear(con, capture_id: str, units) -> None:
-    delete_all(con, [t for unit in units for t in tables_of(unit)], capture_id)
+def _clear(con, units: dict[str, list[str]]) -> None:
+    """Delete each capture's rows of its units: units maps each capture to them."""
+    tables: dict[str, list[str]] = {}
+    for c, us in units.items():
+        for t in dict.fromkeys(t for u in us for t in tables_of(u)):
+            tables.setdefault(t, []).append(c)
+    delete_all(con, tables)
 
 
 def begin(con, capture_id: str, versions: dict[str, str], decoder: str, started: int) -> None:
-    """Record an attempt at these units, and clear what an earlier attempt wrote."""
-    before = {u for (_, u) in runs(con, capture_id)}
-    _runs(con, capture_id, {u: (v, None, None) for u, v in versions.items()}, decoder, "attempting", started)
-    _clear(con, capture_id, [u for u in versions if u in before])
+    """Record an attempt at these units, and clear what an earlier run wrote. A unit whose last run wrote no
+    rows has none to clear: about half a capture's tables hold none, and a first ingest sends no DELETE."""
+    held = _held(con, [capture_id])
+    _runs(
+        con, {capture_id: {u: (v, None, None) for u, v in versions.items()}}, decoder, "attempting", started
+    )
+    _clear(con, {capture_id: [u for u in versions if (capture_id, u) in held]})
+
+
+def begin_many(con, units: dict[str, dict[str, str]], decoder: str, started: int) -> None:
+    """begin for many captures before any of them runs, with one DELETE a table for all: units maps each
+    capture to {unit: version}. Only units that may hold rows are touched: their attempts are recorded, their
+    rows deleted, and the attempts recorded again as having written none, so the capture's own begin sends
+    no DELETE. A DELETE waits about 0.5 s on ClickHouse's mutation scheduling, so a DELETE a table for each
+    capture took 44% of a re-index. A run stopped before it is done stays attempting, as with begin."""
+    held = _held(con, list(units))
+    clear = {c: {u: v for u, v in us.items() if (c, u) in held} for c, us in units.items()}
+
+    def attempts(n):
+        return {c: {u: (v, n, None) for u, v in us.items()} for c, us in clear.items()}
+
+    _runs(con, attempts(None), decoder, "attempting", started)
+    _clear(con, {c: list(us) for c, us in clear.items()})
+    _runs(con, attempts(0), decoder, "attempting", started)
 
 
 def insert(con, table: str, data: pa.Table) -> None:
@@ -370,20 +409,20 @@ def insert(con, table: str, data: pa.Table) -> None:
 
 def done(con, capture_id: str, units: dict[str, tuple[str, int]], decoder: str, started: int) -> None:
     """Record these units' runs done: units maps each to (version, rows)."""
-    _runs(con, capture_id, {u: (v, n, None) for u, (v, n) in units.items()}, decoder, "done", started)
+    _runs(con, {capture_id: {u: (v, n, None) for u, (v, n) in units.items()}}, decoder, "done", started)
 
 
 def fail(con, capture_id: str, versions: dict[str, str], decoder: str, error: str, started: int = 0) -> None:
     """Record that these units failed on a capture. A unit that failed partway keeps no rows of it; one that
     failed before writing keeps the rows of its last good run."""
-    last = runs(con, capture_id)
-    _clear(
-        con,
-        capture_id,
-        [u for u in versions if last.get((capture_id, u), (None, None, None))[2] == "attempting"],
-    )
+    held = _held(con, [capture_id])
+    _clear(con, {capture_id: [u for u in versions if held.get((capture_id, u)) == "attempting"]})
     _runs(
-        con, capture_id, {u: (v, None, error[:2000]) for u, v in versions.items()}, decoder, "failed", started
+        con,
+        {capture_id: {u: (v, None, error[:2000]) for u, v in versions.items()}},
+        decoder,
+        "failed",
+        started,
     )
 
 
@@ -397,7 +436,7 @@ def drop(con, capture_id: str) -> None:
         " AND t.name = c.table WHERE c.database = currentDatabase() AND c.name = 'capture_id'"
         " AND t.engine LIKE '%MergeTree' AND NOT startsWith(t.name, '.inner')",
     )
-    delete_all(con, [t for (t,) in tables], capture_id)
+    delete_all(con, {t: [capture_id] for (t,) in tables})
     reroll(con, others)
 
 

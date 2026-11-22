@@ -3,9 +3,10 @@ import xicap
 from conftest import CAPTAIN, MEMORIA, rows, value
 
 from ffxi_extractors import store
+from ffxi_extractors.decode import DECODER_VERSION
 from ffxi_extractors.extractors import ALL
 from ffxi_extractors.facts import DERIVED
-from ffxi_extractors.index import run
+from ffxi_extractors.index import run, versions
 
 UNITS = {"decode", *(x.name for x in (*ALL, *DERIVED))}
 
@@ -71,6 +72,74 @@ def test_a_delete_clickhouse_lost_is_sent_again(con, monkeypatch):
     monkeypatch.setattr(con, "command", lose_first)
     run(con, CAPTAIN, "c")
     assert lost and counts(con, "c") == want
+
+
+def deletes(con, monkeypatch) -> list[str]:
+    """The DELETEs con sends from now on."""
+    sent, command = [], con.command
+    monkeypatch.setattr(con, "command", lambda sql, *a, **k: sent.append(sql) or command(sql, *a, **k))
+    return sent
+
+
+def deleted(sent) -> list[str]:
+    return [s.split("`")[1] for s in sent if s.startswith("DELETE")]
+
+
+def test_a_unit_whose_last_run_wrote_no_rows_sends_no_delete(con, monkeypatch):
+    run(con, CAPTAIN, "c")
+    empty = {u for u, n in rows(con, "SELECT unit, rows FROM runs FINAL") if n == 0}
+    assert empty, "the captain capture leaves some units without rows"
+    want = counts(con, "c")
+    sent = deletes(con, monkeypatch)
+    run(con, CAPTAIN, "c")
+    assert not set(deleted(sent)) & {t for u in empty for t in store.tables_of(u)}
+    assert counts(con, "c") == want
+
+
+def test_begin_many_clears_each_table_once_and_the_runs_send_none(con, monkeypatch):
+    run(con, CAPTAIN, "c")
+    run(con, MEMORIA, "m")
+    store.begin_many(con, {"new": versions()}, DECODER_VERSION, 1)
+    assert not rows(con, "SELECT 1 FROM runs WHERE capture_id = 'new'"), "a capture never run is left alone"
+    want = counts(con)
+    current = versions()
+    sent = deletes(con, monkeypatch)
+    store.begin_many(con, dict.fromkeys(("c", "m"), current), DECODER_VERSION, 1)
+    tables = deleted(sent)
+    assert tables and len(tables) == len(set(tables))
+    assert all(n == 0 for n in counts(con, "c").values()) and all(n == 0 for n in counts(con, "m").values())
+    states = {
+        (c, u): (s, n) for c, u, s, n in rows(con, "SELECT capture_id, unit, state, rows FROM runs FINAL")
+    }
+    assert all(n == 0 for _, n in states.values()), "every unit as having no rows yet"
+    assert states["c", "decode"] == ("attempting", 0)
+    sent.clear()
+    run(con, CAPTAIN, "c")
+    run(con, MEMORIA, "m")
+    assert not deleted(sent)
+    assert counts(con) == want
+
+
+def test_a_run_stopped_after_begin_many_is_cleared_by_the_next(con, monkeypatch):
+    """begin_many records each attempt as having written nothing; the capture's own begin takes that back
+    before it writes, so a run that stops partway leaves rows the next begin_many deletes."""
+    run(con, CAPTAIN, "c")
+    want = counts(con, "c")
+    store.begin_many(con, {"c": versions()}, DECODER_VERSION, 1)
+    insert = store.insert
+
+    def stop(c, table, data):
+        insert(c, table, data)
+        if table == "action_results":
+            raise Lost
+
+    monkeypatch.setattr(store, "insert", stop)
+    with pytest.raises(Lost):
+        run(con, CAPTAIN, "c")
+    monkeypatch.setattr(store, "insert", insert)
+    store.begin_many(con, {"c": versions()}, DECODER_VERSION, 1)
+    run(con, CAPTAIN, "c")
+    assert counts(con, "c") == want
 
 
 def test_indexing_again_replaces(con):
