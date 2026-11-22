@@ -10,8 +10,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev
 COPY . .
 RUN uv sync --frozen --no-dev
+# xicap's source at the tag pyproject.toml pins, which xc-core's build.rs compiles the reader from.
+RUN git clone -q --depth 1 -b v7.2.0 https://github.com/ffxi-dev/xicap /xicap
 # Each maturin crate under rust/ into the same environment, Cargo's downloads and builds kept between runs.
-ENV CARGO_TARGET_DIR=/cargo/target
+ENV CARGO_TARGET_DIR=/cargo/target XICAP_SRC=/xicap
 RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/cargo/target \
     for p in rust/*/pyproject.toml; do [ ! -f "$p" ] || uv pip install --python /opt/venv/bin/python \
     "$(dirname "$p")"; done
