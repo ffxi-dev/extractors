@@ -1,0 +1,11 @@
+[package]
+name = "xc-fishing"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "items/fishing.py: each cast the character made, its minigame, and its outcome"
+publish = false
+
+[dependencies]
+xc-core = { path = "../../xc-core" }
+xc-gathering = { path = "../gathering" }

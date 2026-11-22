@@ -30,6 +30,12 @@ xc-keyitems = { path = "../extractors/keyitems" }
 xc-experience = { path = "../extractors/experience" }
 xc-battlefields = { path = "../extractors/battlefields" }
 # B5 items: fishing, digs, synths, drops, trades, holdings
+xc-fishing = { path = "../extractors/fishing" }
+xc-digs = { path = "../extractors/digs" }
+xc-synths = { path = "../extractors/synths" }
+xc-drops = { path = "../extractors/drops" }
+xc-trades = { path = "../extractors/trades" }
+xc-holdings = { path = "../extractors/holdings" }
 # B6 entities: looks, entity_changes, levels, spawns, weather, zones
 xc-looks = { path = "../extractors/looks" }
 xc-entity-changes = { path = "../extractors/entity_changes" }
