@@ -286,6 +286,12 @@ version = "0.1.0"
 dependencies = [
  "xc-actions",
  "xc-core",
+ "xc-entity-changes",
+ "xc-levels",
+ "xc-looks",
+ "xc-spawns",
+ "xc-weather",
+ "xc-zones",
 ]
 
 [[package]]
@@ -305,11 +311,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-entity-changes"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-levels"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-looks"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+ "xc-decode",
+]
+
+[[package]]
 name = "xc-py"
 version = "0.1.0"
 dependencies = [
  "pyo3",
  "xc-all",
+ "xc-core",
+]
+
+[[package]]
+name = "xc-spawns"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-weather"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-zones"
+version = "0.1.0"
+dependencies = [
  "xc-core",
 ]
 
