@@ -184,11 +184,6 @@ impl Fights {
                     mobs.push(t);
                 }
             }
-            if mobs.len() > 1 {
-                // Python opens them in the order it iterates {mob for mob in {targets}}.
-                let all = py_set_order(targets());
-                mobs = py_set_order(all.into_iter().filter(|&t| is_mob(Some(t))));
-            }
         }
         for &mob in &mobs {
             self.expire(mob, (p.idx, p.ts_ms), out);
@@ -202,52 +197,6 @@ impl Fights {
         }
         self.mobs = mobs;
     }
-}
-
-/// CPython's iteration order of a set of non-negative ints added in this order (setobject.c, 3.7 to 3.13):
-/// an int hashes to itself, slots are probed linearly 9 past the first, then by perturbation, and the table
-/// grows to hold 4 times its entries once 3/5 full.
-fn py_set_order(xs: impl Iterator<Item = i64>) -> Vec<i64> {
-    fn slot(table: &[Option<i64>], x: i64) -> (usize, bool) {
-        let mask = table.len() - 1;
-        let mut perturb = x as u64;
-        let mut i = x as usize & mask;
-        loop {
-            let probes = if i + 9 <= mask { 9 } else { 0 };
-            for (e, &slot) in table.iter().enumerate().skip(i).take(probes + 1) {
-                match slot {
-                    None => return (e, false),
-                    Some(y) if y == x => return (e, true),
-                    _ => {}
-                }
-            }
-            perturb >>= 5;
-            i = (i as u64).wrapping_mul(5).wrapping_add(1).wrapping_add(perturb) as usize & mask;
-        }
-    }
-    let mut table: Vec<Option<i64>> = vec![None; 8];
-    let mut used = 0;
-    for x in xs {
-        let (e, found) = slot(&table, x);
-        if found {
-            continue;
-        }
-        table[e] = Some(x);
-        used += 1;
-        if used * 5 >= (table.len() - 1) * 3 {
-            let min = if used > 50000 { used * 2 } else { used * 4 };
-            let mut size = 8;
-            while size <= min {
-                size <<= 1;
-            }
-            let old = std::mem::replace(&mut table, vec![None; size]);
-            for x in old.into_iter().flatten() {
-                let (e, _) = slot(&table, x);
-                table[e] = Some(x);
-            }
-        }
-    }
-    table.into_iter().flatten().collect()
 }
 
 #[cfg(test)]
@@ -324,30 +273,14 @@ mod tests {
         assert_eq!(got, [row((MOB, 0, 1, 3000, "disengaged", 3, 2)), row((MOB, 3, 3, later, "disengaged", 1, 0))]);
     }
 
-    /// Python iterates {0x010, 0x018, 0x011, 0x020} as 0x010, 0x018, 0x020, 0x011: 0x018 and 0x020 collide
-    /// with 0x010 and probe past 0x011's slot.
+    /// An area attack opens its fights in target order, a mob listed twice once. Python opens them in its
+    /// set's order instead; parity sorts rows, and ClickHouse orders them by idx, which ties within a packet.
     #[test]
-    fn an_area_attack_opens_its_fights_in_pythons_set_order() {
+    fn an_area_attack_opens_its_fights_in_target_order() {
         let base = MOB & !0xFFF;
-        let targets: Vec<_> = [0x010, 0x018, 0x011, 0x020].iter().map(|&i| (base | i, vec![r(1, 10)])).collect();
+        let targets: Vec<_> = [0x018, 0x010, 0x018, 0x011].iter().map(|&i| (base | i, vec![r(1, 10)])).collect();
         let got = fights(vec![(0, act(PLAYER, 3, 1, &targets))]);
         let order: Vec<V> = got.iter().map(|r| r[0].clone()).collect();
-        assert_eq!(order, [0x010, 0x018, 0x020, 0x011].map(|i| V::Int(base | i)));
+        assert_eq!(order, [0x018, 0x010, 0x011].map(|i| V::Int(base | i)));
     }
-
-    /// CPython 3.13's list() of a set these were added to in order.
-    #[test]
-    fn set_order_matches_cpython() {
-        assert_eq!(py_set_order([16, 8, 0, 24].into_iter()), [16, 8, 0, 24]);
-        assert_eq!(py_set_order([24, 17, 16, 25].into_iter()), [24, 17, 16, 25]);
-        let many = (0..40).map(|i| 0x0100_0000 + i * 37);
-        assert_eq!(py_set_order(many), CPYTHON_40);
-    }
-
-    const CPYTHON_40: [i64; 40] = [
-        16777216, 16777475, 16777734, 16777993, 16778252, 16778511, 16777364, 16777623, 16777882, 16778141, 16778400,
-        16778659, 16777253, 16777512, 16777771, 16778030, 16778289, 16778548, 16777401, 16777660, 16777919, 16778178,
-        16778437, 16777290, 16777549, 16777808, 16778067, 16778326, 16778585, 16777438, 16777697, 16777956, 16778215,
-        16778474, 16777327, 16777586, 16777845, 16778104, 16778363, 16778622,
-    ];
 }
