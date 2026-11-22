@@ -12,6 +12,7 @@ class Weather(Extractor):
     version = 2  # 2: previous_start, when the weather before began
     doc = "The zone's weather at each zone-in and each change after it."
     reads = frozenset({(0, 0x00A), (0, 0x057)})
+    sparse = False  # it reads only the world's packets
     tables = (
         Table(
             "weather",

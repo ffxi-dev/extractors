@@ -35,6 +35,7 @@ class Looks(Extractor):
     version = 1
     doc = "Each entity's speeds, model or look, animation, and flags, with how many updates sent each."
     reads = frozenset({(0, 0x00E), (0, 0x00A)})
+    sparse = False  # it reads only the world's packets
     tables = (
         Table(
             "entity_looks",

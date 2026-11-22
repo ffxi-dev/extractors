@@ -15,6 +15,7 @@ class Zones(Extractor):
     version = 3  # 2: server; 3: through ffxi_packets, none from a short 0x00B
     doc = "Each zone-in: the zone the character entered, when, and on which zone server."
     reads = frozenset({(0, 0x00A), (0, 0x00B)})
+    sparse = False  # a zone-in, the world's 0x00A, is a row
     tables = (
         Table(
             "zones",
