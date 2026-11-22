@@ -1,0 +1,19 @@
+[package]
+name = "xc-all"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Every Rust extractor, by name: extractors/__init__.py's ALL"
+publish = false
+
+[dependencies]
+xc-core = { path = "../xc-core" }
+# A line a crate, under its batch's comment, so batches merge without conflicts.
+# B1 positions: engages, actions
+xc-actions = { path = "../extractors/actions" }
+# B2 hp and effects
+# B3 combat rounds: delay, fights, kills, mob_messages, immunity, defeats, evasion_skill
+# B4 events: events, obtained, keyitems, experience, battlefields
+# B5 items: fishing, digs, synths, drops, trades, holdings
+# B6 entities: looks, entity_changes, levels, spawns, weather, zones
+# B7 character and maps: character, party, conquest, influence, shops
