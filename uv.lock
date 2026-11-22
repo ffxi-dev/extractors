@@ -76,7 +76,7 @@ wheels = [
 
 [[package]]
 name = "ffxi-extractors"
-version = "1.14.2"
+version = "1.14.3"
 source = { editable = "." }
 dependencies = [
     { name = "clickhouse-connect" },
