@@ -19,6 +19,7 @@ EXPECTED = Path(__file__).parent / "expected"
 CAPTURES = ((MEMORIA, "m"), (CAPTAIN, "c"))
 # A derived fact's rows, in a fixed order.
 ORDER = {
+    "named_entities": "entity_id, idx",
     "bestiary_fights": "idx, mob_id",
     "bestiary_mobs": "zone_id, mob_name, model",
     "melee": "idx, target_id, swing",

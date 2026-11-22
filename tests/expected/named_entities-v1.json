@@ -1,0 +1,10 @@
+{
+  "c/named_entities": {
+    "rows": 89,
+    "sha256": "f1bc644f7d5aad549dbd7c95cccd7b165ec819b37619652bb87d66fe03aa4a81"
+  },
+  "m/named_entities": {
+    "rows": 101,
+    "sha256": "c45c51f6f2788f4f83566be89a7650012cfc5fd431c961600bb2604d6c14a5c0"
+  }
+}
