@@ -285,6 +285,25 @@ name = "xc-all"
 version = "0.1.0"
 dependencies = [
  "xc-actions",
+ "xc-character",
+ "xc-conquest",
+ "xc-core",
+ "xc-influence",
+ "xc-party",
+ "xc-shops",
+]
+
+[[package]]
+name = "xc-character"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-conquest"
+version = "0.1.0"
+dependencies = [
  "xc-core",
 ]
 
@@ -305,11 +324,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-influence"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-party"
+version = "0.1.0"
+dependencies = [
+ "xc-character",
+ "xc-core",
+]
+
+[[package]]
 name = "xc-py"
 version = "0.1.0"
 dependencies = [
  "pyo3",
  "xc-all",
+ "xc-core",
+]
+
+[[package]]
+name = "xc-shops"
+version = "0.1.0"
+dependencies = [
  "xc-core",
 ]
 

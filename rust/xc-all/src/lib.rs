@@ -13,6 +13,11 @@ pub fn all() -> Vec<Box<dyn Extractor>> {
         // B5 items: fishing, digs, synths, drops, trades, holdings
         // B6 entities: looks, entity_changes, levels, spawns, weather, zones
         // B7 character and maps: character, party, conquest, influence, shops
+        Box::new(xc_character::Character::default()),
+        Box::new(xc_party::Party::default()),
+        Box::new(xc_conquest::Conquest),
+        Box::new(xc_influence::Influence),
+        Box::new(xc_shops::Shops::default()),
     ]
 }
 

@@ -1,0 +1,10 @@
+[package]
+name = "xc-influence"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "world/influence.py: the Campaign and colonization maps (0x071)"
+publish = false
+
+[dependencies]
+xc-core = { path = "../../xc-core" }
