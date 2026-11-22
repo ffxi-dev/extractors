@@ -288,10 +288,17 @@ dependencies = [
  "xc-character",
  "xc-conquest",
  "xc-core",
+ "xc-defeats",
+ "xc-delay",
  "xc-effects",
  "xc-engages",
+ "xc-evasion",
+ "xc-fights",
  "xc-hp",
+ "xc-immunity",
  "xc-influence",
+ "xc-kills",
+ "xc-mob-messages",
  "xc-party",
  "xc-shops",
 ]
@@ -327,6 +334,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-defeats"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-delay"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
 name = "xc-effects"
 version = "0.1.0"
 dependencies = [
@@ -342,6 +363,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-evasion"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-fights"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
 name = "xc-hp"
 version = "0.1.0"
 dependencies = [
@@ -349,7 +384,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "xc-immunity"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
 name = "xc-influence"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-kills"
+version = "0.1.0"
+dependencies = [
+ "xc-core",
+]
+
+[[package]]
+name = "xc-mob-messages"
 version = "0.1.0"
 dependencies = [
  "xc-core",
