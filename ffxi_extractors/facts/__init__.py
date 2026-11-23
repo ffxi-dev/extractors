@@ -12,6 +12,7 @@ from ffxi_extractors.facts.named_entities import NamedEntities
 from ffxi_extractors.facts.npc_events import NpcEvents
 from ffxi_extractors.facts.npc_shops import NpcShops
 from ffxi_extractors.facts.npc_trades import NpcTrades
+from ffxi_extractors.facts.recipes import Recipes
 from ffxi_extractors.facts.steals import Steals
 from ffxi_extractors.facts.tp_uses import TpUses
 
@@ -30,4 +31,5 @@ DERIVED = (
     NpcEvents,
     NpcTrades,
     NpcShops,
+    Recipes,
 )  # each after the units it reads

@@ -33,6 +33,7 @@ ORDER = {
     "npc_events": "idx",
     "npc_trades": "idx",
     "npc_shops": "idx, item_id, price",
+    "recipes": "crystal_id, ingredients",
 }
 # bestiary_mobs holds aggregate states: compare what they finalise to.
 KEY = "zone_id, mob_name, model, capture_id"

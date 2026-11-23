@@ -62,7 +62,15 @@ def test_the_characters_synthesis_and_someone_elses():
     # Retail's 14 (LSB's critical interruption) made an HQ2; its 10 failed.
     lost = {"Result": 10, "Grade": -1, "ItemNo": 29695, "name": "Nours", "BreakNo[0]": 645}
     made = {"Result": 14, "Grade": 2, "Count": 1, "ItemNo": 745, "name": "Nours", "BreakNo[0]": 645}
-    steps = ((0x06F, own), (0x06F, failed), (0x070, other), (0x070, lost), (0x070, made))
+    # Smithing 12, its rank 1, at its rank's cap (bit 15); goldsmithing, which this one does not train, 30.
+    skills = {"skill_base[50]": 0x8000 | (12 << 5) | 1, "skill_base[51]": 30 << 5}
+    # Retail tells of a skill-up that reaches a level, and sends the 0x062 that shows it, before the result:
+    # the skill before it is one under. The next synthesis starts at the new level.
+    reached = {"MessageNum": 53, "Data": 50, "Data2": 13}
+    again = {"Result": 0, "Grade": 0, "Count": 1, "ItemNo": 16465, "UpKind[0]": 50}
+    raised = {"skill_base[50]": 13 << 5}
+    steps = ((0x062, skills), (0x029, reached), (0x062, raised), (0x06F, own), (0x06F, again),
+             (0x06F, failed), (0x070, other), (0x070, lost), (0x070, made))  # fmt: skip
     got = drive(Synths, *steps)["synths"]
     keys = (
         "own",
@@ -75,11 +83,13 @@ def test_the_characters_synthesis_and_someone_elses():
         "lost",
         "skill_kinds",
         "skill_levels",
+        "skills",
     )
     assert [tuple(r[k] for k in keys) for r in got] == [
-        (True, "Me", "success", 1, 16465, 4096, [8819], [], [50], [2]),
-        (True, "Me", "failed", -1, 29695, 4096, [8819], [8819], [], []),
-        (False, "Nours", "success", None, 16465, None, None, [], None, None),
-        (False, "Nours", "failed", -1, 29695, None, None, [645], None, None),
-        (False, "Nours", None, 2, 745, None, None, [], None, None),
+        (True, "Me", "success", 1, 16465, 4096, [8819], [], [50], [2], [12]),
+        (True, "Me", "success", 0, 16465, None, [], [], [50], [0], [13]),
+        (True, "Me", "failed", -1, 29695, 4096, [8819], [8819], [], [], []),
+        (False, "Nours", "success", None, 16465, None, None, [], None, None, None),
+        (False, "Nours", "failed", -1, 29695, None, None, [645], None, None, None),
+        (False, "Nours", None, 2, 745, None, None, [], None, None, None),
     ]

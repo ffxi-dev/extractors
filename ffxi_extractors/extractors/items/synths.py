@@ -7,14 +7,15 @@ INTS = pa.list_(pa.int32())
 
 class Synths(Extractor):
     """Each synthesis result the zone sent: the character's own (0x06F), which names the crystal and
-    ingredients beside the result, and those of others nearby (0x070), which name the result only."""
+    ingredients beside the result, and those of others nearby (0x070), which name the result only. The
+    character's craft skills come from its skills updates (0x062) and skill-up messages (0x029)."""
 
     name = "synths"
-    version = 2  # 2: only results retail's captures explain are named; lost follows grade -1
+    version = 3  # 2: only results retail's captures explain are named; lost follows grade -1. 3: skills
     doc = (
         "Each synthesis result: the character's with its recipe, lost items, and skill-ups; others' results."
     )
-    reads = frozenset({(0, 0x06F), (0, 0x070)})
+    reads = frozenset({(0, 0x06F), (0, 0x070), (0, 0x062), (0, 0x029)})
     tables = (
         Table(
             "synths",
@@ -67,6 +68,15 @@ class Synths(Extractor):
                     INTS,
                     "UpLevel as sent: in captures, the rise in tenths, as the skill-up message (0x029, 38)"
                     " gave it. Own only.",
+                ),
+                Column(
+                    "skills",
+                    INTS,
+                    "The character's level in each craft of skill_kinds, at the same place, before this"
+                    " synthesis: one under the level a skill-up message (0x029, 53) since the last synthesis"
+                    " reached, as retail sends those and the skills update that shows them before the result;"
+                    " else the last skills update's (0x062) skill_base for it, bits 5 to 14; null where none"
+                    " came. Own only.",
                 ),
                 Column("zone_id", pa.int32(), "The zone."),
             ),
