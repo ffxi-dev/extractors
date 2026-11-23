@@ -28,7 +28,7 @@ pub fn all() -> Vec<Box<dyn Extractor>> {
         // B5 items: fishing, digs, synths, drops, trades, holdings
         Box::new(xc_fishing::Fishing::default()),
         Box::new(xc_digs::Digs::default()),
-        Box::new(xc_synths::Synths),
+        Box::new(xc_synths::Synths::default()),
         Box::new(xc_drops::Drops::default()),
         Box::new(xc_trades::Trades::default()),
         Box::new(xc_holdings::Holdings::default()),

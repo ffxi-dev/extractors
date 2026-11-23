@@ -1,6 +1,6 @@
 # extractors
 
-Turns FFXI captures into ClickHouse tables and findings. **Extractors** read one capture's packets in order and write rows: every action, each mob's HP, effects, spawns, weather, drops, and more. **Derived facts** are ClickHouse SQL over those rows: the bestiary, melee rounds, TP moves, aggro, steals, NPC events, trades, and shops.
+Turns FFXI captures into ClickHouse tables and findings. **Extractors** read one capture's packets in order and write rows: every action, each mob's HP, effects, spawns, weather, drops, and more. **Derived facts** are ClickHouse SQL over those rows: the bestiary, melee rounds, TP moves, aggro, steals, NPC events, trades, shops, and recipes.
 
 [Scholar](https://scholar.sruon.dev) runs this library over every capture [Mogsafe](https://mogsafe.sruon.dev) keeps, and its mob pages show the results. A change merged here reaches Scholar in the next release.
 
