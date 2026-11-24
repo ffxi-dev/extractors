@@ -9,14 +9,14 @@ class Effects(Extractor):
     icons only, and nothing lists a mob's, so theirs have no row."""
 
     name = "effects"
-    version = 9  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
+    version = 10  # 2: a mob's move or spell that gives its effect silently, and named; a Cure's HP names no
     # status; 3: a renewal no result names has no source; 4: a silent move waits for a naming result and
     # takes no buff a player gave; 5: a silent move lands and gives no buff; the capture's clock offset;
     # 6: the offset from a zone-in's server time, so a capture whose clock runs ahead keeps its sources;
     # 7: each row by the offset in force at it, for a capture across a clock change; a job ability a player,
     # trust, or pet used on the character comes before a silent move; 8: such an ability gives no ailment,
     # a paralyzed mob gives nothing, and an icon cleared early counts against no clock offset; 9: a silent
-    # move gives only an ailment
+    # move gives only an ailment; 10: a spell that names an effect gives no other
     doc = (
         "Each status effect applied to the character: how long the zone said it would last, and what gave it."
     )
@@ -59,9 +59,8 @@ class Effects(Extractor):
                     " the icon to 1 s after that names the status: by a message that lands an effect, or a"
                     " job ability's or item's value. Else, for a new icon, the latest item or job ability a"
                     " player, trust, or pet used on the character, such as a roll, which names its total;"
-                    " else a mob's TP move or spell that landed on it under 1.5 s before, unless the status"
-                    " is one a player can click off, or a player, trust, or pet gave it that status by name"
-                    " in the capture. None when none did, such as"
+                    " else, for an ailment, a mob's TP move, or spell whose result named no effect, that"
+                    " landed on it from 1.5 s before to 1 s after. None when none did, such as"
                     " an effect a 0x029 message gave, a renewal no result named, or an expiry before the"
                     " action.",
                 ),
