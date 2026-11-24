@@ -1,6 +1,6 @@
 [project]
 name = "ffxi-extractors"
-version = "2.3.0"
+version = "2.4.0"
 description = "Turns FFXI captures into ClickHouse tables and findings: Scholar's extractors and derived facts"
 license = "GPL-3.0-only"
 # The Python Scholar runs, which extractors_rs is built for.
