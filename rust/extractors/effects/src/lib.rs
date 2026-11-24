@@ -67,7 +67,7 @@ fn ailment(status: i64) -> bool {
 
 pub static META: Meta = Meta {
     name: "effects",
-    version: 9,
+    version: 10,
     sparse: true,
     reads: &[(S2C, 0x063), (S2C, 0x028), (S2C, 0x00A)],
     tables: &[Table {
@@ -285,9 +285,11 @@ impl Effects {
                     self.landed.push(at(x.value, true, x.message));
                 }
                 let went = r.miss.is_none_or(|m| m == 0) && r.message != Some(PARALYZED);
+                // A spell gives only the effect its result names; a TP move may name one and give more.
+                let spell_named = cat == Some(4) && sure;
                 if ability && !mob {
                     self.landed.push(at(None, false, r.message));
-                } else if matches!(cat, Some(4 | 11)) && mob && went {
+                } else if matches!(cat, Some(4 | 11)) && mob && went && !spell_named {
                     self.landed.push(at(Some(MOVE), false, r.message));
                 }
             }
@@ -715,6 +717,29 @@ mod tests {
         let g = effects(vec![bat(), action(4, 172, 2, 120), listed], vec![T0, hit, hit]);
         assert_eq!(g.col("status_id"), vec![v(135), v(198), v(317), v(321)]);
         assert_eq!(g.col("action_id"), vec![v(172), V::Null, V::Null, V::Null]);
+    }
+
+    #[test]
+    fn a_spell_gives_only_the_effect_it_names() {
+        // 6TZTvclTQXjV: one Goblin Leecher's Bio hits for damage, then another's Silence lands just after the Bio icon.
+        let hit = T0 + 1000;
+        let g = effects(
+            vec![
+                bat(),
+                action(4, 230, 2, 20),
+                icons(&[(135, Some(hit + 60_000))]),
+                action(4, 59, 236, 6),
+                icons(&[(135, Some(hit + 60_000)), (6, Some(hit + 15_000))]),
+            ],
+            vec![T0, hit - 470, hit, hit + 70, hit + 1_100],
+        );
+        let ks = ["status_id", "action_id", "named"];
+        assert_eq!(g.row(0, &ks), vec![v(135), v(230), v(false)]);
+        assert_eq!(g.row(1, &ks), vec![v(6), v(59), v(true)]);
+        // With no other move near, the Silence still gives no Bio.
+        let g =
+            effects(vec![bat(), icons(&[(135, Some(hit + 60_000))]), action(4, 59, 236, 6)], vec![T0, hit, hit + 70]);
+        assert_eq!(g.get(0, "source_idx"), V::Null);
     }
 
     #[test]
