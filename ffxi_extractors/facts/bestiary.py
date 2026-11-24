@@ -284,7 +284,8 @@ ic AS (
 ),
 s AS (
   SELECT f.capture_id AS capture_id, f.mob_id AS mob_id, f.fidx AS fidx,
-    {ordered("tuple(s.spell_id AS spell, s.outcome AS outcome)", "s.idx")} AS taken
+    {ordered("tuple(s.spell_id AS spell, s.outcome AS outcome, s.immunobreak AS immunobreak,"
+              " s.caster_id AS caster, s.idx AS idx, s.ts_ms AS ms)", "s.idx")} AS taken
   FROM (SELECT * FROM spell_results WHERE {ONE}) s
   JOIN fk f ON s.capture_id = f.capture_id AND s.target_id = f.mob_id AND s.idx BETWEEN f.fidx AND f.end_idx
   GROUP BY f.capture_id, f.mob_id, f.fidx
@@ -453,8 +454,8 @@ class Bestiary(Derived):
     # 18: tp shadows; 19: skillchains apart by capture; 20: skillchains exposed to the day or weather;
     # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first;
     # 23: no world in fight_key; 24: first_swings; 25: gil, players, gf; 26: gil whole, from the pool, so no
-    # players
-    version = 26
+    # players; 27: taken's immunobreak, caster, packet, and time
+    version = 27
     doc = (
         "One row of facts per fight, from the combat, mob, and loot tables, for the mob pages: HP, delay, TP"
         " moves, spells, drops, and elemental resistance (EEM) from skillchains."
@@ -597,7 +598,12 @@ class Bestiary(Derived):
                     " its start (actions.ready_ms), and the ms from its previous finish of that spell in the"
                     " capture to this one's start.",
                 ),
-                Column("taken", None, "Each spell result on it: the spell and its outcome (spell_results)."),
+                Column(
+                    "taken",
+                    None,
+                    "Each spell result on it (spell_results): the spell, its outcome, whether it was an"
+                    " immunobreak, the caster, its packet (idx), and its time (ms).",
+                ),
                 Column("drops", None, "For a defeat: the pool entries under 60 s after it, from drops."),
                 Column(
                     "skillchains",

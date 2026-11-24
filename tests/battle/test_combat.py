@@ -169,6 +169,16 @@ def test_an_immunity_and_resists():
     ]
 
 
+@pytest.mark.parametrize(
+    "message, outcome, immunobreak",
+    [(656, "immune", False), (283, "no_effect", False), (653, "resist", True), (654, "resist", True)],
+)
+def test_area_forms(message, outcome, immunobreak):
+    """An area spell's later targets get the short form of each message: Sleepga II's 656, Bind's 653."""
+    (row,) = raw(Immunity, (0, act(PLAYER, 4, 273, [(MOB, [r(message)])])))["spell_results"]
+    assert (row["outcome"], row["immunobreak"]) == (outcome, immunobreak)
+
+
 def test_a_defeated_mob_took_melee_a_weapon_skill_and_a_skillchain():
     rows = raw(
         Hp,

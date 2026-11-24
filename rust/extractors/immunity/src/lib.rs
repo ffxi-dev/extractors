@@ -5,15 +5,16 @@ use xc_core::combat::{Resends, is_mob};
 use xc_core::extract::{Extractor, Meta, Out, Table, Ty::*};
 use xc_core::{Decoded, Packet, S2C, World, row};
 
-/// LSB msg_basic.
-const IMMUNE: i64 = 655;
+/// LSB msg_basic; the second of each pair is the area form, for a spell's later targets.
+const IMMUNE: [i64; 2] = [655, 656];
 const RESIST: i64 = 85;
 const RESIST_TARGET: i64 = 284;
-const NO_EFFECT: i64 = 75;
+const IMMUNOBREAK: [i64; 2] = [653, 654];
+const NO_EFFECT: [i64; 2] = [75, 283];
 
 pub static META: Meta = Meta {
     name: "immunity",
-    version: 1,
+    version: 2,
     reads: &[(S2C, 0x028)],
     tables: &[Table {
         name: "spell_results",
@@ -23,6 +24,7 @@ pub static META: Meta = Meta {
             ("spell_id", I64),
             ("message", I32),
             ("outcome", Str),
+            ("immunobreak", Bool),
             ("value", I64),
             ("zone_id", I32),
         ],
@@ -32,10 +34,10 @@ pub static META: Meta = Meta {
 
 fn outcome(message: Option<i64>, bit: Option<i64>) -> &'static str {
     match message {
-        Some(IMMUNE) => "immune",
+        Some(m) if IMMUNE.contains(&m) => "immune",
         Some(RESIST) if bit.unwrap_or(0) & 0x02 != 0 => "trait_resist",
-        Some(RESIST | RESIST_TARGET) => "resist",
-        Some(NO_EFFECT) => "no_effect",
+        Some(m) if m == RESIST || m == RESIST_TARGET || IMMUNOBREAK.contains(&m) => "resist",
+        Some(m) if NO_EFFECT.contains(&m) => "no_effect",
         _ => "landed",
     }
 }
@@ -69,6 +71,7 @@ impl Extractor for Immunity {
                         spell_id: a.cmd_arg,
                         message: r.message,
                         outcome: outcome(r.message, r.bit),
+                        immunobreak: r.message.is_some_and(|m| IMMUNOBREAK.contains(&m)),
                         value: r.value,
                         zone_id: world.zone,
                     },
@@ -111,5 +114,23 @@ mod tests {
         assert_eq!(outcome(Some(284), None), "resist");
         assert_eq!(outcome(Some(75), None), "no_effect");
         assert_eq!(outcome(None, Some(2)), "landed");
+    }
+
+    /// test_combat.py's test_area_forms: an area spell's later targets.
+    #[test]
+    fn area_forms() {
+        let out = raw(
+            Box::new(Immunity::default()),
+            [656, 283, 653, 654]
+                .iter()
+                .enumerate()
+                .map(|(i, &m)| at(10 * i as i64, act(PLAYER, 4, 273, &[(MOB, vec![r(m, 0)])])))
+                .collect(),
+            PLAYER,
+        );
+        let x = out.rows("spell_results");
+        let got: Vec<_> = (0..x.len()).map(|i| (x.get(i, "outcome"), x.get(i, "immunobreak"))).collect();
+        let row = |o: &str, b| (V::Str(o.into()), V::Bool(b));
+        assert_eq!(got, [row("immune", false), row("no_effect", false), row("resist", true), row("resist", true)]);
     }
 }
