@@ -59,10 +59,8 @@ class Effects(Extractor):
                     " the icon to 1 s after that names the status: by a message that lands an effect, or a"
                     " job ability's or item's value. Else, for a new icon, the latest item or job ability a"
                     " player, trust, or pet used on the character, such as a roll, which names its total;"
-                    " else a mob's TP move, or spell whose result named no effect, that landed on it from 1.5 s"
-                    " before to 1 s after, unless the status"
-                    " is one a player can click off, or a player, trust, or pet gave it that status by name"
-                    " in the capture. None when none did, such as"
+                    " else, for an ailment, a mob's TP move, or spell whose result named no effect, that"
+                    " landed on it from 1.5 s before to 1 s after. None when none did, such as"
                     " an effect a 0x029 message gave, a renewal no result named, or an expiry before the"
                     " action.",
                 ),
