@@ -2,17 +2,16 @@ import pyarrow as pa
 
 from ffxi_extractors.extract import Column, Extractor, Table
 
-IMMUNE, RESIST, RESIST_TARGET, NO_EFFECT = 655, 85, 284, 75  # LSB msg_basic
-
 
 class Immunity(Extractor):
     """Ported from captain's immunitytrack: each spell cast on a mob and how it fared. immunitytrack counts
     655 as immune, 85 with bit 2 as a trait resist, and other 85s as resists; this also counts 284 (the
-    target resists the effects) as a resist and 75 as no effect, which immunitytrack counts as landed.
-    Every cast is kept, landed or not, so a resist rate is resists over rows."""
+    target resists the effects) as a resist and 75 as no effect, which immunitytrack counts as landed, and
+    each area form: 656 immune, 283 no effect, 653 and 654 (Immunobreak!) a resist. Every cast is kept,
+    landed or not, so a resist rate is resists over rows."""
 
     name = "immunity"
-    version = 1
+    version = 2  # 2: 656 immune, 283 no effect, 653 and 654 a resist with immunobreak
     doc = "Each spell (0x028 category 4) on a mob, and whether it landed, was resisted, or did nothing."
     reads = frozenset({(0, 0x028)})
     tables = (
@@ -28,8 +27,14 @@ class Immunity(Extractor):
                 Column(
                     "outcome",
                     pa.string(),
-                    "immune (655), trait_resist (85 with bit 2), resist (85, 284), no_effect (75), or"
-                    " landed (anything else, damage included).",
+                    "immune (655, 656), trait_resist (85 with bit 2), resist (85, 284, 653, 654),"
+                    " no_effect (75, 283), or landed (anything else, damage included).",
+                ),
+                Column(
+                    "immunobreak",
+                    pa.bool_(),
+                    "Whether the resist lowered the mob's resistance (653, 654: Immunobreak!), which an"
+                    " immune mob never allows.",
                 ),
                 Column("value", pa.int64(), "The result's amount: damage, or the status the spell gave."),
                 Column("zone_id", pa.int32(), "The zone the character was in."),
