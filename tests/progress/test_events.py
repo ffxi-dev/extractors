@@ -176,6 +176,20 @@ def test_a_reward_after_a_warp_follows_its_event():
         assert [r["event_id"] for r in rows] == [8700, 8800], x.name
 
 
+def test_a_key_item_after_the_zone_in_lists_follows_no_event_before_it():
+    """A ??? gives a key item 14 s after a Survival Guide's warp: the guide's event did not give it."""
+    rows = run(
+        KeyItems,
+        (0, keyitems(0, [0] * 16)),
+        (1000, event_num(8500, [0] * 8)),
+        (2000, zone_in()),
+        (3000, keyitems(0, [0] * 16)),
+        (16_000, release()),
+        (17_000, keyitems(0, [0b1] + [0] * 15)),
+    )["keyitems"]
+    assert [(r["key_item_id"], r["event_id"]) for r in rows] == [(0, None)]
+
+
 def test_an_update_with_strings():
     """0x05D updates an event with nine numbers and four strings, as LSB's updateEventString sends them."""
     rows = run(
