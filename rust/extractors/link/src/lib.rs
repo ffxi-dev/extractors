@@ -1,6 +1,8 @@
 //! link.py: the event a change follows. What an event's packets are, and the one under way, for events,
 //! obtained, and keyitems.
 
+use std::collections::HashSet;
+
 use xc_core::{C2S, Fields, Packet, S2C};
 
 /// What an event packet is: KINDS's values.
@@ -115,6 +117,27 @@ impl Link {
         if k == Some(Kind::Release) {
             self.end();
         }
+    }
+}
+
+/// The lists a zone-in resends, a key item table or a log port each. A change in the first of each after the
+/// zone-in can come from an event before it, as a warp's reward does. A later list is a change in the new zone,
+/// which an event left behind can't cause.
+#[derive(Default, Debug)]
+pub struct Resent {
+    /// The last zone-in's idx, and the lists sent since.
+    zone_in: Option<(i64, HashSet<i64>)>,
+}
+
+impl Resent {
+    pub fn zone_in(&mut self, idx: i64) {
+        self.zone_in = Some((idx, HashSet::new()));
+    }
+
+    /// The event a change in list follows, of the one the link gives.
+    pub fn event(&mut self, list: i64, event: Option<Start>) -> Option<Start> {
+        let Some((zone_in, sent)) = &mut self.zone_in else { return event };
+        if !sent.insert(list) && event.is_some_and(|e| e.idx < *zone_in) { None } else { event }
     }
 }
 

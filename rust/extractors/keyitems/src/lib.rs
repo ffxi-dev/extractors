@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 use xc_core::extract::{Extractor, Meta, Out, Table, Ty::*};
 use xc_core::{C2S, Decoded, Fields, Packet, S2C, World, row};
-use xc_link::{Link, kind};
+use xc_link::{Link, Resent, kind};
 
 /// The 16 words of a 0x055 list, a bit a key item.
 pub type Words = [u32; 16];
@@ -84,8 +84,7 @@ pub struct KeyItems {
     link: Link,
     /// Event start idx -> its 0x02A messages' first numbers.
     told: HashMap<i64, HashSet<Option<i64>>>,
-    /// The last zone-in's idx, and the tables it has resent since.
-    zoned: Option<(i64, HashSet<i64>)>,
+    resent: Resent,
 }
 
 impl Extractor for KeyItems {
@@ -97,7 +96,7 @@ impl Extractor for KeyItems {
         let key = p.key();
         if key == (S2C, 0x00A) {
             self.told.clear();
-            self.zoned = Some((p.idx as i64, HashSet::new()));
+            self.resent.zone_in(p.idx as i64);
             self.link.follow(p, f);
             return;
         }
@@ -112,15 +111,7 @@ impl Extractor for KeyItems {
         }
         let (table, now) = key_items(f);
         let before = self.held.insert(table, now);
-        let mut event = self.link.at(p.ts_ms);
-        // A zone-in resends every table, and a change in that list can come from an event before it, as a
-        // warp's reward does. A later list is a change in the new zone, which an event left behind can't cause.
-        if let Some((zone_in, resent)) = &mut self.zoned
-            && !resent.insert(table)
-            && event.is_some_and(|e| e.idx < *zone_in)
-        {
-            event = None;
-        }
+        let event = self.resent.event(table, self.link.at(p.ts_ms));
         let (x, y, z) = world.pos;
         let mut emit = |change: &str, ki: i64| {
             out.emit(

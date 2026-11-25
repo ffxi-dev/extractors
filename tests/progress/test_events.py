@@ -190,6 +190,20 @@ def test_a_key_item_after_the_zone_in_lists_follows_no_event_before_it():
     assert [(r["key_item_id"], r["event_id"]) for r in rows] == [(0, None)]
 
 
+def test_a_log_change_after_the_zone_in_lists_follows_no_event_before_it():
+    """The zone-in resends every log port: a later change is in the new zone, not from an event before it."""
+    rows = run(
+        Events,
+        (0, log(0x98, [0] * 8)),
+        (1000, event_num(8500, [0] * 8)),
+        (2000, zone_in()),
+        (3000, log(0x98, [0] * 8)),
+        (16_000, release()),
+        (17_000, log(0x98, [1] + [0] * 7)),
+    )["log_changes"]
+    assert [r["event_id"] for r in rows] == [None]
+
+
 def test_an_update_with_strings():
     """0x05D updates an event with nine numbers and four strings, as LSB's updateEventString sends them."""
     rows = run(

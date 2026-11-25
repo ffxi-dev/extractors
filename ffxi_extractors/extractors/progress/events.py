@@ -8,7 +8,7 @@ class Events(Extractor):
     """Ported from captain's eventview and missiontrack."""
 
     name = "events"
-    version = 2  # 2: 0x05D, an update with strings
+    version = 3  # 2: 0x05D, an update with strings; 3: log_changes' event stops at a zone-in's lists
     doc = "NPC events with their parameters and the replies, NPC messages, and mission and quest log changes."
     reads = frozenset(KINDS) | {(0, 0x00A), (0, 0x056)}
     tables = (
@@ -70,7 +70,8 @@ class Events(Extractor):
                     "event_idx",
                     pa.int64(),
                     f"The start of the event this change follows: the open one, or one that ended under"
-                    f" {LINK_MS // 1000} s before.",
+                    f" {LINK_MS // 1000} s before. An event from before a zone-in follows only into the list"
+                    " of each port the zone-in sends.",
                 ),
                 Column("event_id", pa.int32(), "That event's id."),
                 Column("zone_id", pa.int32(), "The zone."),
