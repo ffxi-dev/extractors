@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use xc_core::extract::{Extractor, Meta, Out, Table, Ty::*};
 use xc_core::{C2S, Decoded, Fields, Packet, S2C, World, row};
-use xc_link::{Kind, Link, Start, kind};
+use xc_link::{Kind, Link, Resent, Start, kind};
 
 /// Mission and quest log ports (0x056), as missiontrack reads them.
 fn current(port: i64) -> Option<&'static str> {
@@ -110,7 +110,7 @@ pub fn log_changes(port: Option<i64>, old: &[i64; 8], new: &[i64; 8], mut emit: 
 
 pub static META: Meta = Meta {
     name: "events",
-    version: 2,
+    version: 3,
     reads: &[
         (S2C, 0x032),
         (S2C, 0x033),
@@ -202,6 +202,7 @@ struct Ev {
 #[derive(Default)]
 pub struct Events {
     link: Link,
+    resent: Resent,
     /// Port -> its last list.
     ports: HashMap<Option<i64>, [i64; 8]>,
 }
@@ -215,6 +216,7 @@ impl Extractor for Events {
         let key = p.key();
         if key == (S2C, 0x00A) {
             self.link.end();
+            self.resent.zone_in(p.idx as i64);
             if f.flag("EventNum") {
                 let e = Ev {
                     event_id: f.int("EventPara"),
@@ -325,7 +327,7 @@ impl Events {
         let port = f.int("Port");
         let new = LOG.map(|k| f.int(k).unwrap_or(0));
         let Some(old) = self.ports.insert(port, new) else { return };
-        let start = self.link.at(p.ts_ms);
+        let start = self.resent.event(port.unwrap_or(-1), self.link.at(p.ts_ms));
         log_changes(port, &old, &new, |(log, area, field, a, b, id, action)| {
             out.emit(
                 "log_changes",

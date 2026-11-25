@@ -89,6 +89,19 @@ fn a_reward_after_a_warp_follows_its_event() {
 }
 
 #[test]
+fn a_log_change_after_the_zone_in_lists_follows_no_event_before_it() {
+    let out = run(vec![
+        (0, log(0x98, [0; 8])),
+        (1000, event_num(8500, [0; 8])),
+        (2000, zone_in()),
+        (3000, log(0x98, [0; 8])),
+        (16_000, release()),
+        (17_000, log(0x98, [1, 0, 0, 0, 0, 0, 0, 0])),
+    ]);
+    assert_eq!(col(&out, "log_changes", "event_id"), [V::Null]);
+}
+
+#[test]
 fn an_update_with_strings() {
     let out = run(vec![
         (1000, event_num(8700, [0; 8])),
