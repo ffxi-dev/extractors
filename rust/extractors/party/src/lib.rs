@@ -152,7 +152,7 @@ impl Extractor for Party {
 mod tests {
     use super::*;
     use xc_core::V;
-    use xc_core::testing::{PLAYER, raw};
+    use xc_core::testing::{PLAYER, raw, raw_with};
 
     /// Curilla in Apollyon, as retail sent her.
     const TRUST: i64 = 0x01000000 | (0x026 << 12) | 0x63C;
@@ -233,5 +233,18 @@ mod tests {
             (r.get(0, "main_job"), r.get(0, "main_level"), r.get(2, "zone_id")),
             ("WAR".into(), V::Int(75), V::Int(0x026))
         );
+    }
+
+    /// Mogsafe notes 115 and 116: YwMILwxCkmfL, a PacketViewer import from 2020-02-03 whose header names no client
+    /// version, listed Yoran-Oran as "ran-Oran". Before 30211103_1 the name starts at 0x26, not 0x28.
+    #[test]
+    fn a_member_before_master_levels_keeps_its_whole_name() {
+        let hex =
+            "dd1ae302be09110167040000310600000000000000000000be08040000646400000000000000596f72616e2d4f72616e00000000";
+        let d = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        let version = xc_decode::capture_version("", 1_580_740_282_000);
+        let out = raw_with(Box::new(Party::default()), vec![(0, S2C, 0x0DD, d)], PLAYER, version);
+        let r = out.rows("party");
+        assert_eq!((r.get(0, "name"), r.get(0, "member_number")), ("Yoran-Oran".into(), V::Int(4)));
     }
 }

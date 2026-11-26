@@ -93,7 +93,8 @@ pub fn walk(
     let mut r = Reader::open(path).map_err(Error::Read)?;
     let info = r.info.clone();
     let mut world = World::new(info.character_id as i64, &info.character);
-    let outs = walk_packets(&mut r, &info.client_version, &mut world, xs, see)?;
+    let version = xc_decode::capture_version(&info.client_version, info.start_ms);
+    let outs = walk_packets(&mut r, version, &mut world, xs, see)?;
     Ok((info, world, outs))
 }
 
