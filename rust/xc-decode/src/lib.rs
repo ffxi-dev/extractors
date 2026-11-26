@@ -1,6 +1,6 @@
 //! Decodes FFXI packets as ffxi_packets does, field for field, straight from the packet's bytes.
 //!
-//! build.rs turns packets' schemas (`packets/`, tag v2.2.0) into a table per layout: every field's path,
+//! build.rs turns packets' schemas (`packets/`, tag v2.3.0) into a table per layout: every field's path,
 //! bit offset, width, and the union variant it sits in. A field is read only when asked for. A field has
 //! no value when the packet ends before it, when it is empty text, or when its union holds another
 //! variant: what Python's `Fields(path)` gives as None. Layouts whose offsets depend on the data are not
@@ -67,11 +67,23 @@ pub struct Layout {
     pub name: &'static str,
     pub direction: u8,
     pub opcode: u16,
+    /// An older layout from layouts.json: a FieldId found in today's is not its own.
+    pub older: bool,
     custom: bool,
     entries: &'static [E],
     names: &'static [&'static str],
     runs: &'static [u16],
     conds: &'static [C],
+}
+
+/// An older layout from layouts.json: `until` is the first client version that no longer uses it, `from` the
+/// first that does. None for a layout whose offsets depend on the data.
+struct Older {
+    direction: u8,
+    opcode: u16,
+    until: Option<(u64, u64)>,
+    from: Option<(u64, u64)>,
+    layout: Option<&'static Layout>,
 }
 
 include!(concat!(env!("OUT_DIR"), "/layouts.rs"));
@@ -80,10 +92,38 @@ include!(concat!(env!("OUT_DIR"), "/layouts.rs"));
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FieldId(u16);
 
-/// The layout a client version uses for this opcode. Every version uses today's: packets has no older
-/// layouts (build.rs fails when it gets one).
-pub fn layout(direction: u8, opcode: u16, _client_version: Option<&str>) -> Option<&'static Layout> {
+/// `30211103_1` as `(30211103, 1)`, as packets' `_version_key`; None for anything else, such as a captain build.
+fn version_key(v: &str) -> Option<(u64, u64)> {
+    let (a, b) = v.split_once('_')?;
+    let n = |s: &str| s.bytes().all(|c| c.is_ascii_digit()).then(|| s.parse().ok()).flatten();
+    Some((n(a)?, n(b)?))
+}
+
+/// The layout a client version uses for this opcode, as packets picks it: the first older layout that applies,
+/// else today's. A version that does not read as `30211103_1` gets today's.
+pub fn layout(direction: u8, opcode: u16, client_version: Option<&str>) -> Option<&'static Layout> {
+    if let Some(v) = client_version.and_then(version_key)
+        && let Some(o) = OLDER.iter().find(|o| {
+            o.direction == direction
+                && o.opcode == opcode
+                && (o.until.is_some_and(|u| v < u) || o.from.is_some_and(|f| v >= f))
+        })
+    {
+        return o.layout;
+    }
     *LAYOUTS.get(direction as usize * 0x200 + opcode as usize)?
+}
+
+/// The client version to pick layouts by for a capture recorded at `ms` (Unix ms) whose header names none: the
+/// newest that starts or ends an older layout and was live by then, or `0_0`, older than all of them.
+pub fn version_at(ms: u64) -> &'static str {
+    LIVE.iter().filter(|(_, live)| *live <= ms).max_by_key(|(v, _)| version_key(v)).map_or("0_0", |(v, _)| v)
+}
+
+/// The client version a capture's layouts are picked by: its header's when it reads as one, else, for a captain
+/// build or an import that names none, `version_at` its first packet. A capture with neither gets today's.
+pub fn capture_version(header: &str, start_ms: u64) -> &str {
+    if version_key(header).is_some() || start_ms == 0 { header } else { version_at(start_ms) }
 }
 
 /// A packet of a known layout, decoded on demand.
@@ -217,5 +257,47 @@ impl<'a> Packet<'a> {
     pub fn fields(&self) -> impl Iterator<Item = (Cow<'static, str>, Value<'a>)> + '_ {
         let own = self.layout.paths().filter_map(|(p, id)| Some((Cow::Borrowed(p), self.at(id)?)));
         own.chain(self.action().into_iter().flat_map(|a| a.fields().map(|(p, v)| (Cow::Owned(p), v))))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MASTER_LEVELS: u64 = 1_636_502_400_000; // 2021-11-10, when 30211103_1 went live
+
+    fn name_at(version: Option<&str>) -> usize {
+        let l = layout(S2C, 0x0DD, version).unwrap();
+        let i = l.field("Name").unwrap().0 as usize;
+        l.entries[l.runs[i] as usize].0 as usize / 8
+    }
+
+    #[test]
+    fn a_version_before_until_gets_the_older_layout() {
+        assert_eq!(name_at(Some("30211005_0")), 0x26);
+        assert_eq!(name_at(Some("30211103_1")), 0x28);
+        assert_eq!(name_at(Some("30261102_1")), 0x28);
+        // Not a client version: today's, as packets does.
+        assert_eq!(name_at(Some("Version 18:08:44 Nov 12 2025")), 0x28);
+        assert_eq!(name_at(Some("")), 0x28);
+        assert_eq!(name_at(None), 0x28);
+    }
+
+    #[test]
+    fn a_capture_with_no_version_picks_by_when_it_was_recorded() {
+        assert_eq!(capture_version("30211005_0", MASTER_LEVELS), "30211005_0");
+        assert_eq!(capture_version("", MASTER_LEVELS - 1), "0_0");
+        assert_eq!(capture_version("", MASTER_LEVELS), "30211103_1");
+        assert_eq!(capture_version("Version 18:08:44 Nov 12 2025", 1_763_362_549_317), "30211103_1");
+        assert_eq!(capture_version("", 0), "");
+        assert_eq!(name_at(Some(capture_version("", 1_580_740_282_000))), 0x26);
+    }
+
+    #[test]
+    fn only_digits_read_as_a_version() {
+        assert_eq!(version_key("30211103_1"), Some((30211103, 1)));
+        for v in ["", "_", "30211103", "+3021_1", "3021_1x", "Version 1_2"] {
+            assert_eq!(version_key(v), None, "{v}");
+        }
     }
 }

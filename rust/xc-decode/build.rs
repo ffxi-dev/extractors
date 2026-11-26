@@ -190,6 +190,67 @@ impl Walk {
     }
 }
 
+/// When each client version that starts or ends an older layout went live, UTC midnight of the update's day in
+/// Unix ms: a capture whose header names no version picks its layouts by when it was recorded. Every `until`
+/// and `from` in layouts.json needs one.
+const LIVE: &[(&str, u64)] = &[
+    // The 2021-11-10 update, Master Levels: LSB's CLIENT_VER went from 30211005_0 to it that day.
+    ("30211103_1", 1_636_502_400_000),
+];
+
+fn opcode(p: &J) -> u16 {
+    u16::from_str_radix(p["id"].as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
+}
+
+/// `static {id}: Layout`, or false for a layout whose offsets depend on the data.
+fn emit(out: &mut String, id: &str, p: &J, direction: u8, older: bool) -> bool {
+    let opcode = opcode(p);
+    let fields = p["fields"].as_array().unwrap();
+    let custom = (direction, opcode) == (0, 0x028);
+    if !custom && fixed_end(fields, 0, true).is_none() {
+        return false;
+    }
+    let mut w = Walk::default();
+    w.fields(fields, 0, "", None);
+    // Sorted by path for lookup; a path written twice keeps its walk order, the last write winning.
+    w.entries.sort_by(|a, b| a.path.cmp(&b.path).then(a.seq.cmp(&b.seq)));
+    let mut at = vec![0; w.entries.len()];
+    for (i, e) in w.entries.iter().enumerate() {
+        at[e.seq] = i;
+    }
+    write!(
+        out,
+        "static {id}: Layout = Layout {{ name: {:?}, direction: {direction}, opcode: {opcode:#05x}, older: {older}, custom: {custom}, entries: &[",
+        p["name"].as_str().unwrap()
+    )
+    .unwrap();
+    let mut names = String::new();
+    let mut runs = String::new();
+    for (i, e) in w.entries.iter().enumerate() {
+        if i == 0 || w.entries[i - 1].path != e.path {
+            write!(names, "{:?},", e.path).unwrap();
+            write!(runs, "{i},").unwrap();
+        }
+        let cond = e.cond.map_or(u16::MAX, |c| c as u16);
+        write!(out, "E({},{},K::{},{cond}),", e.pos, e.bits, e.kind).unwrap();
+    }
+    write!(runs, "{}", w.entries.len()).unwrap();
+    write!(out, "], names: &[{names}], runs: &[{runs}]").unwrap();
+    out.push_str(", conds: &[");
+    for c in &w.conds {
+        let parent = c.parent.map_or(u16::MAX, |c| c as u16);
+        write!(out, "C({},{},{parent}),", at[c.field], c.value).unwrap();
+    }
+    out.push_str("] };\n");
+    true
+}
+
+/// A client version as `(30211103, 1)`, as packets' `_version_key` reads it.
+fn version(v: &str) -> String {
+    let (a, b) = v.split_once('_').unwrap();
+    format!("({}, {})", a.parse::<u64>().unwrap(), b.parse::<u64>().unwrap())
+}
+
 fn main() {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("packets");
     let read = |name: &str| -> J {
@@ -197,55 +258,46 @@ fn main() {
         println!("cargo:rerun-if-changed={}", p.display());
         serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap()
     };
-    // ponytail: no older layouts yet; pick them by client version once packets ships one.
-    assert!(read("layouts.json").as_array().unwrap().is_empty(), "layouts.json has older layouts: support them");
 
     let mut out = String::new();
     let mut table = vec!["None".to_string(); 2 * 0x200]; // opcodes are 9 bits
     for (direction, name) in [(0u8, "s2c"), (1u8, "c2s")] {
         for p in read(&format!("{name}.json")).as_array().unwrap() {
-            let opcode = u16::from_str_radix(p["id"].as_str().unwrap().trim_start_matches("0x"), 16).unwrap();
-            let fields = p["fields"].as_array().unwrap();
-            let custom = (direction, opcode) == (0, 0x028);
-            if !custom && fixed_end(fields, 0, true).is_none() {
-                continue;
+            let id = format!("{}_{:03X}", name.to_uppercase(), opcode(p));
+            if emit(&mut out, &id, p, direction, false) {
+                table[direction as usize * 0x200 + opcode(p) as usize] = format!("Some(&{id})");
             }
-            let mut w = Walk::default();
-            w.fields(fields, 0, "", None);
-            // Sorted by path for lookup; a path written twice keeps its walk order, the last write winning.
-            w.entries.sort_by(|a, b| a.path.cmp(&b.path).then(a.seq.cmp(&b.seq)));
-            let mut at = vec![0; w.entries.len()];
-            for (i, e) in w.entries.iter().enumerate() {
-                at[e.seq] = i;
-            }
-            let id = format!("{}_{opcode:03X}", name.to_uppercase());
-            write!(
-                out,
-                "static {id}: Layout = Layout {{ name: {:?}, direction: {direction}, opcode: {opcode:#05x}, custom: {custom}, entries: &[",
-                p["name"].as_str().unwrap()
-            )
-            .unwrap();
-            let mut names = String::new();
-            let mut runs = String::new();
-            for (i, e) in w.entries.iter().enumerate() {
-                if i == 0 || w.entries[i - 1].path != e.path {
-                    write!(names, "{:?},", e.path).unwrap();
-                    write!(runs, "{i},").unwrap();
-                }
-                let cond = e.cond.map_or(u16::MAX, |c| c as u16);
-                write!(out, "E({},{},K::{},{cond}),", e.pos, e.bits, e.kind).unwrap();
-            }
-            write!(runs, "{}", w.entries.len()).unwrap();
-            write!(out, "], names: &[{names}], runs: &[{runs}]").unwrap();
-            out.push_str(", conds: &[");
-            for c in &w.conds {
-                let parent = c.parent.map_or(u16::MAX, |c| c as u16);
-                write!(out, "C({},{},{parent}),", at[c.field], c.value).unwrap();
-            }
-            out.push_str("] };\n");
-            table[direction as usize * 0x200 + opcode as usize] = format!("Some(&{id})");
         }
     }
-    write!(out, "static LAYOUTS: [Option<&Layout>; {}] = [{}];", table.len(), table.join(",")).unwrap();
+    writeln!(out, "static LAYOUTS: [Option<&Layout>; {}] = [{}];", table.len(), table.join(",")).unwrap();
+
+    out.push_str("static OLDER: &[Older] = &[");
+    let mut older = String::new();
+    for (i, p) in read("layouts.json").as_array().unwrap().iter().enumerate() {
+        let direction = if p["direction"] == "c2s" { 1u8 } else { 0 };
+        let id = format!("OLDER_{i}");
+        let layout = if emit(&mut older, &id, p, direction, true) { format!("Some(&{id})") } else { "None".into() };
+        let bound = |k: &str| {
+            p[k].as_str().map_or("None".into(), |v| {
+                assert!(LIVE.iter().any(|(l, _)| *l == v), "build.rs's LIVE needs the day {v} went live");
+                format!("Some({})", version(v))
+            })
+        };
+        write!(
+            out,
+            "Older {{ direction: {direction}, opcode: {:#05x}, until: {}, from: {}, layout: {layout} }},",
+            opcode(p),
+            bound("until"),
+            bound("from")
+        )
+        .unwrap();
+    }
+    out.push_str("];\n");
+    out.push_str(&older);
+    out.push_str("static LIVE: &[(&str, u64)] = &[");
+    for (v, ms) in LIVE {
+        write!(out, "({v:?}, {ms}),").unwrap();
+    }
+    out.push_str("];\n");
     std::fs::write(std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("layouts.rs"), out).unwrap();
 }

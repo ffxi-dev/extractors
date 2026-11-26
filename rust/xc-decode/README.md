@@ -2,7 +2,7 @@
 
 FFXI packets decoded as `ffxi_packets` decodes them, field for field, straight from the packet's bytes.
 
-`build.rs` turns `packets/` (ffxi-dev/packets at tag v2.2.0: `schemas/*.json` and `cases/`) into a table per
+`build.rs` turns `packets/` (ffxi-dev/packets at tag v2.3.0: `schemas/*.json` and `cases/`) into a table per
 fixed layout: each field's path, bit offset, width, and union variant. A field is read only when asked for,
 with no allocation except text that is not valid UTF-8. The action packet (s2c 0x028) has its own bitstream
 decoder, `Action`, matching Python's `_action`.
@@ -21,6 +21,8 @@ for t in decode(S2C, 0x028, &action, None).unwrap().action().unwrap().targets() 
 ```
 
 Bump packets: copy the tag's `schemas/*.json` and `cases/*.json` into `packets/`, then `cargo test`.
-`build.rs` fails when packets ships older layouts by client version (`layouts.json`), which it does not pick yet.
+Older layouts (`layouts.json`) are picked by client version as packets picks them. A capture whose header
+names no version, such as a PacketViewer import, picks by when it was recorded: `version_at` gives the version
+live then, from build.rs's `LIVE`, which fails the build when a layout's `until` or `from` has no day there.
 
 `parity/` compares the crate with Python on real captures: every packet the same. Its README has the numbers.

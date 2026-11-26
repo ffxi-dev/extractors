@@ -41,8 +41,8 @@ pub trait Fields {
     fn get(&self, path: &str) -> Option<Value<'_>>;
 
     /// A field found once with `xc_decode::layout(dir, op, None)?.field(path)`, read without a lookup by path;
-    /// path is what a packet that is not xc-decode's (a test's MapFields) reads instead. The id must be of
-    /// this packet's layout.
+    /// path is what a packet that is not xc-decode's (a test's MapFields), or of an older layout, reads instead.
+    /// The id is today's layout's.
     fn at(&self, id: FieldId, path: &str) -> Option<Value<'_>> {
         let _ = id;
         self.get(path)
@@ -108,8 +108,8 @@ pub fn as_flag(v: Option<Value>) -> bool {
 }
 
 /// One field of one opcode, its id found once: `static UID: Field = Field::new(S2C, 0x00E, "UniqueNo");` then
-/// `UID.int(f)`. A packet of xc-decode reads it by id, a test's by path. The id is today's layout's, which
-/// every client version uses while packets has no older layouts (xc-decode's build fails on one).
+/// `UID.int(f)`. A packet of xc-decode reads it by id, a test's by path. The id is today's layout's: a packet of
+/// an older layout reads it by path.
 ///
 /// `field!(S2C, 0x00E, "UniqueNo")` declares one in place: `field!(S2C, 0x00E, "UniqueNo").int(f)`.
 pub struct Field {
@@ -171,8 +171,9 @@ impl Fields for xc_decode::Packet<'_> {
         xc_decode::Packet::get(self, path)
     }
 
-    fn at(&self, id: FieldId, _: &str) -> Option<Value<'_>> {
-        xc_decode::Packet::at(self, id)
+    /// The id is today's layout's; an older layout's packet finds the field by path.
+    fn at(&self, id: FieldId, path: &str) -> Option<Value<'_>> {
+        if self.layout.older { self.get(path) } else { xc_decode::Packet::at(self, id) }
     }
 
     /// The bitstream read straight: the same as by path, without a lookup a field.

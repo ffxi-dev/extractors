@@ -9,7 +9,7 @@ from ffxi_extractors.extract import Column, Table, arrow
 from ffxi_extractors.world import WORLD_VERSION
 
 # The packets release whose layouts rust/xc-decode/packets holds.
-PACKETS = "2.2.0"
+PACKETS = "2.3.0"
 # Every unit's rows depend on the decoder and on what the world keeps: a change to either re-runs them all.
 DECODER_VERSION = f"{PACKETS}+world{WORLD_VERSION}"
 
