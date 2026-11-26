@@ -130,3 +130,13 @@ def test_a_quest_line_after_a_bite_is_no_catch():
     quest = (0x027, {"UniqueNo": PLAYER, "MesNum": BASE + 0x59, "Num1[0]": 1182, "Num1[1]": 2})
     rows = fish(*bite, quest, *bite, quest)
     assert [(r["hook"], r["outcome"], r["item_id"]) for r in rows] == [("small fish", "caught", None)] * 2
+
+
+def test_a_monster_reeled_in_names_the_mob_that_claims_the_character():
+    """NZlAAFDTRYzV's Greater Pugil (01003003) came claimed by the fisher 0.4 s before the animation
+    (0x037 61); a monster given up never spawns."""
+    mob = 0x01003003
+    claim = (0x00E, {"UniqueNo": mob, "ActIndex": 3, "SendFlg.ClaimStatus": 1, "BtTargetID": PLAYER})
+    bite = (cast(), said(0x34), (0x115, GAME), said(0x29))
+    rows = fish(cast(), said(4), status(62), *bite, reel(0), claim, status(61), *bite, reel(200), status(62))
+    assert [(r["outcome"], r["monster_id"]) for r in rows[1:]] == [("monster", mob), ("gave up", None)]
