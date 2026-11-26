@@ -187,6 +187,10 @@ sh AS (
   FROM nb
 ),
 acts AS (SELECT * FROM actions WHERE {ONE} AND NOT resend AND category IN (4, 11)),
+-- Each mob's Mighty Strikes (mob skills 688, 1008, 2242, 2939): every hit it lands crits for 45 s, so a TP
+-- move within 50 s after says nothing of whether the move itself crits.
+ms AS (SELECT capture_id, actor_id, ts_ms FROM acts
+  WHERE category = 11 AND action_id IN (688, 1008, 2242, 2939)),
 -- Each spell a mob finished, with the wait from its previous finish of that spell in the capture to this
 -- cast's start (its finish less its cast time): its recast is no longer than the shortest.
 cg AS MATERIALIZED (
@@ -198,7 +202,8 @@ cg AS MATERIALIZED (
 tp AS (
   SELECT f.capture_id AS capture_id, f.mob_id AS mob_id, f.fidx AS fidx, {ordered(
     "tuple(a.idx AS idx, a.action_id AS id, a.targets AS targets, a.max_range AS reach,"
-    " a.max_spread AS spread, a.actor_size AS size, r.hit AS hit, r.crit AS crit, r.kb AS kb,"
+    " a.max_spread AS spread, a.actor_size AS size, if(m.forced, NULL, r.hit) AS hit,"
+    " if(m.forced, NULL, r.crit) AS crit, r.kb AS kb,"
     " a.ready_ms AS ready, sh.near AS near,"
     " arrayConcat([toFloat32(greatest(0, a.targets - 1))], coalesce(sh.areas, [0, 0, 0])) AS rules_out,"
     " r.shadows AS shadows, h.exact_take = r.shadows AS shadow_exact,"
@@ -209,6 +214,9 @@ tp AS (
   LEFT JOIN rs r ON r.capture_id = a.capture_id AND r.idx = a.idx
   LEFT JOIN sh ON sh.capture_id = a.capture_id AND sh.idx = a.idx
   LEFT JOIN rh h ON h.capture_id = a.capture_id AND h.idx = a.idx
+  LEFT JOIN (SELECT a.capture_id AS capture_id, a.idx AS idx, true AS forced FROM acts a
+    ASOF JOIN ms ON ms.capture_id = a.capture_id AND ms.actor_id = a.actor_id AND ms.ts_ms <= a.ts_ms
+    WHERE a.category = 11 AND a.ts_ms - ms.ts_ms <= 50000) m ON m.capture_id = a.capture_id AND m.idx = a.idx
   WHERE a.category = 11 GROUP BY f.capture_id, f.mob_id, f.fidx
 ),
 -- A mob that attacks with TP moves sends no "readies" before them: the time between two such moves in a row,
@@ -454,8 +462,8 @@ class Bestiary(Derived):
     # 18: tp shadows; 19: skillchains apart by capture; 20: skillchains exposed to the day or weather;
     # 21: no tp_gains while the recorder was SAM, main or sub; 22: the instance is the zone server first;
     # 23: no world in fight_key; 24: first_swings; 25: gil, players, gf; 26: gil whole, from the pool, so no
-    # players; 27: taken's immunobreak, caster, packet, and time
-    version = 27
+    # players; 27: taken's immunobreak, caster, packet, and time; 28: no tp hit or crit under Mighty Strikes
+    version = 28
     doc = (
         "One row of facts per fight, from the combat, mob, and loot tables, for the mob pages: HP, delay, TP"
         " moves, spells, drops, and elemental resistance (EEM) from skillchains."
@@ -568,7 +576,8 @@ class Bestiary(Derived):
                 Column(
                     "tp",
                     None,
-                    "Each TP move: packet, skill, targets, reach, spread, mob size, hit, crit, knockback,"
+                    "Each TP move: packet, skill, targets, reach, spread, mob size, hit, crit (both none"
+                    " within 50 s after the mob's Mighty Strikes, which makes every hit crit), knockback,"
                     " ready time in ms from its start (actions.ready_ms), the party near it, its targets and"
                     " the bystanders placed under 5 s ago (distance, bearing, from the first target, hit),"
                     " and rules_out: how far the use rules out a single target, an area around the mob, one"
