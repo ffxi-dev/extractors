@@ -1,5 +1,5 @@
-//! battle/mob_messages.py: draw-ins and blue magic learned, from 0x029. A draw-in's mob is the monster
-//! nearest the player's next position. Its Python twin keeps the docs.
+//! battle/mob_messages.py: draw-ins and blue magic learned, from 0x029. A draw-in's mob is the engaged
+//! monster nearest the player's next position. Its Python twin keeps the docs.
 
 use std::collections::{HashMap, HashSet};
 
@@ -12,6 +12,7 @@ static MESSAGE: Field = Field::new(S2C, 0x029, "MessageNum");
 static TARGET: Field = Field::new(S2C, 0x029, "UniqueNoTar");
 static DATA: Field = Field::new(S2C, 0x029, "Data");
 static GENERAL: Field = Field::new(S2C, 0x00E, "SendFlg.General");
+static STATUS: Field = Field::new(S2C, 0x00E, "server_status");
 static MONSTER: Field = Field::new(S2C, 0x00E, "Flags1.MonsterFlag");
 /// UniqueNo, SendFlg.Despawn, SendFlg.Position, x, y, z of 0x00E, 0x00D, and c2s 0x015.
 macro_rules! place {
@@ -37,14 +38,16 @@ const POSITION: usize = 2;
 const DRAWN_IN: i64 = 232;
 /// "<target> learns <spell>!"
 const LEARNED: i64 = 419;
-/// Yalms: a draw-in leaves the player beside its mob.
-const NEAR: f64 = 10.0;
+/// server_status of a monster in a fight (LSB ANIMATION_ATTACK).
+const ENGAGED: i64 = 1;
+/// Yalms: a draw-in leaves the player beside its mob, up to 12 from a large one's centre.
+const NEAR: f64 = 12.0;
 /// A drawn player's next position comes within this.
 const WAIT_MS: i64 = 3000;
 
 pub static META: Meta = Meta {
     name: "mob_messages",
-    version: 2,
+    version: 3,
     reads: &[(S2C, 0x029), (S2C, 0x00E), (S2C, 0x00D), (C2S, 0x015), (S2C, 0x00A)],
     tables: &[Table {
         name: "mob_messages",
@@ -67,6 +70,8 @@ type Xyz = (Option<f64>, Option<f64>, Option<f64>);
 pub struct MobMessages {
     resends: Resends,
     monsters: HashSet<Id>,
+    /// Monsters whose last general update had them engaged.
+    engaged: HashSet<i64>,
     /// Monster -> its last position.
     pos: HashMap<i64, (f64, f64, f64)>,
     /// Player -> its draw-in's (row, ts_ms), until the player's next position.
@@ -86,7 +91,7 @@ impl MobMessages {
         }
         // Python's min over (distance, id): a tie goes to the lower id.
         let mut near: Option<(f64, i64)> = None;
-        for (&m, &there) in &self.pos {
+        for (&m, &there) in self.pos.iter().filter(|(m, _)| self.engaged.contains(m)) {
             let d = dist3((x, y, z), there);
             if near.is_none_or(|(bd, bm)| if d == bd { m < bm } else { d < bd }) {
                 near = Some((d, m));
@@ -108,6 +113,7 @@ impl Extractor for MobMessages {
         let op = p.opcode;
         if op == 0x00A {
             self.monsters.clear();
+            self.engaged.clear();
             self.pos.clear();
             self.drawn.clear();
         } else if p.direction == C2S {
@@ -122,6 +128,7 @@ impl Extractor for MobMessages {
             if k[DESPAWN].flag(f) {
                 if let Some(u) = uid {
                     self.pos.remove(&u);
+                    self.engaged.remove(&u);
                 }
                 return;
             }
@@ -130,6 +137,13 @@ impl Extractor for MobMessages {
                     self.monsters.insert(uid);
                 } else {
                     self.monsters.remove(&uid);
+                }
+                if let Some(u) = uid {
+                    if STATUS.int(f) == Some(ENGAGED) {
+                        self.engaged.insert(u);
+                    } else {
+                        self.engaged.remove(&u);
+                    }
                 }
             }
             let at = xyz(k, f);
@@ -172,8 +186,13 @@ mod tests {
     const OTHER: i64 = MOB + 1;
 
     fn mob(uid: i64, x: f64, monster: i64) -> (u16, MapFields) {
+        mob_in(uid, x, monster, 1)
+    }
+
+    fn mob_in(uid: i64, x: f64, monster: i64, status: i64) -> (u16, MapFields) {
         let f = MapFields::new().int("UniqueNo", uid).int("SendFlg.General", 1).int("SendFlg.Position", 1);
-        (0x00E, f.int("Flags1.MonsterFlag", monster).float("x", x).float("y", 0.0).float("z", 0.0))
+        let f = f.int("Flags1.MonsterFlag", monster).int("server_status", status);
+        (0x00E, f.float("x", x).float("y", 0.0).float("z", 0.0))
     }
 
     fn message(number: i64, who: i64, data: i64) -> (u16, MapFields) {
@@ -244,6 +263,25 @@ mod tests {
         let out = drive(&mut MobMessages::default(), steps, Drive::default());
         let g = got(&out);
         assert_eq!((g.len(), &g[0][1..4]), (1, &[V::Int(trust), V::Int(MOB), V::Float(9.5)][..]));
+    }
+
+    /// test_mob_events.py's test_an_idle_monster_nearer_where_the_player_landed_drew_no_one_in.
+    #[test]
+    fn an_idle_monster_nearer_where_the_player_landed_drew_no_one_in() {
+        let steps = vec![
+            mob(MOB, 0.0, 1),
+            mob_in(OTHER, 15.4, 1, 0),
+            mob_in(OTHER, 15.4, 1, 1),
+            mob_in(OTHER, 15.4, 1, 0),
+            message(232, PLAYER, 0),
+            (0x015, MapFields::new().float("x", 8.6).float("y", 0.0).float("z", 0.0)),
+        ];
+        let out = drive(
+            &mut MobMessages::default(),
+            steps,
+            Drive { directions: Some(vec![0, 0, 0, 0, 0, 1]), ..Drive::default() },
+        );
+        assert_eq!(got(&out)[0][2], V::Int(MOB));
     }
 
     #[test]

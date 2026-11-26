@@ -55,7 +55,7 @@ ASOF LEFT JOIN {NAMES} n
 
 class MobEvents(Derived):
     name = "mob_events"
-    version = 1
+    version = 2  # 2: mob_messages 3, its draw-ins by engaged monsters only
     doc = "Each draw-in and blue magic spell learned, with its mob named as the bestiary names it."
     reads = frozenset({"decode", "mob_messages", "kills", "fights", "actions", "entity_changes"})
     order = "zone_id, mob_name, ts_ms"  # a mob page reads its mob's rows
@@ -63,9 +63,9 @@ class MobEvents(Derived):
     tables = (
         Table(
             "mob_events",
-            "One row per mob_messages row, with its mob: for a draw-in the monster nearest where the player"
-            " landed; for a spell learned the defeat just before it, under 60 s. Party copies are in each"
-            " recorder's capture.",
+            "One row per mob_messages row, with its mob: for a draw-in the engaged monster nearest where"
+            " the player landed; for a spell learned the defeat just before it, under 60 s. Party copies are"
+            " in each recorder's capture.",
             (
                 Column("kind", None, "drawn_in or learned."),
                 Column("player_id", None, "The player drawn in, or who learned the spell."),

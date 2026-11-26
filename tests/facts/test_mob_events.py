@@ -11,8 +11,9 @@ OTHER = MOB + 1
 SHEEP_SONG, SHEEP_SKILL, RAGE = 584, 264, 261
 
 
-def mob(uid, x, monster=1):
+def mob(uid, x, monster=1, status=1):
     flags = {"SendFlg.General": 1, "SendFlg.Position": 1, "Flags1.MonsterFlag": monster}
+    flags["server_status"] = status
     return 0x00E, {"UniqueNo": uid, **flags, "x": x, "y": 0.0, "z": 0.0}
 
 
@@ -44,6 +45,22 @@ def test_a_draw_in_names_the_monster_nearest_where_the_player_landed():
         ("drawn_in", MEMBER, None, None, None),
         ("learned", PLAYER, None, None, SHEEP_SONG),
     ]
+
+
+def test_an_idle_monster_nearer_where_the_player_landed_drew_no_one_in():
+    # Tiamat, a large mob, draws the character 8.6 yalms from its centre, beside Bifrons, idle at 6.8
+    # (1eVb5J7AbyY- packet 1529008).
+    steps = [
+        mob(MOB, 0.0),
+        mob(OTHER, 15.4, status=0),
+        mob(OTHER, 15.4, status=1),  # engaged later: no draw-in waits on it
+        mob(OTHER, 15.4, status=0),
+        message(232),
+        (0x015, {"x": 8.6, "y": 0.0, "z": 0.0}),
+    ]
+    directions = [1 if op == 0x015 else 0 for op, _ in steps]
+    (row,) = drive(MobMessages, *steps, directions=directions)["mob_messages"]
+    assert (row.get("mob_id"), row.get("distance")) == (MOB, pytest.approx(8.6))
 
 
 def test_a_trust_drawn_in_lands_by_its_own_update_and_no_trust_draws_in():
