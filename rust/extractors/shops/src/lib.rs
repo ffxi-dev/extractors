@@ -17,6 +17,10 @@ fn field(dir: u8, op: u16, path: String) -> Field {
 static TALK: [Field; 2] = [Field::new(C2S, 0x01A, "ActionID"), Field::new(C2S, 0x01A, "UniqueNo")];
 static NPC_032: Field = Field::new(S2C, 0x032, "UniqueNo");
 static NPC_034: Field = Field::new(S2C, 0x034, "UniqueNo");
+static NPC_036: Field = Field::new(S2C, 0x036, "UniqueNo");
+static REPLY: Field = Field::new(C2S, 0x05B, "UniqueNo");
+/// A shop list answers an event reply this soon after it, at most (Regine's menu opens hers at once).
+const REPLY_MS: i64 = 10_000;
 static STATUS: [Field; 2] = [Field::new(S2C, 0x061, "statusdata.nation"), Field::new(S2C, 0x061, "statusdata.rank")];
 static BALANCE: Field = Field::new(S2C, 0x05E, "Conquest.Balance");
 static OPENED: Field = Field::new(S2C, 0x03E, "ShopListNum");
@@ -57,11 +61,14 @@ pub fn hours(stat: Option<i64>, time: Option<i64>) -> (Option<i64>, Option<i64>)
 
 pub static META: Meta = Meta {
     name: "shops",
-    version: 1,
+    version: 2,
     reads: &[
         (C2S, 0x01A),
         (S2C, 0x032),
         (S2C, 0x034),
+        (S2C, 0x036),
+        (C2S, 0x05B),
+        (S2C, 0x052),
         (S2C, 0x061),
         (S2C, 0x05E),
         (S2C, 0x03E),
@@ -132,7 +139,14 @@ struct Buy {
 
 #[derive(Default)]
 pub struct Shops {
+    /// The NPC last talked to, or whose event started.
     npc: Option<i64>,
+    /// The NPC whose event the character last answered, and when, until the event's release: a shop its
+    /// menu opens is its, though the character may talk to another NPC before the list arrives.
+    reply: Option<(i64, i64)>,
+    /// The NPC whose shop or guild is open: an NPC shop's lists and purchases, and a guild's, are its.
+    shop_npc: Option<i64>,
+    guild_npc: Option<i64>,
     nation: Option<i64>,
     rank: Option<i64>,
     balance: Option<i64>,
@@ -157,13 +171,21 @@ impl Extractor for Shops {
                     self.npc = TALK[1].int(f);
                 }
             }
-            (S2C, 0x032) => self.npc = NPC_032.int(f),
-            (S2C, 0x034) => self.npc = NPC_034.int(f),
+            (S2C, 0x032 | 0x034) => {
+                self.npc = if p.opcode == 0x032 { NPC_032.int(f) } else { NPC_034.int(f) };
+                self.reply = self.reply.filter(|&(n, _)| Some(n) == self.npc);
+            }
+            (S2C, 0x036) => {
+                // Another NPC's answer: the event replied to is over.
+                self.reply = self.reply.filter(|&(n, _)| Some(n) == NPC_036.int(f));
+            }
+            (C2S, 0x05B) => self.reply = REPLY.int(f).map(|n| (n, p.ts_ms)),
+            (S2C, 0x052) => self.reply = None,
             (S2C, 0x061) => [self.nation, self.rank] = STATUS.each_ref().map(|x| x.int(f)),
             (S2C, 0x05E) => self.balance = BALANCE.int(f),
             (S2C, 0x03E) => {
-                (self.list, self.list_idx) = (HashMap::new(), Some(p.idx));
-                self.act(out, p, world, "open", row! { items: OPENED.int(f) });
+                (self.list, self.list_idx, self.shop_npc) = (HashMap::new(), Some(p.idx), self.answered(p));
+                self.act(out, p, world, "open", row! { items: OPENED.int(f), npc_id: self.shop_npc });
             }
             (S2C, 0x03C) => self.shop_list(p, f, world, out),
             (S2C, 0x083 | 0x085) => self.guild_list(p, f, world, out),
@@ -171,11 +193,13 @@ impl Extractor for Shops {
                 let [stat, time] = GUILD_STATE.each_ref().map(|x| x.int(f));
                 let (open, close) = hours(stat, time);
                 let values = row! { guild_status: stat, guild_time: time, open_hour: open, close_hour: close };
+                self.guild_npc = self.npc;
                 self.act(out, p, world, "guild", values);
             }
             (C2S, 0x083) => {
                 let (item, price) = self.list.get(&BUY[0].int(f)).map_or((None, None), |&(i, p)| (Some(i), p));
-                let row = self.act(out, p, world, "buy", row! { item_id: item, quantity: BUY[1].int(f), price: price });
+                let values = row! { item_id: item, quantity: BUY[1].int(f), price: price, npc_id: self.shop_npc };
+                let row = self.act(out, p, world, "buy", values);
                 self.buy = Some(Buy { row, guild: false, item });
             }
             (S2C, 0x03F) => {
@@ -194,7 +218,7 @@ impl Extractor for Shops {
                     p,
                     world,
                     "guild_buy",
-                    row! { item_id: item, quantity: GUILD_BUY[1].int(f), price: price },
+                    row! { item_id: item, quantity: GUILD_BUY[1].int(f), price: price, npc_id: self.guild_npc },
                 );
                 self.buy = Some(Buy { row, guild: true, item });
             }
@@ -221,11 +245,20 @@ impl Shops {
         action: &str,
         values: [(&str, V); N],
     ) -> RowId {
-        let id = out.emit("shop_actions", Some(p), values);
-        for (k, v) in row! { action: action, npc_id: self.npc, zone_id: world.zone } {
+        let id = out.emit("shop_actions", Some(p), row! { action: action, npc_id: self.npc, zone_id: world.zone });
+        for (k, v) in values {
             out.set(id, k, v);
         }
         id
+    }
+
+    /// The NPC a shop list now opening belongs to: the one whose event the character answered within
+    /// REPLY_MS, before its release, else the one last talked to.
+    fn answered(&self, p: &Packet) -> Option<i64> {
+        match self.reply {
+            Some((n, t)) if p.ts_ms - t <= REPLY_MS => Some(n),
+            _ => self.npc,
+        }
     }
 
     /// The character's nation, its rank, and the nation's conquest standing.
@@ -236,7 +269,10 @@ impl Shops {
     }
 
     fn shop_list(&mut self, p: &Packet, f: &Decoded, world: &World, out: &mut Out) {
-        let list_idx = *self.list_idx.get_or_insert(p.idx) as i64;
+        if self.list_idx.is_none() {
+            (self.list_idx, self.shop_npc) = (Some(p.idx), self.answered(p));
+        }
+        let list_idx = self.list_idx.unwrap() as i64;
         let (nation, nation_rank, conquest_rank) = self.standing();
         for t in SHOP.iter() {
             let Some(item) = t[0].int(f).filter(|&i| i != 0) else { continue };
@@ -248,7 +284,7 @@ impl Shops {
                 row! {
                     kind: "shop", list_idx: list_idx, item_id: item, price: price, shop_index: index,
                     skill: t[3].int(f), guild_info: t[4].int(f), zone_id: world.zone,
-                    nation: nation, nation_rank: nation_rank, conquest_rank: conquest_rank, npc_id: self.npc,
+                    nation: nation, nation_rank: nation_rank, conquest_rank: conquest_rank, npc_id: self.shop_npc,
                 },
             );
         }
@@ -263,7 +299,7 @@ impl Shops {
         }
         let (nation, nation_rank, conquest_rank) = self.standing();
         let kind = if p.opcode == 0x083 { "guild_sells" } else { "guild_buys" };
-        let (npc, g) = (self.npc, self.guild.get_mut(&p.opcode).unwrap());
+        let (npc, g) = (self.guild_npc.or(self.npc), self.guild.get_mut(&p.opcode).unwrap());
         let count = count.int(f).unwrap_or(0).clamp(0, 30) as usize;
         for t in &list[..count] {
             let Some(item) = t[0].int(f).filter(|&i| i != 0) else { continue };
@@ -441,5 +477,42 @@ mod tests {
                 ],
             ]
         );
+    }
+
+    #[test]
+    fn a_menus_shop_is_its_npcs_and_a_guilds_lists_are_the_guilds() {
+        // Regine's menu opens her shop; the character talks to a home point before the list arrives. A guild
+        // opened, the character clicks a door, then asks the guild for its list from its menu.
+        let (regine, home_point, door) = (NPC + 10, NPC + 11, NPC + 12);
+        let steps = vec![
+            talk(regine),
+            (0x034, f(&[("UniqueNo", regine), ("EventPara", 510)])),
+            (0x05B, f(&[("UniqueNo", regine), ("EventPara", 510), ("EndPara", 0)])),
+            talk(home_point),
+            (0x03E, f(&[("ShopListNum", 1)])),
+            shop_list(&[(0, STEW, 60)]),
+            (0x034, f(&[("UniqueNo", home_point), ("EventPara", 8700)])),
+            (0x052, f(&[("Mode", 0)])),
+            talk(GUILD_NPC),
+            (0x036, f(&[("UniqueNo", GUILD_NPC), ("MesNum", 7360)])),
+            (0x086, f(&[("Stat", 0), ("Time", 0)])),
+            talk(door),
+            guild_list(0x80, &[(INGOT, 30, 80, 8000)]),
+            talk(NPC), // a plain shop long after: the one talked to
+            (0x03E, f(&[("ShopListNum", 1)])),
+            shop_list(&[(0, ORE, 200)]),
+        ];
+        let directions = [1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0].to_vec();
+        let out = drive(&mut Shops::default(), steps, Drive { directions: Some(directions), ..Drive::default() });
+        let items = out.rows("shop_items");
+        let got: Vec<_> = (0..items.len()).map(|i| (items.get(i, "item_id"), items.get(i, "npc_id"))).collect();
+        let v = |x: i64| V::from(Some(x));
+        assert_eq!(got, [(v(STEW), v(regine)), (v(INGOT), v(GUILD_NPC)), (v(ORE), v(NPC))]);
+        let acts = out.rows("shop_actions");
+        let opens: Vec<_> = (0..acts.len())
+            .filter(|&i| acts.get(i, "action") == V::from("open"))
+            .map(|i| acts.get(i, "npc_id"))
+            .collect();
+        assert_eq!(opens, [v(regine), v(NPC)]);
     }
 }

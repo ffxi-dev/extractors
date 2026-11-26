@@ -6,15 +6,19 @@ from ffxi_extractors.extract import Column, Extractor, Table
 class Shops(Extractor):
     """NPC and guild shops: what each lists at what price (0x03C, guild 0x083 and 0x085 with stock), when
     it opened (0x03E, guild 0x086), and what the character bought (c2s 0x083, guild c2s 0x0AA). No packet
-    names the shop's NPC: it is the one the character last talked to (c2s 0x01A) or whose event is under way.
+    names the shop's NPC. An NPC shop's is the one whose event the character answered (c2s 0x05B) up to 10
+    s before, until its release (0x052) or another NPC's answer, else the one last talked to (c2s 0x01A) or
+    whose event started: Regine's menu opens her shop though the character may talk to another NPC meanwhile.
+    A guild's is the one talked to when it opened (0x086): the client asks for a guild's lists from its menu.
     Prices move with fame, which no packet carries, and with the nation's conquest standing for some shops:
     each row keeps the character's nation, rank, and the nation's standing."""
 
     name = "shops"
-    version = 1
+    version = 2
     doc = "NPC and guild shops: stock and prices with the character's nation and rank, openings, purchases."
     reads = frozenset(
-        {(1, 0x01A), (0, 0x032), (0, 0x034), (0, 0x061), (0, 0x05E), (0, 0x03E), (0, 0x03C), (1, 0x083),
+        {(1, 0x01A), (0, 0x032), (0, 0x034), (0, 0x036), (1, 0x05B), (0, 0x052), (0, 0x061), (0, 0x05E),
+         (0, 0x03E), (0, 0x03C), (1, 0x083),
          (0, 0x03F), (0, 0x086), (0, 0x083), (0, 0x085), (1, 0x0AA), (0, 0x082)}
     )  # fmt: skip
     tables = (
@@ -25,7 +29,12 @@ class Shops(Extractor):
             " its stock is kept with the time of each.",
             (
                 Column("kind", pa.string(), "shop, guild_sells, or guild_buys."),
-                Column("npc_id", pa.int64(), "The shop's NPC: the one last talked to, or whose event is on."),
+                Column(
+                    "npc_id",
+                    pa.int64(),
+                    "The shop's NPC: the one whose event the character answered, else last talked to; a"
+                    " guild's, the one talked to when it opened.",
+                ),
                 Column("list_idx", pa.int64(), "The list's first packet: one opening of the shop."),
                 Column("item_id", pa.int32(), "The item."),
                 Column("price", pa.int64(), "Its price in gil, as the server sent it to this character."),
