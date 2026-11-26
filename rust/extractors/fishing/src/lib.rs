@@ -3,6 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use xc_core::combat::is_mob;
 use xc_core::extract::{Extractor, Meta, Out, RowId, Table, Ty::*};
 use xc_core::{C2S, Decoded, Field, Packet, S2C, World, row};
 use xc_gathering::{Held, WINDOW_MS, place, place_columns};
@@ -18,6 +19,8 @@ const KEEN: i64 = 0x35;
 const ONE: i64 = 0x27;
 const MANY: i64 = 0x0E;
 const GAVE_UP: i64 = 200;
+/// A monster reeled in claims the character within this of the cast's end.
+const MONSTER_MS: i64 = 10_000;
 
 /// 0x037's server_status once a hooked fight ends.
 fn outcome(status: Option<i64>) -> Option<&'static str> {
@@ -87,6 +90,13 @@ static UID: [Field; 4] = [
 ];
 static MES_036: Field = Field::new(S2C, 0x036, "MesNum");
 static STATUS: Field = Field::new(S2C, 0x037, "server_status");
+/// 0x00E's mob, whether it despawned, and its claim.
+static MOB: [Field; 4] = [
+    Field::new(S2C, 0x00E, "UniqueNo"),
+    Field::new(S2C, 0x00E, "SendFlg.Despawn"),
+    Field::new(S2C, 0x00E, "SendFlg.ClaimStatus"),
+    Field::new(S2C, 0x00E, "BtTargetID"),
+];
 static SENSE: [Field; 2] = [Field::new(S2C, 0x02A, "MesNum"), Field::new(S2C, 0x02A, "num[0]")];
 static CATCH: [Field; 3] =
     [Field::new(S2C, 0x027, "MesNum"), Field::new(S2C, 0x027, "Num1[0]"), Field::new(S2C, 0x027, "Num1[1]")];
@@ -102,12 +112,13 @@ fn uid(op: u16) -> &'static Field {
 
 pub static META: Meta = Meta {
     name: "fishing",
-    version: 4,
+    version: 5,
     reads: &[
         (S2C, 0x01E),
         (S2C, 0x01F),
         (S2C, 0x020),
         (S2C, 0x00A),
+        (S2C, 0x00E),
         (C2S, 0x01A),
         (C2S, 0x110),
         (S2C, 0x115),
@@ -141,6 +152,7 @@ pub static META: Meta = Meta {
             ("outcome", Str),
             ("item_id", I32),
             ("count", I32),
+            ("monster_id", I64),
             ("messages", ListI32),
         ],
     }],
@@ -154,6 +166,9 @@ struct Cast {
     id: RowId,
     zone: Option<i64>,
     hook_ms: Option<i64>,
+    end_ms: Option<i64>,
+    /// The first mob to claim the character since the bite.
+    monster: Option<i64>,
     reel: Option<i64>,
     outcome: Option<&'static str>,
     messages: Vec<Option<i64>>,
@@ -175,6 +190,8 @@ pub struct Fishing {
     casts: Vec<Cast>,
     /// Whether the cast's animation still runs: its messages are its own.
     casting: bool,
+    /// Mob -> its last claimer, since it last despawned.
+    claims: HashMap<i64, i64>,
 }
 
 impl Extractor for Fishing {
@@ -186,6 +203,11 @@ impl Extractor for Fishing {
         let key = p.key();
         if key == (S2C, 0x00A) {
             self.row = None;
+            self.claims.clear();
+            return;
+        }
+        if key == (S2C, 0x00E) {
+            self.claim(p, f, world);
             return;
         }
         if Held::reads(key) {
@@ -245,6 +267,7 @@ impl Extractor for Fishing {
                 self.casting = false;
                 if c.hook_ms.is_some() && c.outcome.is_none() {
                     c.outcome = outcome(STATUS.int(f));
+                    c.end_ms = Some(p.ts_ms);
                     out.set(c.id, "end_ms", p.ts_ms);
                 }
             }
@@ -295,6 +318,9 @@ impl Extractor for Fishing {
                 outcome = Some("gave up");
             }
             out.set(c.id, "outcome", outcome);
+            if outcome == Some("monster") {
+                out.set(c.id, "monster_id", c.monster);
+            }
             let at = base.get(&c.zone).copied();
             let off = |m: Option<i64>| Some(m? - at?);
             let said = || c.messages.iter().filter_map(|&m| off(m));
@@ -319,6 +345,29 @@ impl Extractor for Fishing {
 }
 
 impl Fishing {
+    /// A mob's claim: the first mob to claim the character from the bite to MONSTER_MS after the cast's
+    /// end is what it reeled in. A mob that had claimed it already is not.
+    fn claim(&mut self, p: &Packet, f: &Decoded, world: &World) {
+        let Some(uid) = MOB[0].int(f).filter(|&u| is_mob(Some(u))) else { return };
+        if MOB[1].flag(f) {
+            self.claims.remove(&uid);
+            return;
+        }
+        let Some(by) = MOB[3].int(f).filter(|&c| c != 0 && MOB[2].flag(f)) else { return };
+        let before = self.claims.insert(uid, by);
+        if Some(by) != world.character_id || before == Some(by) {
+            return;
+        }
+        if let Some(r) = self.row
+            && let c = &mut self.casts[r]
+            && c.hook_ms.is_some()
+            && c.monster.is_none()
+            && c.end_ms.is_none_or(|end| p.ts_ms <= end + MONSTER_MS)
+        {
+            c.monster = Some(uid);
+        }
+    }
+
     fn cast(&mut self, p: &Packet, world: &World, out: &mut Out) -> usize {
         // Index 0 empties a slot; (0, 0) is the gil.
         let held = |k| match self.equip.get(&Some(k)) {
@@ -332,6 +381,8 @@ impl Fishing {
             id,
             zone: world.zone,
             hook_ms: None,
+            end_ms: None,
+            monster: None,
             reel: None,
             outcome: None,
             messages: Vec::new(),
@@ -372,7 +423,7 @@ mod tests {
     use super::*;
     use xc_core::V;
     use xc_core::extract::Rows;
-    use xc_core::testing::{Drive, MapFields, PLAYER, drive};
+    use xc_core::testing::{Drive, MOB, MapFields, PLAYER, STRANGER, drive};
 
     const ZONE: i64 = 111;
     const ROD_ID: i64 = 17386;
@@ -420,6 +471,12 @@ mod tests {
     fn message(op: u16, mes: i64, a: (&str, i64), b: Option<i64>) -> Step {
         let f = MapFields::new().int("UniqueNo", PLAYER).int("MesNum", BASE + mes).int(a.0, a.1);
         (op, if let Some(b) = b { f.int("Num1[1]", b) } else { f })
+    }
+
+    /// A mob's update, claimed by one.
+    fn claim(mob: i64, by: i64) -> Step {
+        let f = MapFields::new().int("UniqueNo", mob).int("ActIndex", mob & 0xFFF);
+        (0x00E, f.int("SendFlg.ClaimStatus", 1).int("BtTargetID", by))
     }
 
     fn catch(mes: i64, item: i64, n: i64) -> Step {
@@ -548,6 +605,26 @@ mod tests {
         let got: Vec<V> = ["hook", "outcome", "item_id", "count"].iter().map(|c| r.get(0, c)).collect();
         assert_eq!(got, [V::Null, s("caught"), V::Int(ICEFISH), V::Int(1)]);
         assert_eq!((r.get(1, "outcome"), r.get(1, "item_id")), (s("caught"), V::Null));
+    }
+
+    /// Retail spawns a monster reeled in beside the character, claimed by it, just before the animation
+    /// (0x037 61): NZlAAFDTRYzV's Greater Pugil, 01003003, 0.4 s before.
+    #[test]
+    fn a_monster_reeled_in_is_the_mob_that_claims_the_character() {
+        let other = MOB + 1;
+        let bite = || vec![cast(), said(0x34), game(0), said(0x29), reel(0)];
+        let r = fish(
+            [
+                vec![claim(other, PLAYER), cast(), said(4), status(62)],
+                // a mob already fighting it, and another player's claim, are not the catch
+                [bite(), vec![claim(other, PLAYER), claim(MOB + 2, STRANGER), claim(MOB, PLAYER), status(61)]].concat(),
+                [bite(), vec![claim(MOB + 3, PLAYER), status(62)]].concat(),
+                [bite(), vec![status(61)], vec![equip(ROD, 26); 10], vec![claim(MOB + 4, PLAYER)]].concat(),
+            ]
+            .concat(),
+        );
+        let got: Vec<(V, V)> = (1..4).map(|i| (r.get(i, "outcome"), r.get(i, "monster_id"))).collect();
+        assert_eq!(got, [(s("monster"), V::Int(MOB)), (s("lost"), V::Null), (s("monster"), V::Null)],); // lost, it never spawns; one claiming 11 s after the end is another fight
     }
 
     #[test]

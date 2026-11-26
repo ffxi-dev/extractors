@@ -11,15 +11,15 @@ NOTHING, KEEN, ONE, MANY, GAVE_UP = 0x04, 0x35, 0x27, 0x0E, 200
 class Fishing(Extractor):
     """The character's fishing: each cast (c2s 0x01A, action 14), the minigame the zone sends for a bite
     (0x115), how the client ended it (c2s 0x110 mode 3), how the zone took it (0x037's animation), and the
-    catch it names (0x027). The zone's fishing messages (0x036) have ids that differ by zone; they are kept
-    as sent."""
+    catch it names (0x027), or the monster that claims the character when it reels one in (0x00E). The
+    zone's fishing messages (0x036) have ids that differ by zone; they are kept as sent."""
 
     name = "fishing"
     # 2: the zone's offset is the one that explains the most casts, not a refusal's; 3: an emptied slot holds
-    # no rod or bait; 4: a cast keeps only the messages before its animation ends
-    version = 4
+    # no rod or bait; 4: a cast keeps only the messages before its animation ends; 5: the monster reeled in
+    version = 5
     doc = "Each cast the character made: where, with what rod and bait, what bit, its minigame, its outcome."
-    reads = HELD | {(0, 0x00A),
+    reads = HELD | {(0, 0x00A), (0, 0x00E),
         (1, 0x01A), (1, 0x110), (0, 0x115), (0, 0x027), (0, 0x02A), (0, 0x036), (0, 0x037), (0, 0x050)
     }  # fmt: skip
     tables = (
@@ -100,6 +100,14 @@ class Fishing(Extractor):
                 Column("item_id", pa.int32(), "What was caught, as the catch message (0x027) names it."),
                 Column(
                     "count", pa.int32(), "How many were caught: more than one only by the zone's own message."
+                ),
+                Column(
+                    "monster_id",
+                    pa.int64(),
+                    "The monster reeled in (outcome monster): the first mob whose update (0x00E) claims the"
+                    " character from the bite to 10 s after the animation, that had not claimed it already."
+                    " Retail spawns it beside the character, claimed, just before the animation. A monster"
+                    " given up never spawns, so names none.",
                 ),
                 Column(
                     "messages",
