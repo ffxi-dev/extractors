@@ -55,7 +55,7 @@ ASOF LEFT JOIN {NAMES} n
 
 class MobEvents(Derived):
     name = "mob_events"
-    version = 1
+    version = 2  # 2: mob_messages 3, its draw-ins by engaged monsters only
     doc = "Each draw-in and blue magic spell learned, with its mob named as the bestiary names it."
     reads = frozenset({"decode", "mob_messages", "kills", "fights", "actions", "entity_changes"})
     order = "zone_id, mob_name, ts_ms"  # a mob page reads its mob's rows
