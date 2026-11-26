@@ -63,9 +63,9 @@ class MobEvents(Derived):
     tables = (
         Table(
             "mob_events",
-            "One row per mob_messages row, with its mob: for a draw-in the monster nearest where the player"
-            " landed; for a spell learned the defeat just before it, under 60 s. Party copies are in each"
-            " recorder's capture.",
+            "One row per mob_messages row, with its mob: for a draw-in the engaged monster nearest where"
+            " the player landed; for a spell learned the defeat just before it, under 60 s. Party copies are"
+            " in each recorder's capture.",
             (
                 Column("kind", None, "drawn_in or learned."),
                 Column("player_id", None, "The player drawn in, or who learned the spell."),
