@@ -26,3 +26,14 @@ The decoder SHALL pick each packet's layout as packets picks it, by the client v
 #### Scenario: A capture with a client version
 - **WHEN** a capture's header names 30261102_1
 - **THEN** its 0x0DD and 0x0E2 decode in today's layout, the name at 0x28
+
+### Requirement: A TP move under Mighty Strikes says nothing of its crits
+The bestiary SHALL give a TP move no hit and no crit when the same mob used Mighty Strikes (mob skill 688, 1008, 2242, or 2939) in the 50 s before it, since Mighty Strikes makes every hit crit for 45 s. A move's crit rate counts only the other uses.
+
+#### Scenario: A crit 7 s after Mighty Strikes
+- **WHEN** a mob's Slam Dunk crits 7 s after its Mighty Strikes (XKi5H7zHD9aJ, packets 56846 and 57050)
+- **THEN** that use counts as neither a hit nor a crit of Slam Dunk
+
+#### Scenario: A crit 60 s after
+- **WHEN** a mob's move crits 60 s after its Mighty Strikes
+- **THEN** it counts as a hit and a crit

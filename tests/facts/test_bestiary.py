@@ -351,3 +351,25 @@ def test_setup_keeps_a_derived_table_whose_columns_match(con):
     fights = value(con, "SELECT count() FROM bestiary_fights")
     store.setup(con)
     assert fights > 0 and value(con, "SELECT count() FROM bestiary_fights") == fights
+
+
+def test_a_tp_move_under_mighty_strikes_counts_no_hit_or_crit(con):
+    """Mighty Strikes makes every hit crit for 45 s: a move that crits within 50 s after the mob's tells
+    nothing of the move, one after does (Mogsafe note 121: XKi5H7zHD9aJ#packet=57050)."""
+    seen(con, "m")
+    fight = {"capture_id": "m", "mob_id": MOB, "idx": 20, "end_idx": 40, "ts_ms": 0, "end_ms": 100 * S,
+             "outcome": "defeated", "actions": 3, "zone_id": ZONE}  # fmt: skip
+    put(con, "fights", [fight])
+    used = [(21, 10, 688), (22, 55, 1059), (23, 70, 1059)]
+    put(con, "actions", [{"capture_id": "m", "idx": i, "ts_ms": t * S, "actor_id": MOB, "actor_is_mob": True,
+                          "category": 11, "action_id": a, "targets": 1, "resend": False, "zone_id": ZONE}
+                         for i, t, a in used])  # fmt: skip
+    put(con, "action_results", [{"capture_id": "m", "idx": i, "ts_ms": t * S, "actor_id": MOB, "category": 11,
+                                 "action_id": a, "target_id": 0x1234, "target_index": 0, "result_index": 0,
+                                 "miss": 0, "info": 2, "message": 185, "value": 150}
+                                for i, t, a in used[1:]])  # fmt: skip
+    run(con, None, "m", units={"bestiary"})
+    got = records(
+        con, "SELECT arrayMap(u -> (u.id, u.hit, u.crit), tp) AS tp FROM bestiary_fights WHERE idx = 20"
+    )
+    assert got == [{"tp": [[688, None, None], [1059, None, None], [1059, 1, 1]]}]
