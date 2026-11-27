@@ -9,9 +9,11 @@ from ffxi_extractors.extract import Column, Table, arrow
 from ffxi_extractors.world import WORLD_VERSION
 
 # The packets release whose layouts rust/xc-decode/packets holds.
-PACKETS = "2.3.0"
+PACKETS = "2.4.0"
+# The last packets release that changed what a packet decodes to; 2.4.0 added live.json and shipped the cases.
+DECODES = "2.3.0"
 # Every unit's rows depend on the decoder and on what the world keeps: a change to either re-runs them all.
-DECODER_VERSION = f"{PACKETS}+world{WORLD_VERSION}"
+DECODER_VERSION = f"{DECODES}+world{WORLD_VERSION}"
 
 # The decode unit's tables.
 CAPTURES = Table(

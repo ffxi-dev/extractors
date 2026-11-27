@@ -1,6 +1,6 @@
 //! Decodes FFXI packets as ffxi_packets does, field for field, straight from the packet's bytes.
 //!
-//! build.rs turns packets' schemas (`packets/`, tag v2.3.0) into a table per layout: every field's path,
+//! build.rs turns packets' schemas (`packets/`, tag v2.4.0) into a table per layout: every field's path,
 //! bit offset, width, and the union variant it sits in. A field is read only when asked for. A field has
 //! no value when the packet ends before it, when it is empty text, or when its union holds another
 //! variant: what Python's `Fields(path)` gives as None. Layouts whose offsets depend on the data are not

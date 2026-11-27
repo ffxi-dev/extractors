@@ -101,7 +101,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "ffxi-packets", git = "https://github.com/ffxi-dev/packets?tag=v2.3.0" },
+    { name = "ffxi-packets", git = "https://github.com/ffxi-dev/packets?tag=v2.4.0" },
     { name = "mypy", specifier = "==1.18.2" },
     { name = "pytest", specifier = "==9.2.0" },
     { name = "ruff", specifier = "==0.17.3" },
@@ -109,8 +109,8 @@ dev = [
 
 [[package]]
 name = "ffxi-packets"
-version = "2.3.0"
-source = { git = "https://github.com/ffxi-dev/packets?tag=v2.3.0#a022a53afb9c791cd8ea779e39e52868d3666262" }
+version = "2.4.0"
+source = { git = "https://github.com/ffxi-dev/packets?tag=v2.4.0#70849545709bc298ff0d8847f7f7bbde1c0eea37" }
 dependencies = [
     { name = "numpy" },
 ]

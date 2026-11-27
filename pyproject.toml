@@ -24,7 +24,7 @@ dev = ["ffxi-packets", "mypy==1.18.2", "pytest==9.2.0", "ruff==0.17.3"]
 # The same tag as rust/xc-core/build.rs's XICAP_TAG, which the Rust reader compiles.
 xicap = { git = "https://github.com/ffxi-dev/xicap", tag = "v7.2.0", subdirectory = "bindings/python" }
 # decode.PACKETS's tag; uv.lock holds its commit.
-ffxi-packets = { git = "https://github.com/ffxi-dev/packets", tag = "v2.3.0" }
+ffxi-packets = { git = "https://github.com/ffxi-dev/packets", tag = "v2.4.0" }
 
 # One wheel: the Python package and the Rust extractors (extractors_rs). Building it needs Rust, gcc 14 or newer,
 # git, and zstd's headers.
