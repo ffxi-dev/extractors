@@ -52,7 +52,7 @@ rust/
   extractors/    one crate an extractor, the code of each declaration above
   xc-all/        every Rust extractor by name
   xc-py/         extractors_rs, the Python module index.py calls
-  parity/        the Rust rows against the Python extractors' last release on real captures
+  parity/        the Rust rows on real captures against a release, or the Python extractors' last
 tests/           the same domains; tests/expected/ pins each unit's output on the fixtures
 ```
 

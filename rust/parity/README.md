@@ -1,7 +1,9 @@
 # parity
 
-Checks the Rust extractors against the Python ones on real captures, and times both. A port is done when
-`parity <its extractor>` says identical on the sample.
+Checks the Rust extractors on real captures against a reference, and times both: the Python extractors'
+last release (v1.14.4), or, with `--against <tag>`, an earlier Rust release. A port was done when
+`parity <its extractor>` said identical on the sample; a release is ready when `parity --against <the last
+tag> all` fails no unit.
 
 ```bash
 rust/parity/parity actions                          # the sample, 58 captures
@@ -20,6 +22,46 @@ the first `--rows` rows (default 5) only Python has (`-`) and only Rust has (`+`
 
 A unit is an extractor's name, `decode` (the decoder's tables: captures, sessions, sizes, zone_visits,
 activity), `world` (the walk alone, no rows: its time), or `all`.
+
+## Against a release
+
+```bash
+rust/parity/parity --against v2.15.0 all             # this checkout against v2.15.0, on the sample
+rust/parity/parity ref --against v2.15.0 all         # only make v2.15.0's rows
+```
+
+```
+fishing: identical on 58/58 captures (0 skipped), 17,128,799 packets; v2.15.0 1.91 s, rust 1.88 s, 1.0x
+```
+
+With zones' zone_id one higher and its version as it was (2026-11-27, a trial):
+
+```
+zones k8NFtuhORJWF: mismatch
+  zones: rows v2.15.0 1, rust 1
+    columns: capture_id, idx, ts_ms, client_version, zone_id, server
+    - ["k8NFtuhORJWF", 25, 1760673669000, "Version 18:48:06 Oct  2 2025", 256, null]
+    + ["k8NFtuhORJWF", 25, 1760673669000, "Version 18:48:06 Oct  2 2025", 257, null]
+...
+zones: rows changed since v2.15.0 with the version as it was: bump it
+zones: mismatch on 26/58 captures (0 skipped), 17,128,799 packets; v2.15.0 1.70 s, rust 1.71 s, 1.0x
+```
+
+and with its version bumped, exit 0:
+
+```
+zones k8NFtuhORJWF: changed with the version, 3/2.3.0+world2 to 4/2.3.0+world2
+...
+zones: changed on 26/58 captures (0 skipped), 17,128,799 packets; v2.15.0 1.70 s, rust 1.70 s, 1.0x
+```
+
+The release's rows are made once, in an image of the tag built without the shared target cache (the tag's
+files carry its commit's times, which cargo would take as older than any build there), by this checkout's
+`parity.py`, and kept in `/home/sruon/parity-release/<tag>/` (`PARITY_RELEASES`): a tag never changes. Then
+this checkout's rows are compared with them. A unit whose rows differ and whose version (with the
+decoder's) is as it was in the tag is a mismatch, and the command exits 1: Scholar would keep its old rows.
+Rows that differ under a new version are shown, as Scholar re-runs the unit for them. A unit the release
+lacks, or a capture it passed by, is skipped. Tags from v2.0.0 on.
 
 ## What it does
 
@@ -53,7 +95,9 @@ seconds per unit from it.
 
 ## The sample
 
-`sample.txt`: for each extractor table, the smallest capture with rows in it and, unless one picked already
+`sample.txt` names each capture by id and by the sha256 of its file, as the mirror names it, so a live
+capture that grew since is read as it was; a file the mirror no longer holds stops the run. For each extractor
+table, the smallest capture with rows in it and, unless one picked already
 has a quarter as many, one of at most 700k packets with the most; PacketViewer, Memoria, and every client
 version; and the spike's two large captures. 58 captures, 17.1M packets.
 
@@ -101,3 +145,12 @@ what it adds to the world-only walk. Every table's row count matched Scholar's o
 | synths | 36.6 | +0.7 | 2.14 |
 | defeats | 36.6 | +0.6 | 2.14 |
 | world | 36.0 | +0.0 | 2.10 |
+
+## The archive: rust-extractors 1.4
+
+`archive.py` compared v1.14.4's Python with v2.0.0's Rust, the two sides of the switch, on every capture in
+the mirror: each (table, capture)'s rows and an order-free hash, the sum mod 2^128 of each canonical row's md5,
+with no row kept. Python ran as its `index.run` did, every extractor and the decoder in one walk; Rust as
+`extractors_rs.run` with the same units. Each side ran in an image of its tag on lsb, four workers in a
+container of 12 GB and 4 CPUs, then one worker for what a killed worker left; the images and work folder were
+removed after. The result is in `openspec/changes/rust-extractors/tasks.md`, 1.4.
