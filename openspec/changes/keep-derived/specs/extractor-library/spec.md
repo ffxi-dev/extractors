@@ -12,3 +12,10 @@
 #### Scenario: A later fact reads a column the kept table lacks
 - **WHEN** bestiary_fights is from before `tp.rules_out` and Scholar sets up with keep
 - **THEN** setup does not fail on bestiary_mobs' SQL, and leaves both tables to the rebuild
+
+### Requirement: A capture-row table sorted otherwise waits for its caller when asked
+`store.sorts` SHALL list each decoder or extractor table made under another ORDER BY than the code's, with its ORDER BY and engine. `setup(keep=True)` SHALL leave such a table under its old ORDER BY; `setup()` SHALL copy and swap it as before. The bookkeeping tables SHALL be re-sorted by setup either way.
+
+#### Scenario: kills made under an older ORDER BY
+- **WHEN** kills is sorted otherwise and Scholar sets up with keep
+- **THEN** kills keeps its rows and old ORDER BY, and sorts lists it until Scholar's rebuild swaps in a copy
