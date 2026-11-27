@@ -235,3 +235,22 @@ def test_a_table_made_under_another_order_is_sorted_again_with_its_rows(con):
     )
     assert value(con, leftovers) == 0
     con.command("DROP TABLE sorting_probe SYNC")
+
+
+def test_setup_keeping_a_table_sorted_otherwise_leaves_it_for_the_caller(con):
+    """A re-sort copies the whole table, unjournaled, as a process starts: with keep, setup leaves kills
+    under its old ORDER BY and sorts() names it, for Scholar's rebuild to copy and swap under its lock
+    (vault's release-schema step 2)."""
+    run(con, CAPTAIN, "c")
+    want = rows(con, "SELECT * EXCEPT lens_url FROM kills ORDER BY idx, mob_id")
+    assert want and store.sorts(con) == {}
+    store.copy_sorted(con, "kills", "kills_old", "idx", "MergeTree")  # as an older ORDER BY
+    con.command("EXCHANGE TABLES kills AND kills_old")
+    con.command("DROP TABLE kills_old SYNC")
+    order = next(t.order for x in ALL for t in x.tables if t.name == "kills")
+    assert store.sorts(con) == {"kills": (order, "MergeTree")}
+    store.setup(con, keep=True)
+    assert store.sorts(con) == {"kills": (order, "MergeTree")}, "left as it was"
+    store.setup(con)
+    assert store.sorts(con) == {}
+    assert rows(con, "SELECT * EXCEPT lens_url FROM kills ORDER BY idx, mob_id") == want

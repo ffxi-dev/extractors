@@ -161,26 +161,43 @@ def now() -> int:
     return time.time_ns()
 
 
-def _create(con, name: str, cols: str, order: str, engine: str = "MergeTree") -> None:
+def _create(con, name: str, cols: str, order: str, engine: str = "MergeTree", keep: bool = False) -> None:
     """A table, made if missing. One made under another ORDER BY is copied into a new one sorted by order,
-    and swapped in: the same rows, read by the new key. Each process copies under its own name and checks
-    again before the swap, so two setting up at once (a deploy's indexer and its rebuild) do not undo each
-    other."""
+    and swapped in: the same rows, read by the new key; keep leaves it for the caller (sorts()). Each process
+    copies under its own name and checks again before the swap, so two setting up at once (a deploy's
+    indexer and its rebuild) do not undo each other."""
     con.command(
         f"CREATE TABLE IF NOT EXISTS {name} ({cols}) ENGINE = {engine} ORDER BY ({order})"
         " SETTINGS allow_nullable_key = 1"
     )
-    if _sorting_key(con, name) == _key(order):
+    if keep or _sorting_key(con, name) == _key(order):
         return
     tmp = f"{name}_sorted_{os.getpid()}"
-    con.command(f"DROP TABLE IF EXISTS {tmp} SYNC")
-    con.command(
-        f"CREATE TABLE {tmp} AS {name} ENGINE = {engine} ORDER BY ({order}) SETTINGS allow_nullable_key = 1"
-    )
-    con.command(f"INSERT INTO {tmp} SELECT * FROM {name}")
+    copy_sorted(con, name, tmp, order, engine)
     if _sorting_key(con, name) != _key(order):
         con.command(f"EXCHANGE TABLES {name} AND {tmp}")
     con.command(f"DROP TABLE {tmp} SYNC")
+
+
+def copy_sorted(con, name: str, into: str, order: str, engine: str) -> None:
+    """Copy the table name into a new table into, under ORDER BY order: the same rows, read by the new key."""
+    con.command(f"DROP TABLE IF EXISTS {into} SYNC")
+    con.command(
+        f"CREATE TABLE {into} AS {name} ENGINE = {engine} ORDER BY ({order}) SETTINGS allow_nullable_key = 1"
+    )
+    con.command(f"INSERT INTO {into} SELECT * FROM {name}")
+
+
+def sorts(con) -> dict[str, tuple[str, str]]:
+    """The tables of capture rows (the decoder's and the extractors') made under another ORDER BY than this
+    code's, each with its ORDER BY and engine: setup(keep=True) leaves them, for a caller to copy_sorted()
+    and swap in under its own lock. The bookkeeping tables are re-sorted by setup still."""
+    want = {t.name: (t.order, t.engine) for t in TABLES} | {
+        t.name: (t.order, "MergeTree") for x in ALL for t in x.tables
+    }
+    held = dict(rows(con, "SELECT name, sorting_key FROM system.tables WHERE database = currentDatabase()"
+                          " AND name IN {n:Array(String)}", {"n": list(want)}))  # fmt: skip
+    return {n: oe for n, oe in want.items() if n in held and _key(held[n]) != _key(oe[0])}
 
 
 def _key(order: str) -> str:
@@ -223,19 +240,23 @@ def setup(con, keep: bool = False) -> None:
     version brings. Derived tables come from their SQL. keep leaves each derived table pending() lists as it
     is, rows and all, and the views as they are while any is, for a caller that rebuilds them beside the live
     ones, swaps them, and makes the views again (Scholar's rebuild); without it, such a table is made again,
-    empty."""
+    empty. keep also leaves each table sorts() lists under its old ORDER BY, for that caller to re-sort."""
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
         raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
     for t in BASE.values():
-        _create(con, t.name, columns(t.columns), t.order, t.engine)
+        _create(con, t.name, columns(t.columns), t.order, t.engine, keep and t.name in DECODE)
     have = set(rows(con, "SELECT table, name FROM system.columns WHERE database = currentDatabase()"))
     lens = f", lens_url String ALIAS concat('{LENS}', capture_id, '#packet=', toString(idx))"
     for x in ALL:
         for t in x.tables:
             cols = [(c.name, ch_type(c)) for c in t.columns]
             _create(
-                con, t.name, columns(COMMON) + "".join(f", `{c}` {typ}" for c, typ in cols) + lens, t.order
+                con,
+                t.name,
+                columns(COMMON) + "".join(f", `{c}` {typ}" for c, typ in cols) + lens,
+                t.order,
+                keep=keep,
             )
             for c, typ in cols:
                 if (t.name, c) not in have:
