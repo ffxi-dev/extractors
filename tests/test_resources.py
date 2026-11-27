@@ -85,6 +85,32 @@ def test_sync_fetches_a_file_its_release_rewrote_and_only_once(tmp_path, monkeyp
     assert resources.sync(tmp_path, base="https://x") == []
 
 
+def test_sync_reads_a_release_from_its_revision(tmp_path, monkeypatch):
+    """A republished release names its revision's folder, whose files never change while they are read; the
+    old folder may hold a mix while retail-resources rewrites it."""
+    import hashlib
+    import io
+    import json
+    import urllib.error
+
+    files = {"zones.parquet": {"sha256": hashlib.sha256(b"new").hexdigest()}}
+    manifest = {"files": files, "base": "revisions/30261102_1/abc/"}
+    served = {"versions.json": json.dumps({"versions": [{"version": "30261102_1"}]}).encode(),
+              "versions/30261102_1/manifest.json": json.dumps(manifest).encode(),
+              "versions/30261102_1/zones.parquet": b"half-written",
+              "revisions/30261102_1/abc/zones.parquet": b"new"}  # fmt: skip
+
+    def get(url, timeout):
+        path = url.split("/", 3)[3]
+        if path not in served:
+            raise urllib.error.HTTPError(url, 404, "", None, None)
+        return io.BytesIO(served[path])
+
+    monkeypatch.setattr(resources, "_get", get)
+    assert resources.sync(tmp_path, base="https://x") == ["30261102_1"]
+    assert (tmp_path / "30261102_1" / "zones.parquet").read_bytes() == b"new"
+
+
 def test_names_load_as_each_release_writes_them(con, tmp_path):
     """A struct name gives its english text, a spell its index and its jobs' levels, a quest its log; a second
     load replaces."""

@@ -51,11 +51,11 @@ def releases(folder: str | Path) -> list[str]:
     )
 
 
-def _fetch(base: str, version: str, name: str, into: Path) -> None:
-    """One release file, or nothing if the release has none (yet)."""
+def _fetch(base: str, folder: str, name: str, into: Path) -> None:
+    """One release file from a release's folder in the bucket, or nothing if the release has none (yet)."""
     try:
         with (
-            _get(f"{base}/versions/{version}/{name}.parquet", 600) as r,
+            _get(f"{base}/{folder}{name}.parquet", 600) as r,
             open(into / f"{name}.parquet.part", "wb") as out,
         ):
             shutil.copyfileobj(r, out, 1 << 20)
@@ -65,15 +65,19 @@ def _fetch(base: str, version: str, name: str, into: Path) -> None:
             raise
 
 
-def _manifest(base: str, version: str) -> dict:
-    """A release's files and their sha256, or {} if it has no manifest."""
+def _manifest(base: str, version: str) -> tuple[dict, str]:
+    """A release's files and their sha256, or {} if it has no manifest, and the folder to read them from: its
+    current revision's, whose files never change while they are read, or versions/<version>/ for a release
+    published before revisions."""
+    folder = f"versions/{version}/"
     try:
-        with _get(f"{base}/versions/{version}/manifest.json", 60) as r:
-            return json.load(r).get("files", {})
+        with _get(f"{base}/{folder}manifest.json", 60) as r:
+            m = json.load(r)
+            return m.get("files", {}), m.get("base", folder)
     except urllib.error.HTTPError as e:
         if e.code != 404:
             raise
-        return {}
+        return {}, folder
 
 
 def _digest(path: Path) -> str | None:
@@ -93,13 +97,13 @@ def sync(folder: str | Path, changed: list[str] | None = None, base: str = BASE)
         listed = [v["version"] for v in json.load(r)["versions"]]
     changed = [] if changed is None else changed
     for v in listed:
+        files, at = _manifest(base, v)
         if (folder / v).is_dir():
-            files = _manifest(base, v)
             had = {n: _digest(folder / v / f"{n}.parquet") for n in KINDS}
             want = {n: files.get(f"{n}.parquet", {}).get("sha256") for n in KINDS}
             stale = [n for n in KINDS if had[n] is None or want[n] not in (None, had[n])]
             for name in stale:
-                _fetch(base, v, name, folder / v)
+                _fetch(base, at, name, folder / v)
             if any(_digest(folder / v / f"{n}.parquet") != had[n] for n in stale):
                 changed.append(v)
             continue
@@ -107,7 +111,7 @@ def sync(folder: str | Path, changed: list[str] | None = None, base: str = BASE)
         shutil.rmtree(part, ignore_errors=True)
         part.mkdir()
         for name in KINDS:
-            _fetch(base, v, name, part)
+            _fetch(base, at, name, part)
         part.rename(folder / v)
         changed.append(v)
     return changed
