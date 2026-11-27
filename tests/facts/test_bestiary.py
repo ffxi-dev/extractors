@@ -1,6 +1,8 @@
 """The bestiary, one test per task in vault's scholar-bestiary: the derived unit, its facts, the party-copy
 rule, the trust filter, and the mob page's figures on hand-built rows and on the fixtures."""
 
+import re
+
 from conftest import CAPTAIN, rows, value
 from fill import put, records
 
@@ -360,12 +362,28 @@ def test_setup_keeping_a_changed_derived_table_leaves_its_rows_and_lists_it(con)
     run(con, CAPTAIN, "c")
     fights = value(con, "SELECT count() FROM bestiary_fights")
     con.command("ALTER TABLE bestiary_fights ADD COLUMN gone UInt8")  # as a column the SQL dropped
-    assert store.pending(con) == ["bestiary"]
+    assert store.pending(con) == ["bestiary", "bestiary_mobs"], "and the fact that reads it"
     store.setup(con, keep=True)
     assert value(con, "SELECT count() FROM bestiary_fights") == fights > 0
-    assert store.pending(con) == ["bestiary"], "still to be made again"
+    assert store.pending(con) == ["bestiary", "bestiary_mobs"], "still to be made again"
     store.setup(con)
     assert value(con, "SELECT count() FROM bestiary_fights") == 0 and store.pending(con) == []
+
+
+def test_setup_keeping_a_table_a_later_fact_cannot_read_yet_leaves_both(con):
+    """A store from before rules_out: bestiary_mobs' SQL reads tp.rules_out, which the kept bestiary_fights
+    lacks, so setup with keep must not read that SQL (scholar#363's first CI run failed there)."""
+    run(con, CAPTAIN, "c")
+    fights = value(con, "SELECT count() FROM bestiary_fights")
+    tp = value(con, "SELECT type FROM system.columns WHERE database = currentDatabase()"
+                    " AND table = 'bestiary_fights' AND name = 'tp'")  # fmt: skip
+    old = re.sub(r", rules_out Array\(Nullable\(Float32\)\)", "", tp)
+    assert old != tp
+    con.command("ALTER TABLE bestiary_fights DROP COLUMN tp")
+    con.command(f"ALTER TABLE bestiary_fights ADD COLUMN tp {old}")
+    store.setup(con, keep=True)
+    assert value(con, "SELECT count() FROM bestiary_fights") == fights > 0
+    assert store.pending(con) == ["bestiary", "bestiary_mobs"]
 
 
 def test_a_tp_move_under_mighty_strikes_counts_no_hit_or_crit(con):
