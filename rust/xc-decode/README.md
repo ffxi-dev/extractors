@@ -2,7 +2,7 @@
 
 FFXI packets decoded as `ffxi_packets` decodes them, field for field, straight from the packet's bytes.
 
-`build.rs` turns `packets/` (ffxi-dev/packets at tag v2.3.0: `schemas/*.json` and `cases/`) into a table per
+`build.rs` turns `packets/` (ffxi-dev/packets at tag v2.4.0: `schemas/*.json` and `cases/`) into a table per
 fixed layout: each field's path, bit offset, width, and union variant. A field is read only when asked for,
 with no allocation except text that is not valid UTF-8. The action packet (s2c 0x028) has its own bitstream
 decoder, `Action`, matching Python's `_action`.
@@ -22,9 +22,11 @@ for t in decode(S2C, 0x028, &action, None).unwrap().action().unwrap().targets() 
 
 Bump packets: copy the tag's `schemas/*.json` and `cases/*.json` into `packets/`, set the tag in
 `decode.PACKETS` and in pyproject.toml's `ffxi-packets` source, `uv lock`, then `cargo test` and
-`pytest tests/test_rust.py`, which fails when a copied schema is not the tag's.
+`pytest tests/test_rust.py`, which fails when a copied file is not the tag's. Leave `decode.DECODES`
+at the last release that changed what a packet decodes to: moving it re-runs every unit on the archive.
 Older layouts (`layouts.json`) are picked by client version as packets picks them. A capture whose header
 names no version, such as a PacketViewer import, picks by when it was recorded: `version_at` gives the version
-live then, from build.rs's `LIVE`, which fails the build when a layout's `until` or `from` has no day there.
+live then, from packets' `live.json`; the build fails when a layout's `until` or `from` has no day there.
+`tests/cases.rs` runs packets' `capture_versions` cases against it.
 
 `parity/` compares the crate with Python on real captures: every packet the same. Its README has the numbers.

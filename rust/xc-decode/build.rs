@@ -190,13 +190,16 @@ impl Walk {
     }
 }
 
-/// When each client version that starts or ends an older layout went live, UTC midnight of the update's day in
-/// Unix ms: a capture whose header names no version picks its layouts by when it was recorded. Every `until`
-/// and `from` in layouts.json needs one.
-const LIVE: &[(&str, u64)] = &[
-    // The 2021-11-10 update, Master Levels: LSB's CLIENT_VER went from 30211005_0 to it that day.
-    ("30211103_1", 1_636_502_400_000),
-];
+/// Unix ms at UTC midnight of a `2021-11-10` day, as live.json writes them (days_from_civil).
+fn day_ms(day: &str) -> u64 {
+    let n: Vec<i64> = day.split('-').map(|x| x.parse().unwrap()).collect();
+    let (m, d) = (n[1], n[2]);
+    let y = n[0] - i64::from(m <= 2);
+    let (era, yoe) = (y.div_euclid(400), y.rem_euclid(400));
+    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    ((era * 146_097 + doe - 719_468) * 86_400_000) as u64
+}
 
 fn opcode(p: &J) -> u16 {
     u16::from_str_radix(p["id"].as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
@@ -259,6 +262,15 @@ fn main() {
         serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap()
     };
 
+    // When each client version that starts or ends an older layout went live: a capture whose header names no
+    // version picks its layouts by when it was recorded.
+    let live: Vec<(String, u64)> = read("live.json")
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| (d["version"].as_str().unwrap().to_string(), day_ms(d["live"].as_str().unwrap())))
+        .collect();
+
     let mut out = String::new();
     let mut table = vec!["None".to_string(); 2 * 0x200]; // opcodes are 9 bits
     for (direction, name) in [(0u8, "s2c"), (1u8, "c2s")] {
@@ -279,7 +291,7 @@ fn main() {
         let layout = if emit(&mut older, &id, p, direction, true) { format!("Some(&{id})") } else { "None".into() };
         let bound = |k: &str| {
             p[k].as_str().map_or("None".into(), |v| {
-                assert!(LIVE.iter().any(|(l, _)| *l == v), "build.rs's LIVE needs the day {v} went live");
+                assert!(live.iter().any(|(l, _)| l == v), "packets' live.json needs the day {v} went live");
                 format!("Some({})", version(v))
             })
         };
@@ -295,7 +307,7 @@ fn main() {
     out.push_str("];\n");
     out.push_str(&older);
     out.push_str("static LIVE: &[(&str, u64)] = &[");
-    for (v, ms) in LIVE {
+    for (v, ms) in &live {
         write!(out, "({v:?}, {ms}),").unwrap();
     }
     out.push_str("];\n");

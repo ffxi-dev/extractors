@@ -2,7 +2,7 @@
 
 use serde_json::Value as J;
 use std::collections::BTreeMap;
-use xc_decode::{C2S, S2C, Value, decode};
+use xc_decode::{C2S, S2C, Value, capture_version, decode};
 
 /// A value as a case file stores it: JSON has no NaN, so a NaN float is no value.
 pub fn json(v: &Value) -> Option<J> {
@@ -52,4 +52,16 @@ fn cases() {
     }
     assert!(n > 0);
     eprintln!("{n} cases");
+}
+
+#[test]
+fn capture_versions() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("packets/cases/versions.json");
+    let v: J = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let cases = v["capture_versions"].as_array().unwrap();
+    assert!(!cases.is_empty());
+    for c in cases {
+        let got = capture_version(c["client_version"].as_str().unwrap(), c["start_ms"].as_u64().unwrap());
+        assert!(c["picks"] == got, "{}: {got}", c["note"]);
+    }
 }

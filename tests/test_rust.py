@@ -50,17 +50,18 @@ def test_the_pinned_tags_agree():
 
 
 def test_xc_decode_holds_the_packets_release():
-    """rust/xc-decode/packets holds the pinned packets release's schemas byte for byte, not a hand edit.
-    Line endings aside: a Windows checkout writes CRLF."""
-    release = Path(ffxi_packets.__file__).parent / "schemas"
+    """rust/xc-decode/packets holds the pinned packets release's schemas, live days and cases byte for
+    byte, not a hand edit. Line endings aside: a Windows checkout writes CRLF."""
+    package = Path(ffxi_packets.__file__).parent
     copy = ROOT / "rust" / "xc-decode" / "packets"
-    assert sorted(f.name for f in copy.glob("*.json")) == sorted(f.name for f in release.glob("*.json"))
 
     def read(f: Path) -> bytes:
         return f.read_bytes().replace(b"\r\n", b"\n")
 
-    for f in copy.glob("*.json"):
-        assert read(f) == read(release / f.name), f"{f.name} is not packets v{PACKETS}'s"
+    for mine, theirs in [(copy, package / "schemas"), (copy / "cases", package / "cases")]:
+        assert sorted(f.name for f in mine.glob("*.json")) == sorted(f.name for f in theirs.glob("*.json"))
+        for f in mine.glob("*.json"):
+            assert read(f) == read(theirs / f.name), f"{f.name} is not packets v{PACKETS}'s"
 
 
 def test_world_alone_writes_nothing():
