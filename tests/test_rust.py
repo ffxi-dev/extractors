@@ -1,11 +1,12 @@
 """extractors_rs against the Python declarations: each Rust extractor declares what its Python class does,
 every Python class has one, and the pinned tags agree."""
 
-import re
 import tomllib
+from importlib.metadata import version
 from pathlib import Path
 
 import extractors_rs
+import ffxi_packets
 import pyarrow as pa
 import pytest
 from conftest import MEMORIA
@@ -40,12 +41,26 @@ def test_its_tables_are_typed_as_declared():
 
 
 def test_the_pinned_tags_agree():
-    """xicap's tag for the Python reader and the Rust one; packets' for decode.PACKETS and xc-decode."""
+    """xicap's tag for Python's reader and Rust's; packets' for decode.PACKETS and the one installed."""
     sources = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["uv"]["sources"]
     build = (ROOT / "rust" / "xc-core" / "build.rs").read_text()
     assert f'XICAP_TAG: &str = "{sources["xicap"]["tag"]}"' in build
-    readme = (ROOT / "rust" / "xc-decode" / "README.md").read_text()
-    assert re.search(rf"tag v{re.escape(PACKETS)}\b", readme)
+    assert sources["ffxi-packets"]["tag"] == f"v{PACKETS}"
+    assert version("ffxi-packets") == PACKETS
+
+
+def test_xc_decode_holds_the_packets_release():
+    """rust/xc-decode/packets holds the pinned packets release's schemas byte for byte, not a hand edit.
+    Line endings aside: a Windows checkout writes CRLF."""
+    release = Path(ffxi_packets.__file__).parent / "schemas"
+    copy = ROOT / "rust" / "xc-decode" / "packets"
+    assert sorted(f.name for f in copy.glob("*.json")) == sorted(f.name for f in release.glob("*.json"))
+
+    def read(f: Path) -> bytes:
+        return f.read_bytes().replace(b"\r\n", b"\n")
+
+    for f in copy.glob("*.json"):
+        assert read(f) == read(release / f.name), f"{f.name} is not packets v{PACKETS}'s"
 
 
 def test_world_alone_writes_nothing():
