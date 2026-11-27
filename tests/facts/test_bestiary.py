@@ -353,6 +353,21 @@ def test_setup_keeps_a_derived_table_whose_columns_match(con):
     assert fights > 0 and value(con, "SELECT count() FROM bestiary_fights") == fights
 
 
+def test_setup_keeping_a_changed_derived_table_leaves_its_rows_and_lists_it(con):
+    """Scholar rebuilds a derived table whose SQL dropped or retyped a column beside the live one and swaps
+    them in; until then the live one keeps its rows (vault's release-schema). Without keep, setup makes it
+    again, empty."""
+    run(con, CAPTAIN, "c")
+    fights = value(con, "SELECT count() FROM bestiary_fights")
+    con.command("ALTER TABLE bestiary_fights ADD COLUMN gone UInt8")  # as a column the SQL dropped
+    assert store.pending(con) == ["bestiary"]
+    store.setup(con, keep=True)
+    assert value(con, "SELECT count() FROM bestiary_fights") == fights > 0
+    assert store.pending(con) == ["bestiary"], "still to be made again"
+    store.setup(con)
+    assert value(con, "SELECT count() FROM bestiary_fights") == 0 and store.pending(con) == []
+
+
 def test_a_tp_move_under_mighty_strikes_counts_no_hit_or_crit(con):
     """Mighty Strikes makes every hit crit for 45 s: a move that crits within 50 s after the mob's tells
     nothing of the move, one after does (Mogsafe note 121: XKi5H7zHD9aJ#packet=57050)."""

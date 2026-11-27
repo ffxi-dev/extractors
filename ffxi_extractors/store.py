@@ -218,9 +218,11 @@ SETTINGS = {
 }
 
 
-def setup(con) -> None:
+def setup(con, keep: bool = False) -> None:
     """Make every table, view, function, and dictionary the units need, and add the columns a new extractor
-    version brings. Derived tables come from their SQL."""
+    version brings. Derived tables come from their SQL. keep leaves a derived table that pending() lists as it
+    is, rows and all, for a caller that rebuilds it beside the live one and swaps them (Scholar's rebuild);
+    without it, such a table is made again, empty."""
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
         raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
@@ -243,7 +245,7 @@ def setup(con) -> None:
         pick_names(con)
     script(con, "setup.sql")
     for d in DERIVED:
-        create_derived(con, d, d.tables[0].name)
+        create_derived(con, d, d.tables[0].name, keep)
     views(con)
 
 
@@ -274,23 +276,36 @@ def script(con, name: str) -> None:
             con.command(statement)
 
 
-def create_derived(con, d, name: str) -> None:
-    """A derived unit's table, typed by its SQL. A table of another engine, or with a column the SQL dropped
-    or retyped, is made again, empty: that change comes with a new version, which writes every capture's rows
-    again. A column the SQL gained is added, so the next runs can write it. Units go in
-    the order of DERIVED, so one over another reads its new columns."""
+def _changed(con, d, name: str) -> bool:
+    """Whether the table name exists under another engine than d's, or holds a column d's SQL dropped or
+    retyped."""
     sql = "SELECT engine FROM system.tables WHERE database = currentDatabase() AND name = {t:String}"
     engine = one(con, sql, {"t": name})
-    if engine and engine[0] != d.engine.split("(")[0]:
+    if not engine:
+        return False
+    if engine[0] != d.engine.split("(")[0]:
+        return True
+    # DESCRIBE spells a named tuple over several lines, system.columns on one: compare without spaces.
+    flat = "".join
+    want = {c: flat(typ.split()) for c, typ, *_ in rows(con, f"DESCRIBE ({d.sql})", {"capture": ""})}
+    held = rows(con, "SELECT name, type FROM system.columns WHERE database = currentDatabase()"
+                     " AND table = {t:String}", {"t": name})  # fmt: skip
+    return any(want.get(c) != flat(typ.split()) for c, typ in held)
+
+
+def pending(con) -> list[str]:
+    """The derived units whose table must be made again before it takes this code's rows: of another engine,
+    or with a column the SQL dropped or retyped. Such a change comes with a new version, which writes every
+    capture's rows again."""
+    return [d.name for d in DERIVED if _changed(con, d, d.tables[0].name)]
+
+
+def create_derived(con, d, name: str, keep: bool = False) -> None:
+    """A derived unit's table, typed by its SQL. A table pending() would list is made again, empty, unless
+    keep says to leave it. A column the SQL gained is added, so the next runs can write it. Units go in the
+    order of DERIVED, so one over another reads its new columns."""
+    if not keep and _changed(con, d, name):
         con.command(f"DROP TABLE {name} SYNC")
-    elif engine:
-        # DESCRIBE spells a named tuple over several lines, system.columns on one: compare without spaces.
-        flat = "".join
-        want = {c: flat(typ.split()) for c, typ, *_ in rows(con, f"DESCRIBE ({d.sql})", {"capture": ""})}
-        held = rows(con, "SELECT name, type FROM system.columns WHERE database = currentDatabase()"
-                         " AND table = {t:String}", {"t": name})  # fmt: skip
-        if any(want.get(c) != flat(typ.split()) for c, typ in held):
-            con.command(f"DROP TABLE {name} SYNC")
     con.command(
         f"CREATE TABLE IF NOT EXISTS {name} ENGINE = {d.engine} ORDER BY ({d.order})"
         f" SETTINGS allow_nullable_key = 1 EMPTY AS {d.sql}",
