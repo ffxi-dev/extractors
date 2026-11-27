@@ -173,15 +173,44 @@ def _rare(release: str, path: Path) -> pa.Table:
     })  # fmt: skip
 
 
+# FFXI's job numbers, as the client and LSB number them.
+JOBS = ("WAR", "MNK", "WHM", "BLM", "RDM", "THF", "PLD", "DRK", "BST", "BRD", "RNG", "SAM", "NIN", "DRG",
+        "SMN", "BLU", "COR", "PUP", "DNC", "SCH", "GEO", "RUN")  # fmt: skip
+
+
+def _spell_jobs(release: str, path: Path) -> pa.Table:
+    """Each spell's jobs and the level each learns it at, as names of kind spell_job: log_id the job's number,
+    name the job, log the level. A mob page's job hints read them (spell_jobs)."""
+    t = pq.read_table(path)
+    if "level_required" not in t.column_names:
+        return pa.table({"id": pa.array([], pa.int64())})
+    got = [
+        (i, n, j, lv)
+        for i, levels in zip(t["index"].to_pylist(), t["level_required"].to_pylist(), strict=True)
+        if i is not None
+        for n, j in enumerate(JOBS, 1)
+        if (lv := (levels or {}).get(j)) is not None
+    ]
+    n = len(got)
+    return pa.table({
+        "release": [release] * n, "kind": ["spell_job"] * n,
+        "log_id": pa.array([g[1] for g in got], pa.int64()), "id": pa.array([g[0] for g in got], pa.int64()),
+        "name": [g[2] for g in got],
+        "name_passive": pa.nulls(n, pa.string()), "log": [str(g[3]) for g in got],
+    })  # fmt: skip
+
+
 def lacking(con, folder: str | Path) -> bool:
     """Whether the store lacks a kind of name this code loads from the releases here, as names an older
-    version loaded do: item_rare came after them."""
+    version loaded do: item_rare and spell_job came after them."""
     folder = Path(folder)
     want = set()
     for r in releases(folder):
         want |= {kind for file, (kind, _, _) in KINDS.items() if (folder / r / f"{file}.parquet").exists()}
         if (folder / r / "items.parquet").exists():
             want.add("item_rare")
+        if (folder / r / "spells.parquet").exists():
+            want.add("spell_job")
     return bool(want - {k for (k,) in store.rows(con, "SELECT DISTINCT kind FROM names")})
 
 
@@ -198,6 +227,8 @@ def load(con, folder: str | Path) -> None:
                 store.insert(con, "names_next", _rows(r, folder / r / f"{file}.parquet", kind, id_col, col))
         if (folder / r / "items.parquet").exists():
             store.insert(con, "names_next", _rare(r, folder / r / "items.parquet"))
+        if (folder / r / "spells.parquet").exists():
+            store.insert(con, "names_next", _spell_jobs(r, folder / r / "spells.parquet"))
     store.pick_names(con, "names_next", "names_one_next")
     for t in ("names", "names_one"):
         con.command(f"EXCHANGE TABLES {t} AND {t}_next")
