@@ -19,7 +19,7 @@ The tests use the compose file's ClickHouse; `FFXI_TEST_CLICKHOUSE` names anothe
 
 ## Rules
 
-- Packets are decoded only through rust/xc-decode, from `ffxi-dev/packets`' schemas copied at a tag (`decode.PACKETS`). Never write a layout by hand; fix it in packets and copy the new tag.
+- Packets are decoded only through rust/xc-decode, from `ffxi-dev/packets`' schemas copied at a tag (`decode.PACKETS`). Never write a layout by hand; fix it in packets and copy the new tag. `tests/test_rust.py` checks the copy byte for byte against the `ffxi-packets` pyproject.toml pins.
 - Captures are read only through xicap (its C API in Rust, its Python reader for the header), at the tag pyproject.toml pins, and never changed.
 - An extractor is a Python declaration (name, version, reads, sparse, tables, docs) and a Rust crate that matches it; `tests/test_rust.py` checks they agree. Its rows match Python's arithmetic to the bit: `xc_core::py`.
 - A unit's `version` changes whenever its output would: `tests/test_expected.py` fails otherwise. After a bump, bless and commit the new pin. A change to what the world keeps bumps `WORLD_VERSION`, which re-runs every unit.

@@ -20,7 +20,9 @@ for t in decode(S2C, 0x028, &action, None).unwrap().action().unwrap().targets() 
 }
 ```
 
-Bump packets: copy the tag's `schemas/*.json` and `cases/*.json` into `packets/`, then `cargo test`.
+Bump packets: copy the tag's `schemas/*.json` and `cases/*.json` into `packets/`, set the tag in
+`decode.PACKETS` and in pyproject.toml's `ffxi-packets` source, `uv lock`, then `cargo test` and
+`pytest tests/test_rust.py`, which fails when a copied schema is not the tag's.
 Older layouts (`layouts.json`) are picked by client version as packets picks them. A capture whose header
 names no version, such as a PacketViewer import, picks by when it was recorded: `version_at` gives the version
 live then, from build.rs's `LIVE`, which fails the build when a layout's `until` or `from` has no day there.
