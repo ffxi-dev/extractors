@@ -81,3 +81,28 @@ def test_a_mobs_signs_name_their_jobs_and_packets_once_per_fight(con):
     # At level 20, Dual Wield is Ninja's and Dancer's, not yet Thief's (83).
     (hands,) = ask(con, "bestiary_jobs", zone=ZONE, name="Orcish Brawler")
     assert (hands["sign"], hands["jobs"], hands["n"]) == ("two_hands", ["DNC", "MNK", "NIN", "PUP"], 20)
+
+
+def test_a_mob_that_shoots_and_holds_a_wyvern_reads_as_a_shooter_and_a_dragoon(con):
+    """Ranged attacks name RNG, COR, NIN, and THF; the entity after a mob, named as a mob's wyvern, is its
+    pet, a Dragoon's. A mob named as a pet has no pet of its own."""
+    capture = {"client_version": "v", "release": "r", "retail": True, "packets": 0}
+    put(con, "captures", [{**capture, "capture_id": "a"}])
+    fight = {"capture_id": "a", "zone_id": ZONE, "model_id": 9, "level": 60, "idx": 1, "end_idx": 1000}
+    put(con, "bestiary_fights", [
+        {**fight, "mob_id": MOB, "name": "Hydra Dragoon", "mob_name": "Hydra Dragoon", "fight_key": 4},
+        {**fight, "mob_id": MOB + 1, "name": "Hydra's Wyvern", "mob_name": "Hydra's Wyvern", "fight_key": 5},
+    ])  # fmt: skip
+    put(con, "actions", [{"capture_id": "a", "idx": i, "ts_ms": i, "client_version": "v", "actor_id": MOB,
+                          "category": 2, "action_id": 0, "resend": False} for i in (30, 31, 32)])  # fmt: skip
+    seen = {"capture_id": "a", "client_version": "v", "ts_ms": 0, "entity_name": "Hydra's Wyvern"}
+    put(con, "named_entities", [{**seen, "idx": 40, "entity_id": MOB + 1},
+                                {**seen, "idx": 41, "entity_id": MOB + 2}])  # fmt: skip
+
+    got = [(r["sign"], r["status"], r["jobs"], r["n"], r["proofs"][:1])
+           for r in ask(con, "bestiary_jobs", zone=ZONE, name="Hydra Dragoon")]  # fmt: skip
+    assert got == [
+        ("pet", "wyvern", ["DRG"], 1, [LENS + "a#packet=40"]),
+        ("ranged", "", ["COR", "NIN", "RNG", "THF"], 3, [got[1][4][0]]),
+    ]
+    assert ask(con, "bestiary_jobs", zone=ZONE, name="Hydra's Wyvern") == []

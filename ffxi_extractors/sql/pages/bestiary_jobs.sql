@@ -8,7 +8,9 @@
 -- "Resist!" (trait_resist) to a status, of the casts of its spells, jobs none when no job has the trait
 -- (gear or the mob's kind); spell: a spell it cast, idle or in a fight, id the spell, jobs those that learn
 -- it by its level; fast_cast: the fast_cast view's mob, id the percent faster, n its spells, of its casts;
--- two_hour and ability: a job's two-hour or ability used as a TP move, id the mob skill, which a mob of
+-- ranged: its ranged attacks (3 or more), n the shots; pet: the entity after it in a capture, named as a
+-- mob's wyvern, avatar or elemental, or automaton (status), whose id is a pet's slot, n the captures that saw
+-- it; two_hour and ability: a job's two-hour or ability used as a TP move, id the mob skill, which a mob of
 -- another job can use too. A double or triple in over 60% of rounds is the mob's kind's attack, no trait.
 -- Thresholds: 30 rounds and 3 doubles, 2 triples, 3 kicks at 3%; off hands in half of 20 rounds; 3 guards
 -- or counters at 1% of 200 swings at it.
@@ -23,6 +25,8 @@ tr AS (SELECT * FROM VALUES('sign String, status String, job String, level Int32
   ('two_hands', '', 'MNK', 1), ('two_hands', '', 'PUP', 1), ('two_hands', '', 'NIN', 10),
   ('two_hands', '', 'DNC', 20), ('two_hands', '', 'THF', 83), ('fast_cast', '', 'RDM', 15),
   ('guard', '', 'MNK', 1), ('guard', '', 'PUP', 1), ('counter', '', 'MNK', 10),
+  ('ranged', '', 'RNG', 1), ('ranged', '', 'COR', 1), ('ranged', '', 'NIN', 1), ('ranged', '', 'THF', 1),
+  ('pet', 'wyvern', 'DRG', 1), ('pet', 'avatar', 'SMN', 1), ('pet', 'automaton', 'PUP', 1),
   ('resist', 'sleep', 'PLD', 20), ('resist', 'poison', 'RNG', 20), ('resist', 'paralyze', 'DRK', 20),
   ('resist', 'paralyze', 'COR', 5), ('resist', 'blind', 'SAM', 5), ('resist', 'silence', 'BRD', 5),
   ('resist', 'silence', 'SCH', 10), ('resist', 'petrify', 'RDM', 10), ('resist', 'virus', 'WAR', 5),
@@ -91,6 +95,24 @@ ca AS (SELECT f.model AS model, a.action_id AS id,
   FROM actions a JOIN f ON f.capture_id = a.capture_id AND f.mob_id = a.actor_id
   WHERE a.capture_id IN (SELECT capture_id FROM f) AND a.idx BETWEEN f.idx AND f.end_idx AND a.category = 4
     AND NOT a.resend GROUP BY model, id),
+rg AS (SELECT f.model AS model, count() AS n,
+    arraySlice(arraySort(x -> cityHash64(x), groupArray(concat('https://lens.sruon.dev/c/', a.capture_id,
+      '#packet=', toString(a.idx)))), 1, 3) AS proofs
+  FROM actions a JOIN f ON f.capture_id = a.capture_id AND f.mob_id = a.actor_id
+  WHERE a.capture_id IN (SELECT capture_id FROM f) AND a.idx BETWEEN f.idx AND f.end_idx AND a.category = 2
+    AND NOT a.resend GROUP BY model HAVING n >= 3),
+-- A mob's pet holds the next id: Mamool Ja Spearman's is Mamool Ja's Wyvern. A mob named as a pet has none.
+pe AS (SELECT f.model AS model, multiIf(e.entity_name ILIKE '%''s %wyvern', 'wyvern',
+      e.entity_name ILIKE '%''s %avatar' OR e.entity_name ILIKE '%''s %elemental', 'avatar',
+      e.entity_name ILIKE '%''s %automaton', 'automaton', '') AS kind,
+    uniqExact(e.capture_id) AS n, uniqExact(f.capture_id) AS of,
+    arraySlice(arraySort(x -> cityHash64(x), groupUniqArray(concat('https://lens.sruon.dev/c/', e.capture_id,
+      '#packet=', toString(e.first)))), 1, 3) AS proofs
+  FROM (SELECT DISTINCT capture_id, mob_id, model FROM f WHERE mob_id IS NOT NULL) f
+  JOIN (SELECT capture_id, entity_id, any(entity_name) AS entity_name, min(idx) AS first FROM named_entities
+      WHERE capture_id IN (SELECT capture_id FROM f) AND entity_name IS NOT NULL GROUP BY capture_id, entity_id) e
+    ON e.capture_id = f.capture_id AND e.entity_id = f.mob_id + 1
+  WHERE {name:String} NOT LIKE '%''s %' GROUP BY model, kind HAVING kind != ''),
 fcp AS (SELECT model, arraySlice(arraySort(x -> cityHash64(x), groupArray(u)), 1, 3) AS proofs
   FROM ca ARRAY JOIN proofs AS u GROUP BY model),
 fc AS (SELECT toInt64(round((1 - ratio) * 100)) AS id, spells, casts FROM fast_cast
@@ -112,6 +134,12 @@ SELECT ms.model AS model, ms.sign AS sign, toInt64(0) AS id, '' AS status, g.job
   toInt64(ms.of) AS of, coalesce(mp.proofs, []) AS proofs
 FROM ms JOIN gated g ON g.model = ms.model AND g.sign = ms.sign AND g.status = ''
 LEFT JOIN mp ON mp.model = ms.model AND mp.sign = ms.sign
+UNION ALL
+SELECT rg.model, 'ranged', 0, '', g.jobs, toInt64(rg.n), toInt64(rg.n), rg.proofs
+FROM rg JOIN gated g ON g.model = rg.model AND g.sign = 'ranged' AND g.status = ''
+UNION ALL
+SELECT pe.model, 'pet', 0, pe.kind, g.jobs, toInt64(pe.n), toInt64(pe.of), pe.proofs
+FROM pe JOIN gated g ON g.model = pe.model AND g.sign = 'pet' AND g.status = pe.kind
 UNION ALL
 SELECT tk.model, 'resist', 0, tk.status, g.jobs, toInt64(tk.n), toInt64(tk.of), tk.proofs
 FROM tk JOIN gated g ON g.model = tk.model AND g.sign = 'resist' AND g.status = tk.status
