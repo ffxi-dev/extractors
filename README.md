@@ -20,7 +20,7 @@ docker compose exec clickhouse clickhouse-client --user ffxi --password ffxi -d 
 
 ## Captures
 
-- `tests/data/` holds two public Mogsafe captures, a Memoria recording and a converted captain log.
+- `tests/data/` holds public Mogsafe captures: a Memoria recording, a converted captain log, and, named by id, the small captures that give every pinned table rows (`tests/test_expected.py`).
 - Any capture Mogsafe keeps downloads from `https://mogsafe.sruon.dev/c/<id>`, no sign-in needed. The id is the last part of the capture's page address.
 - Your own recordings from [Memoria](https://github.com/ffxi-dev/memoria) or captain index the same way.
 

@@ -1,4 +1,64 @@
 {
+  "FavAmKXvF-UU/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "FavAmKXvF-UU/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "FavAmKXvF-UU/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
   "c/besieged": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
@@ -8,6 +68,30 @@
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "c/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "frmSGEVTM7gK/besieged": {
+    "rows": 6,
+    "sha256": "202106a7b811de884833206eb7bb9956906151b0ae8c321cd7aa0ae38d0884b0"
+  },
+  "frmSGEVTM7gK/conquest": {
+    "rows": 2,
+    "sha256": "85a66bace40414102972c98558f44bcff6f7e57c764aa4fbe40f8461e2b91a0e"
+  },
+  "frmSGEVTM7gK/conquest_regions": {
+    "rows": 38,
+    "sha256": "0ad6bf6b95a7ed9a4ab770be98c3080f3df8beb9e5a9b3178469fa1a82fe218e"
+  },
+  "hVXwkR1mvjaE/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "hVXwkR1mvjaE/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "hVXwkR1mvjaE/conquest_regions": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
@@ -22,5 +106,29 @@
   "m/conquest_regions": {
     "rows": 19,
     "sha256": "6087c781eb575fa3facfa96373aa5c38063e6c22602f463ede5f8aa37c8c20cd"
+  },
+  "olmBrnSZGz49/besieged": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/conquest": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/conquest_regions": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "uL6HBRU0q4Yi/besieged": {
+    "rows": 3,
+    "sha256": "142403488607299c8ceca6dfe8f924169493bff2902e2a1f4ba630d6fc049e52"
+  },
+  "uL6HBRU0q4Yi/conquest": {
+    "rows": 1,
+    "sha256": "e6c3f3ad1b902ad8d4324169f2cbddc0b303bef35f7c7011bd0eeba5290510d1"
+  },
+  "uL6HBRU0q4Yi/conquest_regions": {
+    "rows": 19,
+    "sha256": "52fb1a11093bb58fca958185bf62a5499af2ee03a713969d5ab25952d528d64a"
   }
 }

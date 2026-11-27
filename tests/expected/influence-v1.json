@@ -1,4 +1,64 @@
 {
+  "FavAmKXvF-UU/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "FavAmKXvF-UU/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "FavAmKXvF-UU/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
   "c/campaign": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
@@ -8,6 +68,30 @@
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
   "c/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "frmSGEVTM7gK/campaign": {
+    "rows": 2,
+    "sha256": "1502c88e2ff3421e3c281621341183ab2ccfe90cc86c5b0825ece8f8f4a18e0a"
+  },
+  "frmSGEVTM7gK/campaign_areas": {
+    "rows": 52,
+    "sha256": "29c15510d2d4b53e2a0632eb63a61a9a11fcc3e6279e776e0f16ab2c677761cb"
+  },
+  "frmSGEVTM7gK/colonization": {
+    "rows": 16,
+    "sha256": "700243a8a8096533ea6bbbd0068667ef63312a214a369c510e775fe54cd3cde4"
+  },
+  "hVXwkR1mvjaE/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "hVXwkR1mvjaE/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "hVXwkR1mvjaE/colonization": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
   },
@@ -22,5 +106,29 @@
   "m/colonization": {
     "rows": 8,
     "sha256": "8e4a4ba8c33b75f7d7a0a9ff434db6a85dd2da288d77c367ff57671a17f8ba67"
+  },
+  "olmBrnSZGz49/campaign": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/campaign_areas": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/colonization": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "uL6HBRU0q4Yi/campaign": {
+    "rows": 1,
+    "sha256": "30afc0912677c8a65b0657b6780ccdd26b12c408a45208bf74e333d963488269"
+  },
+  "uL6HBRU0q4Yi/campaign_areas": {
+    "rows": 26,
+    "sha256": "908b22729c72cf8b7ddd3605120caf6d33d534a83f6d9a94acf2618527c7bb78"
+  },
+  "uL6HBRU0q4Yi/colonization": {
+    "rows": 8,
+    "sha256": "8b7351fb3c5053d00ea8479072f74af80e75c95fcdc811b4a7bba0bfd107ec3e"
   }
 }

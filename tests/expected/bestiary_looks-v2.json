@@ -1,10 +1,46 @@
 {
+  "FavAmKXvF-UU/bestiary_looks": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/bestiary_looks": {
+    "rows": 4,
+    "sha256": "53390ad952bdec4672245ee3bcafd80ec31fff0145ab87d9d6f100ab3c1a31c8"
+  },
+  "K7OMAr1H_RvA/bestiary_looks": {
+    "rows": 3,
+    "sha256": "1d1bdb5e5e35b6a1cfbc510fd127d61b8011b44b4c41a902144a35a6a3b16ba2"
+  },
+  "KyXzQfqWdANT/bestiary_looks": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/bestiary_looks": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
   "c/bestiary_looks": {
     "rows": 73,
     "sha256": "816d02ceab44b9d9235ee2a546456183a18b1fa57e301f61756eed06a6418310"
   },
+  "frmSGEVTM7gK/bestiary_looks": {
+    "rows": 5,
+    "sha256": "5a36c9b14b023b1b6785e8fdf9a0b098961e460ad286e9fd33f44744843492af"
+  },
+  "hVXwkR1mvjaE/bestiary_looks": {
+    "rows": 4,
+    "sha256": "6d09cb9e2fc9af86636280120e060ce21a63c37d098e14203de780fa4ee4cc86"
+  },
   "m/bestiary_looks": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/bestiary_looks": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "uL6HBRU0q4Yi/bestiary_looks": {
+    "rows": 18,
+    "sha256": "6917d1baf9ce502416890b11c85f50a61a40ee78fd4cf4671a2bb7d36d586927"
   }
 }

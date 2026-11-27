@@ -2,6 +2,7 @@
 without bumping the version and this fails, so Scholar never skips a re-run it needed. After a bump, write
 the new expected output with BLESS=1 and commit it."""
 
+import collections
 import hashlib
 import json
 import os
@@ -9,14 +10,27 @@ from pathlib import Path
 
 import extractors_rs
 import pytest
-from conftest import CAPTAIN, MEMORIA
+from conftest import CAPTAIN, DATA, MEMORIA, SESSION, database, drop
 from fill import records
 
 from ffxi_extractors.extractors import ALL
 from ffxi_extractors.facts import DERIVED
+from ffxi_extractors.index import run
 
 EXPECTED = Path(__file__).parent / "expected"
-CAPTURES = ((MEMORIA, "m"), (CAPTAIN, "c"))
+# The two fixtures, then small public Mogsafe captures by id, each for tables the two leave empty.
+COVER = (
+    "FavAmKXvF-UU",  # synths, recipes
+    "IsLz0pUObRVv",  # steals
+    "K7OMAr1H_RvA",  # level_changes
+    "KyXzQfqWdANT",  # battlefields, character_params, npc_events, npc_trades, trades
+    "YXIPfxMfkyHC",  # fishing, obtained, shop_items, shop_actions, npc_shops
+    "frmSGEVTM7gK",  # keyitems, registrations
+    "hVXwkR1mvjaE",  # defeats
+    "olmBrnSZGz49",  # log_changes
+    "uL6HBRU0q4Yi",  # digs
+)
+CAPTURES = ((MEMORIA, "m"), (CAPTAIN, "c"), *((DATA / f"{cid}.xicap", cid) for cid in COVER))
 # A derived fact's rows, in a fixed order.
 ORDER = {
     "named_entities": "entity_id, idx",
@@ -38,6 +52,18 @@ ORDER = {
 # bestiary_mobs holds aggregate states: compare what they finalise to.
 KEY = "zone_id, mob_name, model, capture_id"
 FINAL = {"bestiary_mobs": f"{KEY}, * EXCEPT ({KEY}, at) APPLY finalizeAggregation"}
+
+
+@pytest.fixture(scope="module")
+def indexed():
+    """Every capture the pins cover, indexed once."""
+    name = SESSION + "_pins"
+    c = database(name)
+    for path, cid in CAPTURES:
+        run(c, path, cid)
+    yield c
+    c.close()
+    drop(name)
 
 
 @pytest.fixture(scope="module")
@@ -69,9 +95,9 @@ def digest(x, con, walked) -> dict:
 
 
 @pytest.mark.parametrize("x", (*ALL, *DERIVED), ids=lambda x: x.name)
-def test_output_matches_its_version(x, both, walked):
+def test_output_matches_its_version(x, indexed, walked):
     path = EXPECTED / f"{x.name}-v{x.version}.json"
-    got = digest(x, both, walked)
+    got = digest(x, indexed, walked)
     if os.environ.get("BLESS"):
         EXPECTED.mkdir(exist_ok=True)
         path.write_text(json.dumps(got, indent=2, sort_keys=True) + "\n")
@@ -83,3 +109,14 @@ def test_every_pin_is_of_a_unit_at_its_version():
     """A pin left behind by a bump would still pass, and say nothing: each file names a unit as it is now."""
     want = {f"{x.name}-v{x.version}.json" for x in (*ALL, *DERIVED)}
     assert {p.name for p in EXPECTED.glob("*.json")} == want
+
+
+def test_every_table_has_rows_in_its_pin():
+    """A table empty on every capture pins nothing: its unit could change what it writes and still pass."""
+    empty = []
+    for path in sorted(EXPECTED.glob("*.json")):
+        rows = collections.Counter()
+        for key, got in json.loads(path.read_text()).items():
+            rows[key.rsplit("/", 1)[1]] += got["rows"]
+        empty += [f"{path.stem}: {table}" for table, n in rows.items() if not n]
+    assert not empty, "add a small public capture that fills them to COVER"

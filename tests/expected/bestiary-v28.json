@@ -1,10 +1,46 @@
 {
+  "FavAmKXvF-UU/bestiary_fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/bestiary_fights": {
+    "rows": 1,
+    "sha256": "4aaba25dd4e685f8ecd57abb073434e08f5ccb3b5b1c42e28de07a5fd6492831"
+  },
+  "K7OMAr1H_RvA/bestiary_fights": {
+    "rows": 1,
+    "sha256": "d7e595dc53d3aaae381e8708e37dbef7fd5a589dfaf34182554c9700cc6cf2a7"
+  },
+  "KyXzQfqWdANT/bestiary_fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/bestiary_fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
   "c/bestiary_fights": {
     "rows": 15,
     "sha256": "7b97c173f6095210d47c9676dc0dfc7eb44371190d61acfaacf340bbed21e093"
   },
+  "frmSGEVTM7gK/bestiary_fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "hVXwkR1mvjaE/bestiary_fights": {
+    "rows": 1,
+    "sha256": "9a0aed67cb77ac171f03ee0a58fb103cac2d5863f95e3cb1f36e873c7a4efd93"
+  },
   "m/bestiary_fights": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/bestiary_fights": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "uL6HBRU0q4Yi/bestiary_fights": {
+    "rows": 1,
+    "sha256": "b15994ff2ee9177d762f1615577b1ccdd3fb24498dca352a37432b373718e7e5"
   }
 }

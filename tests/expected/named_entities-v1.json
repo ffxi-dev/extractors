@@ -1,10 +1,46 @@
 {
+  "FavAmKXvF-UU/named_entities": {
+    "rows": 2,
+    "sha256": "53804065ec704b5222fb19246eefe7bd5755f1ae5f5873d397a7bc989ce25cfb"
+  },
+  "IsLz0pUObRVv/named_entities": {
+    "rows": 10,
+    "sha256": "d239e493a8ee30549314826b1e35e366d9190c4c8c199d68e19192ac676acfa1"
+  },
+  "K7OMAr1H_RvA/named_entities": {
+    "rows": 6,
+    "sha256": "7fb6f6b90bf9d9ace4403dbbc3758c6411b4a8a1b9df9b2a3be979db8bb18c20"
+  },
+  "KyXzQfqWdANT/named_entities": {
+    "rows": 15,
+    "sha256": "5fd2995598637c57ee95cb5cfd5b1af047d1a22292163e27c23866283f201bab"
+  },
+  "YXIPfxMfkyHC/named_entities": {
+    "rows": 6,
+    "sha256": "2eee16025dbb0d2a588611b29e375afceb7be131952ada0922562edda6b81e06"
+  },
   "c/named_entities": {
     "rows": 89,
     "sha256": "f1bc644f7d5aad549dbd7c95cccd7b165ec819b37619652bb87d66fe03aa4a81"
   },
+  "frmSGEVTM7gK/named_entities": {
+    "rows": 13,
+    "sha256": "2d16617a83c030c8c79cd22f225125c716a555784d9b7c9e52d8abc722f83f51"
+  },
+  "hVXwkR1mvjaE/named_entities": {
+    "rows": 6,
+    "sha256": "a2d077d3c459bfa0ae1e204698439dc8058f53618c9deaf7460c400c3352beda"
+  },
   "m/named_entities": {
     "rows": 101,
     "sha256": "c45c51f6f2788f4f83566be89a7650012cfc5fd431c961600bb2604d6c14a5c0"
+  },
+  "olmBrnSZGz49/named_entities": {
+    "rows": 11,
+    "sha256": "687f618313d1226553b6bc5210e99de6368534292793adfe5ff24028f6fb396e"
+  },
+  "uL6HBRU0q4Yi/named_entities": {
+    "rows": 138,
+    "sha256": "a9ba99cd95ae884a8514d2d922d5927d6124f28bc044a235029d2a2b3bb99d44"
   }
 }

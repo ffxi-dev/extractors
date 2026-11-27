@@ -1,10 +1,46 @@
 {
+  "FavAmKXvF-UU/effects": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/effects": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/effects": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/effects": {
+    "rows": 2,
+    "sha256": "6c91a6e5ea0714cd5087a84748a01e6340a44dc8207abb623db48cff1254a986"
+  },
+  "YXIPfxMfkyHC/effects": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
   "c/effects": {
     "rows": 744,
     "sha256": "995d95b97790801c15ebcaea74589110e8a0916a1506645ded51a26cc880f7b7"
   },
+  "frmSGEVTM7gK/effects": {
+    "rows": 3,
+    "sha256": "af76461be18eaf819f8300fc278cde9f1503adda560a6da2bdc8a69486805b51"
+  },
+  "hVXwkR1mvjaE/effects": {
+    "rows": 1,
+    "sha256": "0ab34e271ad734692955ada590f397e46658bffdb0970aba8969d50dfdb97264"
+  },
   "m/effects": {
     "rows": 0,
     "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "olmBrnSZGz49/effects": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "uL6HBRU0q4Yi/effects": {
+    "rows": 3,
+    "sha256": "6e129edba04bba02124342275f1a4e7a0d9898bb87da133dd4084722ee9f2c66"
   }
 }
