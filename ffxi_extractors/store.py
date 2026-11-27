@@ -220,9 +220,10 @@ SETTINGS = {
 
 def setup(con, keep: bool = False) -> None:
     """Make every table, view, function, and dictionary the units need, and add the columns a new extractor
-    version brings. Derived tables come from their SQL. keep leaves a derived table that pending() lists as it
-    is, rows and all, for a caller that rebuilds it beside the live one and swaps them (Scholar's rebuild);
-    without it, such a table is made again, empty."""
+    version brings. Derived tables come from their SQL. keep leaves each derived table pending() lists as it
+    is, rows and all, and the views as they are while any is, for a caller that rebuilds them beside the live
+    ones, swaps them, and makes the views again (Scholar's rebuild); without it, such a table is made again,
+    empty."""
     got = one(con, "SELECT " + ", ".join(f"toInt64(getSetting('{s}'))" for s in SETTINGS))
     if list(got) != list(SETTINGS.values()):
         raise RuntimeError(f"ClickHouse runs these settings otherwise: {SETTINGS}; see clickhouse/users.xml")
@@ -244,9 +245,13 @@ def setup(con, keep: bool = False) -> None:
     if not one(con, "SELECT 1 FROM names_one LIMIT 1"):
         pick_names(con)
     script(con, "setup.sql")
+    # A fact over a kept table may read a column it lacks, so it waits for the rebuild too, unread.
+    kept = set(pending(con)) if keep else set()
     for d in DERIVED:
-        create_derived(con, d, d.tables[0].name, keep)
-    views(con)
+        if d.name not in kept:
+            create_derived(con, d, d.tables[0].name)
+    if not kept:
+        views(con)
 
 
 def pick_names(con, src: str = "names", dst: str = "names_one") -> None:
@@ -295,16 +300,20 @@ def _changed(con, d, name: str) -> bool:
 
 def pending(con) -> list[str]:
     """The derived units whose table must be made again before it takes this code's rows: of another engine,
-    or with a column the SQL dropped or retyped. Such a change comes with a new version, which writes every
-    capture's rows again."""
-    return [d.name for d in DERIVED if _changed(con, d, d.tables[0].name)]
+    or with a column the SQL dropped or retyped, and every unit that reads one, whose SQL may read a column
+    the old table lacks. Such a change comes with a new version, which writes every capture's rows again."""
+    out: list[str] = []
+    for d in DERIVED:  # in order, so a unit's inputs are judged before it
+        if d.reads & set(out) or _changed(con, d, d.tables[0].name):
+            out.append(d.name)
+    return out
 
 
-def create_derived(con, d, name: str, keep: bool = False) -> None:
-    """A derived unit's table, typed by its SQL. A table pending() would list is made again, empty, unless
-    keep says to leave it. A column the SQL gained is added, so the next runs can write it. Units go in the
-    order of DERIVED, so one over another reads its new columns."""
-    if not keep and _changed(con, d, name):
+def create_derived(con, d, name: str) -> None:
+    """A derived unit's table, typed by its SQL. A table pending() would list is made again, empty. A column
+    the SQL gained is added, so the next runs can write it. Units go in the order of DERIVED, so one over
+    another reads its new columns."""
+    if _changed(con, d, name):
         con.command(f"DROP TABLE {name} SYNC")
     con.command(
         f"CREATE TABLE IF NOT EXISTS {name} ENGINE = {d.engine} ORDER BY ({d.order})"
