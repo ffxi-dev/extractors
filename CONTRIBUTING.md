@@ -141,4 +141,4 @@ A table's columns are in its module, or `DESCRIBE tp_uses` in the ClickHouse cli
 
 ## Releases
 
-The owner merges and tags `v<x.y.z>`. Scholar then installs the tag and re-runs, over every capture, only the units whose versions changed.
+Before a tag, `rust/parity/parity --against <the last tag> all` on lsb fails no unit: a unit whose rows changed on the sample of real captures has a new version. The owner merges and tags `v<x.y.z>`. Scholar then installs the tag and re-runs, over every capture, only the units whose versions changed.

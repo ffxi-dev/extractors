@@ -15,8 +15,8 @@ The release check beyond the pins, `rust/parity`, compares Rust with a cache of 
 ## Stages
 
 1. **Pins with rows** (this change's first PR). Nine public captures, 144 KB, 17k packets, join the pin set: captain, PacketViewer, client versions from 2018 to 2026. Every table has rows; `test_every_table_has_rows_in_its_pin` keeps it so. No unit's version changes: the pins gain captures, the output on the old two is the same.
-2. **Release against release.** `parity --against <tag>` builds the last release's wheel beside this checkout's and compares their rows on `sample.txt`, with each sample capture's sha256 recorded so the sample cannot drift. A unit whose rows differ and whose version did not change fails. The v1.14.4 Python cache is kept only as the migration's record.
-3. **Close the migration gate.** rust-extractors 1.4: run Scholar's per-(table, capture) count and hash comparison once (as recipes 1.4 did), or record the owner's decision that the parity run and the releases since stand for it.
+2. **Release against release.** `parity --against <tag>` builds the tag in an image of its own, makes its rows on `sample.txt` once and keeps them, and compares this checkout's with them, each sample capture read at the sha256 it was pinned at so the sample cannot drift. A unit whose rows differ and whose version did not change fails. CONTRIBUTING's release step runs it against the last tag; it stays on lsb's mirror (the owner, 2026-11-27). The v1.14.4 Python cache is kept only as the migration's record.
+3. **Close the migration gate.** rust-extractors 1.4: Scholar's tables no longer held Python's rows (decoder 2.3.0 had Rust rewrite them), so the owner chose an archive-wide run on lsb's mirror instead: v1.14.4's Python against v2.0.0's Rust, a row count and hash per (table, capture), `rust/parity/archive.py`.
 
 ## Impact
 

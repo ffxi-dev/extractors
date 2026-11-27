@@ -2,62 +2,63 @@
 # with 3 rows or more ("small"), and, unless a capture already picked has a quarter as many, the one of at most
 # 700k packets with the most rows ("most"); a median and the largest of at most 700k of PacketViewer and
 # Memoria (xicap) captures; one per client version not yet in; and the spike's two large captures.
-# Chosen from Scholar's tables on 2026-11-22. Format, then why.
-YV3fh5aIRaz3  # xicap entity_changes:small entity_looks:small
-qH_0WM3fjZ24  # captain events:small
-A-ip_ijvEQHK  # captain shop_items:small
-0AXfwnQ16Ens  # captain character_gear:small holdings:small levels:small
-vqD1IGCt36hk  # captain action_results:small actions:small attack_rounds:small
-HB4CbY9-eXxo  # captain character_params:small
-P27ErWjODO5X  # xicap fights:small
-oH9ekqwoW99P  # captain party:small
-j38mzMy2jIuc  # captain mob_passes:small
-YT68r1fwjaxr  # captain character:small evasion_skill:small
-k8NFtuhORJWF  # captain besieged:small campaign_areas:small colonization:small conquest_regions:small
-6ryBN0JivKzv  # captain effects:small
-m7QCS-TGJbqO  # captain tp_nearby:small
-Z2C-AeiO4Y1L  # captain exp_gains:small kills:small mob_hp:small spawns:small
-AwJ1rXuKhzWB  # captain drops:small mob_engages:small
-Nsp88lsZdVxU  # captain spell_results:small
-EcuDKaFrZtd4  # captain shop_actions:small
-KgGVyAnpIZMd  # captain trades:small
-aUyTwJlfs-nf  # captain log_changes:small
-eoR-y6xho_RE  # captain weather:small zones:small
-O4cDrvCNB7Cg  # captain fishing:small
-XXxX5D1xral9  # captain obtained:small
--ffbTE6SvXu7  # captain synths:small
-sWtLkM3LWSM_  # captain campaign:small conquest:small
-AD6YvJ3ygDVC  # captain keyitems:small
-eGG42OK3iyWM  # captain client:Version 10:22:22 Dec 4 2025
-Xr_dfPeSxjDz  # packetviewer mob_messages:small
-oGjZqUnPCS-z  # captain level_changes:small
-DFzDDjb4V4OZ  # xicap xicap:median
-yPoREAFZbcj_  # packetviewer packetviewer:median
-jWOLPlOg2WTy  # packetviewer registrations:small
-D9SzDswMOByX  # captain battlefields:small
-WOj-FJW4sAaN  # captain client:Version 19:02:55 Feb 2 2026
-sah-dbp_ixEc  # captain tp_nearby:most
--1oC7QPr5P39  # captain defeats:small
-PNuVnIq2bf-L  # captain effects:most
-pYjkZOYjFbKr  # xicap client:30261102_1
-4W8j5g8DOgq3  # captain besieged:most
-Z-iti9suHQK6  # packetviewer packetviewer:largest
-Pj1re_pPEC8R  # captain character_params:most
-p_Jp_ere3mu5  # captain fishing:most
-UizFISgPcL2B  # captain shop_actions:most
-RK22Ipwnj6EZ  # captain level_changes:most
-nSDOQTuFtuhw  # captain entity_changes:most
-mP5_1XlMwvxE  # captain holdings:most
-CiplvAzmIrP2  # captain shop_items:most
-wYufiQhm970R  # xicap drops:most
-eG81evD6VpXS  # captain digs:small
-Eh_23WMxFfz_  # captain action_results:most
-PcsRptRvBiUR  # xicap xicap:largest
-Tw9q91br-Kx7  # captain keyitems:most
-QZeg-pG18XpG  # captain mob_passes:most
-8mTmtwM4S4t2  # captain events:most
-62M9rOorZv3d  # captain synths:most
-zEh_PnVTu5u-  # captain character:most
-KDRkBynUt6A_  # captain spike
-yPWKhpkvPd6i  # captain client:Version 18:41:18 Dec 26 2025
-DZ6Cp6Zs3kEK  # xicap large combat (spike)
+# Chosen from Scholar's tables on 2026-11-22. Each line: the id, the sha256 of the file read (pinned 2026-11-27,
+# so a live capture that grew is read as it was), the format, then why.
+YV3fh5aIRaz3 489915b6332a83c0d50077356c8bfbc3bc7a983768bb1922e2e30f1cbdd04056  # xicap entity_changes:small entity_looks:small
+qH_0WM3fjZ24 0dee79538b195710ad00fedcc50d5d510c218d6509fa02533be9460a1e02a3a2  # captain events:small
+A-ip_ijvEQHK d25d72a4fb438c35ba7cf5f016a9fedfd636526a40528bd4f077a5258272699b  # captain shop_items:small
+0AXfwnQ16Ens 58d1a266d46427c020f24ff881930a91996d33a1f77f27138c151e1294f30fff  # captain character_gear:small holdings:small levels:small
+vqD1IGCt36hk 8f84113f0e224669ede344aa044e0fd53bf0e0e2c71612ffa5b84f709b668f2f  # captain action_results:small actions:small attack_rounds:small
+HB4CbY9-eXxo f5c8c8f9f53846ccde745572a66ca6b63112a870cf1d7d124b7b51dd00e9daec  # captain character_params:small
+P27ErWjODO5X af46a4ffc4892a5d09ab9a4a464f68e7ce6920468799d8301de00838283bb7e4  # xicap fights:small
+oH9ekqwoW99P 472127150aea26dbeb6b18e4438550192c997afc3ec9827287afbbddaa882250  # captain party:small
+j38mzMy2jIuc 92cdaaba5440ca56bea63b9c32f360bd187770812c5005b302e225c44b92006b  # captain mob_passes:small
+YT68r1fwjaxr 1a606e52b3dfd705f46b4fce5f6e208aebdbe80d057b766354a7d87b2f6ad3dc  # captain character:small evasion_skill:small
+k8NFtuhORJWF 6b0572d577f110ea15268147d987808b01dac4177152dad8111f4a61e144006b  # captain besieged:small campaign_areas:small colonization:small conquest_regions:small
+6ryBN0JivKzv c521148dc58f6e21573736fa16e7b2be602e41005bfa9bda39eb88e506817617  # captain effects:small
+m7QCS-TGJbqO b9698b1225057fe8ec6d4196a845b29b7dbfc7325ab02fdb09be22eaa55cc35c  # captain tp_nearby:small
+Z2C-AeiO4Y1L d1386f387e18ae23e68ebc33e9810c836585ccd24e56b0d34eeac23c18b1cf91  # captain exp_gains:small kills:small mob_hp:small spawns:small
+AwJ1rXuKhzWB 863b807a72dadf7faff403e7a7142414ad91d96158499bc8747cb4310628018a  # captain drops:small mob_engages:small
+Nsp88lsZdVxU f87d6fdcdc4ebe2bf154e0bdb3eda820ba5ffa5b7b4b126ca85b844f3c8d7820  # captain spell_results:small
+EcuDKaFrZtd4 2cbacc78b9afe561052ed21da6b7ad986ce74282094bea1a713b85bbdebffd29  # captain shop_actions:small
+KgGVyAnpIZMd c831910297e8555237df1ac635389d0ed0aa48dd6467f0175e76d1a40f235353  # captain trades:small
+aUyTwJlfs-nf e1f79303b37bfdf5eb59fb3bae89ab17ebb1efa356da37b51d8de0eb19523b4f  # captain log_changes:small
+eoR-y6xho_RE 7f84553d5ec1bf48a38409231f7ed24c9d3bca8804181781217f13eb0c457816  # captain weather:small zones:small
+O4cDrvCNB7Cg baa37ee78b09a3007068ecd58f0edc66f3eed76cceb5bd98d3d47ba3d71ccfa5  # captain fishing:small
+XXxX5D1xral9 500954f2c386c30d0d88736a57c397dbbdd916f8ed7ffcc9d9eb02f9b9d27105  # captain obtained:small
+-ffbTE6SvXu7 ff6f137de1326271b053e88e60bd7b0b3e176aa3287d8f2592816d4faecaddd0  # captain synths:small
+sWtLkM3LWSM_ 65a5de779687d29d38f50b8426c7e5ad68f1a7b816f3b2fea0458c4245d922f7  # captain campaign:small conquest:small
+AD6YvJ3ygDVC 71480fdb006e524ac6b5655218b19bb36b0c38bb98828273a69b4e6f37ff7029  # captain keyitems:small
+eGG42OK3iyWM 6a7e42c61c56c4d46057fb686b210ba6b96a5aebcc4c34477e46a303f65a5693  # captain client:Version 10:22:22 Dec 4 2025
+Xr_dfPeSxjDz c7b1e08d7604289bdc692520bedd83ff1657aed4160707b3f94817a134434ad9  # packetviewer mob_messages:small
+oGjZqUnPCS-z d5ca23de621bb66d5d96ed47e4701406d92add0e7dcb84385072e7e860eb0990  # captain level_changes:small
+DFzDDjb4V4OZ 1853fdb6865ae497edeb21bb193f96e03441362e882208b5f432fb6b9cec974f  # xicap xicap:median
+yPoREAFZbcj_ c395df75a98fbe3598d2d063a458d0564b170e031c9cebf5a297aa49f70528f3  # packetviewer packetviewer:median
+jWOLPlOg2WTy 27ab313aaba7a4ed14a9c6193a4a12ac9c61779b134d6e6461e8960beca9d103  # packetviewer registrations:small
+D9SzDswMOByX 0d5b25a48dc2ee61675d43ce020d0c19c17ca4572fb37b687bdde08281427352  # captain battlefields:small
+WOj-FJW4sAaN b907b8a0bc62d42e245c29e617bc0c81cc278aaf135e7ffd14b38fd130c7e1bd  # captain client:Version 19:02:55 Feb 2 2026
+sah-dbp_ixEc 582548710b46a8a93d25c5524056a8fd05d089cdef1d0ddd778ad377c4a56e9a  # captain tp_nearby:most
+-1oC7QPr5P39 fb1cba6f01324808522acdbd7f402a66714f009e27da1b6359456fade0522f3d  # captain defeats:small
+PNuVnIq2bf-L bb5c6809eb2dc1025b4ff9ebd919332c05246dd191b9876299d17f6553f9aa60  # captain effects:most
+pYjkZOYjFbKr 294bb093ec49bf39cd82f0bb0dcef0b980e64b4b1ed37c73124794bc9c095157  # xicap client:30261102_1
+4W8j5g8DOgq3 f1575e748e428edd2d249bd916367689ae1e01f0b576c75b7745a1bf38789de5  # captain besieged:most
+Z-iti9suHQK6 dd046530d3cda2927f41d80db6814ed89a50e406d3121c28de5620e2e48ab422  # packetviewer packetviewer:largest
+Pj1re_pPEC8R 3b66d066f71ee82e45369ba07e33927d93dd4e8665c7f75b1632fbefb8354578  # captain character_params:most
+p_Jp_ere3mu5 d8ae668a4aaa20812e23978481aa448375266b9fed33ae196061ca7b97643706  # captain fishing:most
+UizFISgPcL2B ee94b2e035ecb14ac17ac12a82fb9986329ce95a0ac3176e7956c28cd25246bf  # captain shop_actions:most
+RK22Ipwnj6EZ 874d73358648a0a8f5dbf4fcfa33e092145e6f3f83f3709cc99c3477a7fa3a48  # captain level_changes:most
+nSDOQTuFtuhw 01fd527ee416afe55341676a53069f0672f180bd53ea2e8a7312aaf5e199734d  # captain entity_changes:most
+mP5_1XlMwvxE 149f7cbf3236e885876cc5d1fb432543f3ad34a9f465e339818fbd78c7e1b428  # captain holdings:most
+CiplvAzmIrP2 d0acab14b38fce7ad27de467aabfbf0a17bb0e3964232af518849b572c576c29  # captain shop_items:most
+wYufiQhm970R 40fbbf2ed32314de38bbb91e584d3ef795132e9383398e45f360004e0005fac5  # xicap drops:most
+eG81evD6VpXS 3b22f1731991aa7ff9e58d9b2c3827a9d8f645820485b5de6d3d9952967f382f  # captain digs:small
+Eh_23WMxFfz_ 93cfeec6ffb83e8cabe37c0d41c4319961ca6d7fa3c1c7a5293a75144adf08a8  # captain action_results:most
+PcsRptRvBiUR 47a0766607a3b67a5763a80f353c730637be7ebfd9fd4cc1534b5310505b6826  # xicap xicap:largest
+Tw9q91br-Kx7 e5db1616cd73eb8fa31c8911a8ec18b9536ed52c8b1b4435ecd6bf487deb122c  # captain keyitems:most
+QZeg-pG18XpG 6260f5cf8302700e78a210cd1554769769db3cb2218261130b4649925f725502  # captain mob_passes:most
+8mTmtwM4S4t2 be2f202aa0a4f33cb34aa4607924a5e543c9a6b427358d9899ebdb319c32469f  # captain events:most
+62M9rOorZv3d eeb07992c29899acd992fe2d2434193ab2319705b565f8908cbfa7d8f9320dad  # captain synths:most
+zEh_PnVTu5u- 7e48f38389e0ca357a198cbdfe60faf42675a6d30f76ac9995194c78465dc76e  # captain character:most
+KDRkBynUt6A_ d20e297b24e83350f1e63d254729343c13e30e64e8dec11c41924b598525142c  # captain spike
+yPWKhpkvPd6i 1937a2325d6f3bcaad41d678940d75e1d674d2f7691094bc42f6e917306cc05f  # captain client:Version 18:41:18 Dec 26 2025
+DZ6Cp6Zs3kEK b950751c5c95cba9694d1dff0c1531d475f00ad76f3276fc6905c072e0e3b063  # xicap large combat (spike)
