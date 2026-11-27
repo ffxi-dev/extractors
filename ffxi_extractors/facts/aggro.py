@@ -46,7 +46,9 @@ def links_to(x: str, k: str) -> str:
 # started it: a link when a mob of its name or model engaged under 10 s before within 15 yalms, in a fight
 # someone pulled or a link joined (k.started), and it went for someone; else an aggro on whomever it acted on
 # first, if before anyone answered it and not claimed by the other side. Mobs that aggro side by side are
-# each an aggro, not a link.
+# each an aggro, not a link. One that went for a stranger 30 yalms or more from the character is no telling:
+# a stranger's action on an engaging mob shows in 29% of engages under 30 yalms, 9% at 40, and none past 50,
+# so a stranger's pull there goes unseen.
 KIND = f"""multiIf(
   me_action_id IN {PROVOKE}, 'pull_recorder',
   party_ms IS NOT NULL, 'pull_party',
@@ -58,7 +60,8 @@ KIND = f"""multiIf(
   claimer_party != first_target_party, 'other',
   first_target_recorder, 'aggro_recorder',
   first_target_party, 'aggro_party',
-  'aggro_other')"""
+  distance < 30, 'aggro_other',
+  'other')"""
 
 
 # Whether an engage's fight was one a mob could link to: someone pulled it, or it linked to a pulled one.
@@ -123,8 +126,9 @@ COLUMNS = (
 
 class Aggro(Derived):
     name = "aggro"
-    # 3: links only into a pulled fight; aggro_other; 4: an engage that starts claimed is no aggro
-    version = 4
+    # 3: links only into a pulled fight; aggro_other; 4: an engage that starts claimed is no aggro;
+    # 5: aggro_other only under 30 yalms
+    version = 5
     doc = "Each engage of an idle mob, sorted into an aggro, a link, a pull, or another's."
     reads = frozenset({"decode", "engages", "levels", "character", "entity_changes", "actions"})
     order = "zone_id, mob_name, ts_ms"  # a mob page reads its mob's rows
@@ -141,10 +145,12 @@ class Aggro(Derived):
                     "kind",
                     None,
                     "aggro_recorder, aggro_party, or aggro_other (the mob started it and acted first on the"
-                    " character; on its party, a trust, or a pet; or on a stranger), link (it started within"
-                    " 15 yalms of a mob of its name or model engaged under 10 s before, in a fight someone"
-                    " pulled or a link joined), pull_recorder or pull_party (they acted on it in the 30 s"
-                    " before), or other (a stranger acted on it first, it started claimed, or no telling).",
+                    " character; on its party, a trust, or a pet; or on a stranger under 30 yalms off), link"
+                    " (it started within 15 yalms of a mob of its name or model engaged under 10 s before,"
+                    " in a fight someone pulled or a link joined), pull_recorder or pull_party (they acted"
+                    " on it in the 30 s before), or other (a stranger acted on it first, it started claimed,"
+                    " it went for a stranger 30 yalms or more off, where a stranger's pull goes unseen, or"
+                    " no telling).",
                 ),
                 Column(
                     "clean",
