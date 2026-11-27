@@ -86,13 +86,16 @@ def test_sync_fetches_a_file_its_release_rewrote_and_only_once(tmp_path, monkeyp
 
 
 def test_names_load_as_each_release_writes_them(con, tmp_path):
-    """A struct name gives its english text, a spell its index, a quest its log; a second load replaces."""
+    """A struct name gives its english text, a spell its index and its jobs' levels, a quest its log; a second
+    load replaces."""
     rel = tmp_path / "30261006_0"
     rel.mkdir()
     items = {"id": [20595, 4096], "name": [{"english": "Test Sword"}, {"english": "Fire Crystal"}],
              "flags": [["Rare", "Exclusive"], ["CanSendAccount"]]}  # fmt: skip
     pq.write_table(pa.table(items), rel / "items.parquet")
-    pq.write_table(pa.table({"id": [49], "index": [43], "name": ["Protect"]}), rel / "spells.parquet")
+    levels = [{"WHM": 7, "RDM": 7, "PLD": 10, "MON": 7, "BLM": None}]
+    pq.write_table(pa.table({"id": [49], "index": [43], "name": ["Protect"], "level_required": levels}),
+                   rel / "spells.parquet")  # fmt: skip
     pq.write_table(pa.table({"log_id": [2], "log": ["Windurst"], "id": [5], "name": ["A Quest"]}),
                    rel / "quests.parquet")  # fmt: skip
     resources.load(con, tmp_path)
@@ -103,6 +106,8 @@ def test_names_load_as_each_release_writes_them(con, tmp_path):
     ]
     assert rows(con, "SELECT id FROM item_rare") == [(20595,)]
     assert rows(con, "SELECT id, name FROM spell_names") == [(43, "Protect")]
+    assert rows(con, "SELECT id, job, level FROM spell_jobs ORDER BY job") == [
+        (43, "PLD", 10), (43, "RDM", 7), (43, "WHM", 7)]  # fmt: skip
     assert rows(con, "SELECT log_id, log, id, name FROM quest_names") == [(2, "Windurst", 5, "A Quest")]
 
 

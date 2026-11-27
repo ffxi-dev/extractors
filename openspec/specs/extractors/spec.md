@@ -37,3 +37,25 @@ The bestiary SHALL give a TP move no hit and no crit when the same mob used Migh
 #### Scenario: A crit 60 s after
 - **WHEN** a mob's move crits 60 s after its Mighty Strikes
 - **THEN** it counts as a hit and a crit
+
+### Requirement: A mob page reads its job signs
+The bestiary_jobs page query SHALL give, per card (model), each sign a mob's kept fights show of a job: Double Attack (3 or more of 30 or more rounds whose first swing hit swung twice), Triple Attack (2 or more of 30 rounds swung 3 or more times), Zanshin (the mob card's Possible Zanshin rule), fists or two weapons (an off-hand swing in half of 20 rounds), Kick Attacks (3 or more kicks, 3% of 30 rounds), Guard and Counter (3 or more, 1% of 200 swings at it), a "Resist!" to a status, each spell it cast, the fast_cast view's mob, and each job's two-hour or ability it used. A double or triple in over 60% of rounds is the mob's kind's attack and gives no sign. Each sign SHALL name the jobs that give it at the mob's top level (BG Wiki's job traits, blue magic left out; a spell's jobs from retail-resources' spells, as spell_jobs), its count and its chances, and up to 3 of its packets as Lens links. A resist trait no job holds names none.
+
+#### Scenario: Ark Angel MR
+- **WHEN** a mob swings 3 times in 95 of 2,114 rounds, meets Gravity and Slow with "Resist!", and uses Perfect Dodge and Charm
+- **THEN** its signs are Triple Attack (THF), Resist Gravity (THF), Resist Slow (BST, PUP, SMN, DNC), Perfect Dodge (THF), and Charm (BST), each with its packets
+
+#### Scenario: A party member's copy
+- **WHEN** two recorders upload one fight
+- **THEN** its rounds count once, from the kept copy
+
+#### Scenario: Dual Wield's level
+- **WHEN** a level 20 mob swings an off hand every round
+- **THEN** the sign names DNC, MNK, NIN, and PUP, not THF, whose Dual Wield comes at 83
+
+### Requirement: Names give each spell's jobs
+The names load SHALL keep, for each release, each spell's jobs and the level each learns it at (spells' level_required, MON left out), as names of kind spell_job, which the spell_jobs view reads: release, id, job, level.
+
+#### Scenario: Protect
+- **WHEN** a release lists Protect at WHM 7, RDM 7, and PLD 10
+- **THEN** spell_jobs has those three rows for it

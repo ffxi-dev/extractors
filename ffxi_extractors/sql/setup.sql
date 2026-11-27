@@ -101,6 +101,8 @@ CREATE OR REPLACE VIEW item_names AS SELECT release, id, name FROM names_one WHE
 CREATE OR REPLACE VIEW item_rare AS SELECT DISTINCT id FROM names WHERE kind = 'item_rare';
 CREATE OR REPLACE VIEW keyitem_names AS SELECT release, id, name FROM names_one WHERE kind = 'keyitem';
 CREATE OR REPLACE VIEW spell_names AS SELECT release, id, name FROM names_one WHERE kind = 'spell';
+-- Each spell's jobs and the level each learns it at, by release (resources.py's spell_job names).
+CREATE OR REPLACE VIEW spell_jobs AS SELECT release, id, name AS job, toInt32(log) AS level FROM names_one WHERE kind = 'spell_job';
 CREATE OR REPLACE VIEW ability_names AS SELECT release, id, name FROM names_one WHERE kind = 'ability';
 CREATE OR REPLACE VIEW status_names AS SELECT release, id, name, name_passive FROM names_one WHERE kind = 'status';
 CREATE OR REPLACE VIEW mob_skill_names AS SELECT release, id, name FROM names_one WHERE kind = 'mob_skill';
