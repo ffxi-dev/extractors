@@ -1,10 +1,46 @@
 {
+  "FavAmKXvF-UU/weather": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "IsLz0pUObRVv/weather": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "K7OMAr1H_RvA/weather": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "KyXzQfqWdANT/weather": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "YXIPfxMfkyHC/weather": {
+    "rows": 1,
+    "sha256": "6477cb046dfabdf2ec0231b7443baaefc924a007456909f3d8afe83df63fd7ce"
+  },
   "c/weather": {
     "rows": 3,
     "sha256": "03236548d127185d186755e489135c3623584d2bb702068722616e5fcf00470c"
   },
+  "frmSGEVTM7gK/weather": {
+    "rows": 4,
+    "sha256": "76bfbca469a7b42b0bf1f8be727e32c28e2bc28b4a8fc95ccf7e838d75fcd5a7"
+  },
+  "hVXwkR1mvjaE/weather": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
   "m/weather": {
     "rows": 1,
     "sha256": "7e62a9730cffe1a8d91413aa214789402e1fa207a19ff43d036ac3be01feee13"
+  },
+  "olmBrnSZGz49/weather": {
+    "rows": 0,
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "uL6HBRU0q4Yi/weather": {
+    "rows": 3,
+    "sha256": "cb21b97c82440f15603589a1285d3c87cfd8569f62d7d75f63348a651c61561b"
   }
 }
