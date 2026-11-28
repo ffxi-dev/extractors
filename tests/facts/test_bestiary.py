@@ -362,10 +362,10 @@ def test_setup_keeping_a_changed_derived_table_leaves_its_rows_and_lists_it(con)
     run(con, CAPTAIN, "c")
     fights = value(con, "SELECT count() FROM bestiary_fights")
     con.command("ALTER TABLE bestiary_fights ADD COLUMN gone UInt8")  # as a column the SQL dropped
-    assert store.pending(con) == ["bestiary", "bestiary_mobs"], "and the fact that reads it"
+    assert store.pending(con) == ["bestiary", "bestiary_mobs", "capture_finds"], "and the facts that read it"
     store.setup(con, keep=True)
     assert value(con, "SELECT count() FROM bestiary_fights") == fights > 0
-    assert store.pending(con) == ["bestiary", "bestiary_mobs"], "still to be made again"
+    assert store.pending(con) == ["bestiary", "bestiary_mobs", "capture_finds"], "still to be made again"
     store.setup(con)
     assert value(con, "SELECT count() FROM bestiary_fights") == 0 and store.pending(con) == []
 
@@ -383,7 +383,7 @@ def test_setup_keeping_a_table_a_later_fact_cannot_read_yet_leaves_both(con):
     con.command(f"ALTER TABLE bestiary_fights ADD COLUMN tp {old}")
     store.setup(con, keep=True)
     assert value(con, "SELECT count() FROM bestiary_fights") == fights > 0
-    assert store.pending(con) == ["bestiary", "bestiary_mobs"]
+    assert store.pending(con) == ["bestiary", "bestiary_mobs", "capture_finds"]
 
 
 def test_a_tp_move_under_mighty_strikes_counts_no_hit_or_crit(con):

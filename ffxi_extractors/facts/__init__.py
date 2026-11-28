@@ -5,6 +5,7 @@ from ffxi_extractors.facts.aggro import Aggro, AggroPasses
 from ffxi_extractors.facts.bestiary import Bestiary
 from ffxi_extractors.facts.bestiary_looks import BestiaryLooks
 from ffxi_extractors.facts.bestiary_mobs import BestiaryMobs
+from ffxi_extractors.facts.capture_finds import CaptureFinds
 from ffxi_extractors.facts.exp_kills import ExpKills
 from ffxi_extractors.facts.melee import Melee
 from ffxi_extractors.facts.mob_events import MobEvents
@@ -32,4 +33,5 @@ DERIVED = (
     NpcTrades,
     NpcShops,
     Recipes,
+    CaptureFinds,
 )  # each after the units it reads
