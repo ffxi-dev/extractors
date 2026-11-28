@@ -67,8 +67,9 @@ class CaptureFinds(Derived):
     name = "capture_finds"
     version = 1
     doc = "What each capture showed, one row per thing, and per fight its samples: the capture points' input."
+    # drops: bestiary_fights' drops come from it, and Scholar checks a fact reads every table its SQL joins
     reads = frozenset(
-        {"zones", "named_entities", "bestiary", "levels", "recipes", "npc_shops", "fishing", "steals"}
+        {"zones", "named_entities", "bestiary", "drops", "levels", "recipes", "npc_shops", "fishing", "steals"}
     )
     order = "kind, zone_id, subject, thing"  # the points fill reads each kind across every capture
     sql = SQL
