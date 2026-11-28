@@ -63,3 +63,14 @@ The names load SHALL keep, for each release, each spell's jobs and the level eac
 #### Scenario: Protect
 - **WHEN** a release lists Protect at WHM 7, RDM 7, and PLD 10
 - **THEN** spell_jobs has those three rows for it
+
+### Requirement: A capture's finds count only what it fought, checked, or scanned
+capture_finds SHALL hold one row per capture and thing it showed, for vault's capture points (`add-capture-points`): a mob only when the capture fought it, checked it, or widescanned it; and one row per fight for each claimed kill, its auto-attack rounds, and each TP move with a ready time on a capture with millisecond times.
+
+#### Scenario: A mob walked past
+- **WHEN** a capture only saw a Crab come into view
+- **THEN** it has no mob row for the Crab, and has one for a Bat it checked
+
+#### Scenario: A party's copies
+- **WHEN** two captures hold the same fight
+- **THEN** their kill rows share its fight_key
